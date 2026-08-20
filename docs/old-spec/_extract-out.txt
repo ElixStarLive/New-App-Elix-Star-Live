@@ -1,0 +1,496 @@
+REST_COUNT=262
+DELETE /api/admin/users/:userId/ban
+DELETE /api/chat/threads/:threadId
+DELETE /api/device-tokens
+DELETE /api/live/:streamKey/moderators/:userId
+DELETE /api/media/delete
+DELETE /api/rising-stars/entries/:id
+DELETE /api/shop/items/:id
+DELETE /api/stickers/:id
+DELETE /api/videos/:id
+DELETE /api/videos/:id/comments/:commentId
+GET /api/activity
+GET /api/admin/iap-purchases
+GET /api/admin/moderation/logs
+GET /api/admin/monetisation/audit
+GET /api/admin/monetisation/config
+GET /api/admin/monetisation/foryou-config
+GET /api/admin/monetisation/fraud-reviews
+GET /api/admin/monetisation/reconciliation
+GET /api/admin/monetisation/reports/dashboard
+GET /api/admin/monetisation/reports/summary
+GET /api/admin/monetisation/withdrawals-gbp
+GET /api/admin/payouts
+GET /api/admin/progression/audit-history
+GET /api/admin/progression/battle-energy-caps
+GET /api/admin/progression/config
+GET /api/admin/progression/daily-rewards
+GET /api/admin/progression/feature-flags
+GET /api/admin/progression/levels
+GET /api/admin/progression/missions
+GET /api/admin/progression/missions/:id/stats
+GET /api/admin/progression/users/:userId
+GET /api/admin/purchases
+GET /api/admin/reports
+GET /api/admin/rising-stars/audit
+GET /api/admin/rising-stars/seasons
+GET /api/admin/shop-purchases
+GET /api/admin/stats/dau
+GET /api/admin/users
+GET /api/auth/2fa/status
+GET /api/auth/me
+GET /api/blocked-users
+GET /api/boosters/catalog
+GET /api/camera-filters
+GET /api/chat/threads
+GET /api/chat/threads/:threadId
+GET /api/chat/threads/:threadId/messages
+GET /api/coin-packages
+GET /api/creator/balance
+GET /api/creator/ledger
+GET /api/creator/payout-account
+GET /api/creator/payout-methods
+GET /api/creator/withdrawals-gbp
+GET /api/engagement/achievements
+GET /api/engagement/battle-energy/fan
+GET /api/engagement/creator-cards
+GET /api/engagement/daily-login
+GET /api/engagement/fan-level
+GET /api/engagement/flags
+GET /api/engagement/hub
+GET /api/engagement/missions
+GET /api/engagement/mvp
+GET /api/engagement/stickers
+GET /api/engagement/treasure
+GET /api/engagement/wallet
+GET /api/feed/following
+GET /api/feed/foryou
+GET /api/feed/friends
+GET /api/gifts/catalog
+GET /api/hashtags/:tag
+GET /api/hashtags/:tag/videos
+GET /api/health
+GET /api/hearts/daily/:creatorUserId
+GET /api/inbox/live-share-requests
+GET /api/live/:streamKey/moderators
+GET /api/live/status
+GET /api/live/streams
+GET /api/live/token
+GET /api/media/public/*
+GET /api/membership/:creatorId
+GET /api/membership/:creatorId/status
+GET /api/metrics
+GET /api/music/collections
+GET /api/music/global
+GET /api/music/playlists
+GET /api/music/search
+GET /api/music/status
+GET /api/music/tracks/:trackId/preview
+GET /api/notifications
+GET /api/profiles
+GET /api/profiles/:userId
+GET /api/profiles/:userId/followers
+GET /api/profiles/:userId/following
+GET /api/profiles/by-username/:username
+GET /api/progression/me
+GET /api/progression/starter-history
+GET /api/progression/users/:userId/status
+GET /api/progression/xp-history
+GET /api/rankings/daily
+GET /api/rankings/weekly
+GET /api/reposts/list
+GET /api/reposts/status
+GET /api/rising-stars/badges/me
+GET /api/rising-stars/badges/user/:userId
+GET /api/rising-stars/categories
+GET /api/rising-stars/challenges
+GET /api/rising-stars/challenges/:id
+GET /api/rising-stars/challenges/:id/entries
+GET /api/rising-stars/challenges/:id/leaderboard
+GET /api/rising-stars/challenges/:id/live
+GET /api/rising-stars/regions
+GET /api/rising-stars/rewards
+GET /api/rising-stars/seasons/:id
+GET /api/rising-stars/seasons/:id/standings
+GET /api/rising-stars/seasons/current
+GET /api/rising-stars/teams
+GET /api/shop/checkout-session/:sessionId
+GET /api/shop/items
+GET /api/speed-options
+GET /api/sticker-options
+GET /api/stickers/:creatorUserId
+GET /api/stories
+GET /api/stories/user/:userId
+GET /api/test-coins/balance
+GET /api/videos
+GET /api/videos/:id
+GET /api/videos/:id/comments
+GET /api/videos/:id/download
+GET /api/videos/:id/likes
+GET /api/videos/liked/list
+GET /api/videos/saved/list
+GET /api/videos/user/:userId
+GET /api/wallet
+GET /health
+PATCH /api/admin/gifts/catalog/:giftId
+PATCH /api/admin/monetisation/config
+PATCH /api/admin/monetisation/foryou-config
+PATCH /api/admin/progression/config
+PATCH /api/admin/progression/feature-flags
+PATCH /api/admin/progression/missions/:id
+PATCH /api/admin/reports/:id
+PATCH /api/admin/rising-stars/challenges/:id/status
+PATCH /api/profiles/:userId
+PATCH /api/shop/items/:id
+PATCH /api/videos/:id/comments/:commentId
+POST /api/admin/chargeback
+POST /api/admin/monetisation/financial-reports/import
+POST /api/admin/monetisation/foryou-sweep
+POST /api/admin/monetisation/fraud-reviews/:id/outcome
+POST /api/admin/monetisation/reconciliation/run
+POST /api/admin/monetisation/rewards/periods/:periodId/close
+POST /api/admin/monetisation/rewards/periods/open
+POST /api/admin/monetisation/settlements/coin-lot
+POST /api/admin/monetisation/settlements/promote
+POST /api/admin/monetisation/settlements/reverse
+POST /api/admin/monetisation/settlements/subscription
+POST /api/admin/monetisation/withdrawals-gbp/:id/mark-paid-manual
+POST /api/admin/monetisation/withdrawals-gbp/:id/status
+POST /api/admin/monetisation/withdrawals-gbp/:id/submit-provider
+POST /api/admin/payout/:id/approve
+POST /api/admin/payout/:id/cancel
+POST /api/admin/payout/:id/mark-paid
+POST /api/admin/payout/:id/reject
+POST /api/admin/payout/:id/review
+POST /api/admin/progression/missions
+POST /api/admin/progression/missions/:id/archive
+POST /api/admin/progression/starter-adjustments
+POST /api/admin/progression/xp-adjustments
+POST /api/admin/rising-stars/badges
+POST /api/admin/rising-stars/badges/award
+POST /api/admin/rising-stars/categories
+POST /api/admin/rising-stars/challenges
+POST /api/admin/rising-stars/challenges/:id/freeze
+POST /api/admin/rising-stars/challenges/:id/live
+POST /api/admin/rising-stars/challenges/:id/snapshot
+POST /api/admin/rising-stars/entries/:id/disqualify
+POST /api/admin/rising-stars/regions
+POST /api/admin/rising-stars/rewards/definitions
+POST /api/admin/rising-stars/rewards/grants
+POST /api/admin/rising-stars/seasons
+POST /api/admin/unfreeze/:userId
+POST /api/admin/users/:userId/ban
+POST /api/analytics/track
+POST /api/auth/2fa/disable
+POST /api/auth/2fa/enroll
+POST /api/auth/2fa/verify
+POST /api/auth/apple/native
+POST /api/auth/apple/start
+POST /api/auth/consent
+POST /api/auth/delete
+POST /api/auth/forgot-password
+POST /api/auth/guest
+POST /api/auth/login
+POST /api/auth/logout
+POST /api/auth/register
+POST /api/auth/resend-confirmation
+POST /api/auth/reset-password
+POST /api/auth/verify-email
+POST /api/block-user
+POST /api/chat/threads/:threadId/messages
+POST /api/chat/threads/:threadId/read
+POST /api/chat/threads/ensure
+POST /api/creator/payout-account/onboard
+POST /api/creator/payout-method
+POST /api/creator/withdraw-gbp
+POST /api/device-tokens
+POST /api/engagement/battle-energy/boost
+POST /api/engagement/battle-energy/earn
+POST /api/engagement/daily-login/claim
+POST /api/engagement/missions/:missionId/claim
+POST /api/engagement/progress
+POST /api/engagement/treasure/:chestId/open
+POST /api/engagement/treasure/spawn
+POST /api/feed/track-interaction
+POST /api/feed/track-view
+POST /api/gifts/send
+POST /api/hearts/daily
+POST /api/live-share
+POST /api/live/:streamKey/moderators
+POST /api/live/end
+POST /api/live/moderation/check
+POST /api/live/start
+POST /api/livekit/webhook
+POST /api/media/upload-file
+POST /api/membership/iap-complete
+POST /api/notifications/read
+POST /api/profiles
+POST /api/profiles/:userId/follow
+POST /api/profiles/:userId/unfollow
+POST /api/profiles/:userId/view
+POST /api/promote-iap-complete
+POST /api/report
+POST /api/reposts/toggle
+POST /api/rising-stars/challenges/:id/enter
+POST /api/rising-stars/challenges/:id/live/attach
+POST /api/rising-stars/entries/:id/vote
+POST /api/rising-stars/teams
+POST /api/rising-stars/teams/:id/join
+POST /api/shop/checkout
+POST /api/shop/items
+POST /api/stickers/upload
+POST /api/stories
+POST /api/stripe-webhook
+POST /api/test-coins/authorize
+POST /api/test-coins/mint
+POST /api/unblock-user
+POST /api/verify-purchase
+POST /api/videos
+POST /api/videos/:id/comments
+POST /api/videos/:id/comments/:commentId/like
+POST /api/videos/:id/comments/:commentId/unlike
+POST /api/videos/:id/fyp
+POST /api/videos/:id/like
+POST /api/videos/:id/save
+POST /api/videos/:id/unlike
+POST /api/videos/:id/unsave
+POST /api/webhooks/apple-iap
+POST /api/webhooks/google-play
+PUT /api/admin/monetisation/rewards/milestones
+PUT /api/admin/progression/battle-energy-caps
+PUT /api/admin/progression/daily-rewards
+PUT /api/admin/progression/daily-rewards/policy
+PUT /api/admin/progression/levels
+
+WS_INBOUND_COUNT=41
+chat_message
+heart_sent
+gift_sent
+battle_create
+battle_join
+battle_spectator_vote
+battle_end
+battle_remove_participant
+battle_get_state
+battle_invite_send
+battle_invite_decline
+battle_invite_accept
+battle_invite_roster_get
+stream_end
+cohost_invite_send
+cohost_invite_accept
+cohost_invite_decline
+cohost_request_send
+cohost_request_accept
+cohost_request_decline
+cohost_layout_sync
+cohost_seat_release
+cohost_seat_leave
+cohost_seats_clear
+booster_activated
+mist_activated
+gift_goal_set
+gift_goal_clear
+engagement_get_state
+engagement_watch_tick
+engagement_mystery_start
+engagement_poll_set
+engagement_poll_end
+engagement_poll_vote
+engagement_features_set
+call_invite
+call_accepted
+call_rejected
+call_ended
+ping
+stream_start
+
+WS_OUTBOUND_COUNT=54
+battle_accept_ack
+battle_ended
+battle_error
+battle_invite
+battle_invite_accepted
+battle_invite_ack
+battle_invite_declined
+battle_invite_expired
+battle_invite_roster
+battle_invite_roster_invalidate
+battle_participant_removed
+battle_score
+battle_state_sync
+battle_tick
+battle_vote_ack
+booster_activated
+booster_caught
+call_accepted
+call_ended
+call_invite
+call_rejected
+chat_ack
+chat_message
+cohost_invite
+cohost_invite_accepted
+cohost_invite_ack
+cohost_layout_sync
+cohost_request
+cohost_request_accepted
+cohost_request_declined
+cohost_seat_released
+connected
+dm_message
+dm_thread_updated
+engagement_milestone
+engagement_stage_unlock
+engagement_sync
+error
+force_disconnect
+gift_ack
+gift_goal_sync
+gift_sent
+heart_sent
+live_share
+mist_activated
+moderation_warning
+pong
+room_state
+stream_ended
+stream_start_ack
+stream_started
+user_joined
+user_left
+viewer_count
+
+MIGRATION_FILES=65
+CREATE_TABLES=131
+auth_users
+battle_creator_buckets
+battle_energy_balances
+battle_energy_daily_caps
+battle_energy_ledger
+battle_fan_energy
+battle_result_participants
+battle_results
+booster_catch_logs
+booster_config
+chat_threads
+comment_likes
+comments
+copyright_appeals
+copyright_moderation_actions
+copyright_reports
+creator_card_defs
+creator_stickers
+daily_hearts
+daily_reward_claims
+daily_reward_config
+elix_analytics_events
+elix_auth_sessions
+elix_auth_users
+elix_blocked_users
+elix_coin_packages
+elix_creator_balances
+elix_creator_earnings
+elix_creator_membership_products
+elix_creator_payout_accounts
+elix_creator_reward_milestones
+elix_creator_reward_periods
+elix_creator_reward_results
+elix_creator_wallet_gbp
+elix_creator_withdrawal_status_history
+elix_creator_withdrawals_gbp
+elix_device_tokens
+elix_financial_ledger
+elix_foryou_config
+elix_fraud_decisions
+elix_fraud_reviews
+elix_gift_transactions
+elix_gifts
+elix_membership_purchases
+elix_monetisation_config
+elix_monetisation_config_audit
+elix_notifications
+elix_paid_coin_lots
+elix_payout_audit
+elix_payout_methods
+elix_payout_provider_events
+elix_payout_requests
+elix_platform_wallet_gbp
+elix_processed_purchases
+elix_processed_webhook_events
+elix_promote_purchases
+elix_qualified_video_views
+elix_reconciliation_runs
+elix_reports
+elix_reposts
+elix_runtime_config
+elix_shop_purchases
+elix_store_financial_report_lines
+elix_store_financial_reports
+elix_test_coin_issue_audit
+elix_video_feed_signals
+elix_video_foryou_state
+elix_video_not_interested
+elix_video_view_metrics
+elix_wallet_balances
+elix_wallet_ledger
+engagement_achievements
+engagement_admin_audit
+engagement_missions
+engagement_settings
+follows
+gift_logs
+level_history
+likes
+live_moderation_log
+live_share_inbox
+live_stream_moderators
+live_streams
+messages
+mvp_scores
+profile_unique_views
+profiles
+promotional_coin_balances
+promotional_coin_ledger
+rs_admin_audit
+rs_badges
+rs_categories
+rs_challenges
+rs_entries
+rs_phase_results
+rs_regions
+rs_reward_definitions
+rs_reward_grants
+rs_seasons
+rs_team_members
+rs_teams
+rs_user_badges
+rs_votes
+saves
+shop_items
+sound_reuse_events
+sound_rights_confirmations
+sounds
+starter_coin_balances
+starter_coin_transactions
+sticker_defs
+sticker_sets
+stories
+treasure_chest_defs
+user_achievements
+user_consents
+user_creator_cards
+user_creator_collection_progress
+user_engagement_unique_creators
+user_mission_progress
+user_progression
+user_stickers
+user_treasure_chests
+user_two_factor
+video_scores
+video_view_counters
+video_views
+videos
+xp_activity_config
+xp_level_requirements
+xp_transactions

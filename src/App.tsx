@@ -1,0 +1,404 @@
+import React, { Suspense, lazy, useCallback, useEffect, useRef } from "react";
+import { Navigate, Route, Routes, useLocation, useNavigate, useParams } from "react-router-dom";
+import { BottomNav } from "@/components/BottomNav";
+import { TopNav } from "@/components/TopNav";
+import { ErrorBoundary } from "@/components/ErrorBoundary";
+import { OfflineBanner } from "@/components/OfflineBanner";
+import { IncomingCallModal } from "@/components/IncomingCallModal";
+import { LiveNotifyBanner } from "@/components/LiveNotifyBanner";
+import { ToastHost } from "@/components/ToastHost";
+import { useAuthStore } from "@/store/useAuthStore";
+import { cn } from "@/lib/cn";
+import {
+  bounceAuthenticatedAuthPath,
+  isFeedFullScreenPath,
+  isFeedNoTopBarPath,
+  isFeedWithTopBarPath,
+  isFullScreenPath,
+  isPublicPath,
+  showBottomNavFor,
+} from "@/lib/appShell";
+import { App as CapacitorApp } from "@capacitor/app";
+import { Capacitor } from "@capacitor/core";
+import { namedExitForLocation, namedHardwareBackTarget } from "@/lib/settingsNav";
+import { wsClient } from "@/lib/wsClient";
+import { getSessionToken } from "@/lib/sessionToken";
+import { isRecord } from "@/lib/isRecord";
+import { useCallStore } from "@/store/useCallStore";
+import { registerPushToken } from "@/lib/pushRegister";
+
+const VideoFeed = lazy(() => import("@/pages/VideoFeed"));
+const StemFeed = lazy(() => import("@/pages/StemFeed"));
+const LiveStream = lazy(() => import("@/pages/LiveStream"));
+const LiveDiscover = lazy(() => import("@/pages/LiveDiscover"));
+const Profile = lazy(() => import("@/pages/Profile"));
+const Login = lazy(() => import("@/pages/Login"));
+const Register = lazy(() => import("@/pages/Register"));
+const Upload = lazy(() => import("@/pages/Upload"));
+const Create = lazy(() => import("@/pages/Create"));
+const SavedVideos = lazy(() => import("@/pages/SavedVideos"));
+const MusicFeed = lazy(() => import("@/pages/MusicFeed"));
+const FollowingFeed = lazy(() => import("@/pages/FollowingFeed"));
+const SearchPage = lazy(() => import("@/pages/SearchPage"));
+const VideoView = lazy(() => import("@/pages/VideoView"));
+const Inbox = lazy(() => import("@/pages/Inbox"));
+const AlertsPage = lazy(() => import("@/pages/alerts/AlertsPage"));
+const ChatThread = lazy(() => import("@/pages/ChatThread"));
+const FriendsFeed = lazy(() => import("@/pages/FriendsFeed"));
+const EditProfile = lazy(() => import("@/pages/EditProfile"));
+const Settings = lazy(() => import("@/pages/Settings"));
+const EngagementHub = lazy(() => import("@/pages/engagement/EngagementHub"));
+const EngagementMissions = lazy(() => import("@/pages/engagement/EngagementMissions"));
+const EngagementFanLevel = lazy(() => import("@/pages/engagement/EngagementFanLevel"));
+const EngagementMvp = lazy(() => import("@/pages/engagement/EngagementMvp"));
+const EngagementAchievements = lazy(() => import("@/pages/engagement/EngagementAchievements"));
+const EngagementRewards = lazy(() => import("@/pages/engagement/EngagementRewards"));
+const EngagementDailyLogin = lazy(() => import("@/pages/engagement/EngagementDailyLogin"));
+const EngagementCollections = lazy(() => import("@/pages/engagement/EngagementCollections"));
+const FollowList = lazy(() => import("@/pages/FollowList"));
+const CreatorPayout = lazy(() => import("@/pages/CreatorPayout"));
+const CreatorLoginDetails = lazy(() => import("@/pages/CreatorLoginDetails"));
+const AuthCallback = lazy(() => import("@/pages/AuthCallback"));
+const Terms = lazy(() => import("@/pages/Terms"));
+const Privacy = lazy(() => import("@/pages/Privacy"));
+const Copyright = lazy(() => import("@/pages/Copyright"));
+const Legal = lazy(() => import("@/pages/Legal"));
+const LegalAudio = lazy(() => import("@/pages/LegalAudio"));
+const LegalUGC = lazy(() => import("@/pages/LegalUGC"));
+const LegalAffiliate = lazy(() => import("@/pages/LegalAffiliate"));
+const LegalDMCA = lazy(() => import("@/pages/LegalDMCA"));
+const LegalSafety = lazy(() => import("@/pages/LegalSafety"));
+const LegalSupplier = lazy(() => import("@/pages/LegalSupplier"));
+const RequireAuth = lazy(() => import("@/components/RequireAuth"));
+const RequireAdmin = lazy(() => import("@/components/RequireAdmin"));
+const ForgotPassword = lazy(() => import("@/pages/ForgotPassword"));
+const ResetPassword = lazy(() => import("@/pages/ResetPassword"));
+const Discover = lazy(() => import("@/pages/Discover"));
+const AdminDashboard = lazy(() => import("@/pages/admin/Dashboard"));
+const AdminUsers = lazy(() => import("@/pages/admin/Users"));
+const AdminReports = lazy(() => import("@/pages/admin/Reports"));
+const AdminEconomy = lazy(() => import("@/pages/admin/Economy"));
+const AdminMonetisation = lazy(() => import("@/pages/admin/Monetisation"));
+const Hashtag = lazy(() => import("@/pages/Hashtag"));
+const BlockedAccounts = lazy(() => import("@/pages/settings/BlockedAccounts"));
+const SafetyCenter = lazy(() => import("@/pages/settings/SafetyCenter"));
+const PurchaseCoins = lazy(() => import("@/pages/PurchaseCoins"));
+const Shop = lazy(() => import("@/pages/Shop"));
+const Report = lazy(() => import("@/pages/Report"));
+const Support = lazy(() => import("@/pages/Support"));
+const Guidelines = lazy(() => import("@/pages/Guidelines"));
+const HowItWorks = lazy(() => import("@/pages/HowItWorks"));
+const VideoCall = lazy(() => import("@/pages/VideoCall"));
+const AIStudio = lazy(() => import("@/pages/AIStudio"));
+const RisingStars = lazy(() => import("@/pages/RisingStars"));
+const RisingStarsChallenge = lazy(() => import("@/pages/RisingStarsChallenge"));
+const AdminRisingStars = lazy(() => import("@/pages/admin/RisingStars"));
+const AdminProgression = lazy(() => import("@/pages/admin/Progression"));
+const AdminPurchases = lazy(() => import("@/pages/admin/Purchases"));
+const AdminWithdrawals = lazy(() => import("@/pages/admin/Withdrawals"));
+const SecuritySettings = lazy(() => import("@/pages/settings/SecuritySettings"));
+const NotificationSettings = lazy(() => import("@/pages/settings/NotificationSettings"));
+const SpectatorLiveShell = lazy(() => import("@/features/live/spectator/SpectatorLiveShell"));
+const ProfileLiveOverlay = lazy(() => import("@/features/live/spectator/ProfileLiveOverlay"));
+
+function LiveStreamKeyed() {
+  const loc = useLocation();
+  return <LiveStream key={loc.pathname + loc.search} />;
+}
+
+function LiveStreamGuard() {
+  const loc = useLocation();
+  const { user } = useAuthStore();
+  const params = (loc.pathname.match(/^\/live\/(.+)/) || [])[1];
+  const isBattleJoin = new URLSearchParams(loc.search).get("battle") === "1";
+  if (
+    params &&
+    params !== "broadcast" &&
+    params !== "start" &&
+    params !== "watch" &&
+    params !== user?.id &&
+    !isBattleJoin
+  ) {
+    return <Navigate to={`/watch/${params}`} replace />;
+  }
+  return <LiveStreamKeyed />;
+}
+
+function PageLoader() {
+  return (
+    <div className="min-h-screen bg-transparent flex flex-col items-center justify-center text-white p-4">
+      <div className="w-16 h-16 border-4 border-secondary border-t-transparent rounded-full animate-spin mb-4" />
+      <p className="text-white/70">Loading...</p>
+    </div>
+  );
+}
+
+function LiveWatchRedirect() {
+  const { streamId } = useParams();
+  return <Navigate to={`/watch/${streamId}`} replace />;
+}
+
+const EDGE_SWIPE_WIDTH = 24;
+const SWIPE_THRESHOLD = 60;
+
+function App() {
+  const { user, isAuthenticated, isLoading } = useAuthStore();
+  const location = useLocation();
+  const navigate = useNavigate();
+  const swipeStart = useRef<{ x: number; y: number } | null>(null);
+
+  const handleEdgeTouchStart = useCallback((e: React.TouchEvent) => {
+    swipeStart.current = { x: e.touches[0].clientX, y: e.touches[0].clientY };
+  }, []);
+
+  const handleEdgeTouchEnd = useCallback(
+    (e: React.TouchEvent) => {
+      if (!swipeStart.current) return;
+      const endX = e.changedTouches[0].clientX;
+      const dx = endX - swipeStart.current.x;
+      swipeStart.current = null;
+      if (dx > SWIPE_THRESHOLD) {
+        const exit = namedExitForLocation(location.pathname, location.state);
+        if (exit !== location.pathname) navigate(exit, { replace: true });
+      }
+    },
+    [navigate, location.pathname, location.state],
+  );
+
+  useEffect(() => {
+    if (!Capacitor.isNativePlatform()) return;
+    let handle: { remove: () => Promise<void> } | undefined;
+    let cancelled = false;
+    void CapacitorApp.addListener("backButton", () => {
+      const to = namedHardwareBackTarget(location.pathname, location.state);
+      if (to) navigate(to, { replace: true });
+    }).then((listener) => {
+      if (cancelled) {
+        void listener.remove();
+        return;
+      }
+      handle = listener;
+    });
+    return () => {
+      cancelled = true;
+      void handle?.remove();
+    };
+  }, [navigate, location.pathname, location.state]);
+
+  useEffect(() => {
+    const runCheckUser = () => {
+      void useAuthStore.getState().checkUser();
+    };
+    if (useAuthStore.persist.hasHydrated()) {
+      runCheckUser();
+    } else {
+      const unsub = useAuthStore.persist.onFinishHydration(runCheckUser);
+      return unsub;
+    }
+  }, []);
+
+  useEffect(() => {
+    if (!user?.id) return;
+    void registerPushToken();
+    const onForceDisconnect = () => {
+      void useAuthStore.getState().signOut();
+    };
+    const onCallInvite = (data: unknown) => {
+      if (!isRecord(data)) return;
+      if (typeof data.callId !== "string" || typeof data.livekitToken !== "string") return;
+      useCallStore.getState().setIncoming({
+        callId: data.callId,
+        remoteUser: {
+          id: typeof data.fromUserId === "string" ? data.fromUserId : "",
+          username: typeof data.fromUsername === "string" ? data.fromUsername : "Caller",
+          avatar: typeof data.fromAvatar === "string" ? data.fromAvatar : null,
+        },
+        livekitUrl: typeof data.livekitUrl === "string" ? data.livekitUrl : "",
+        livekitToken: data.livekitToken,
+        roomName: typeof data.roomName === "string" ? data.roomName : "",
+      });
+    };
+    wsClient.on("force_disconnect", onForceDisconnect);
+    wsClient.on("call_invite", onCallInvite);
+    const token = getSessionToken();
+    const path = location.pathname;
+    const onLiveSurface =
+      path.startsWith("/live/") || path.startsWith("/watch/") || path === "/live/broadcast" || path === "/call";
+    if (token && !onLiveSurface) {
+      const currentRoom = wsClient.getCurrentRoomId();
+      if (!currentRoom || currentRoom === "__feed__") {
+        if (!wsClient.isConnected() || currentRoom !== "__feed__") {
+          wsClient.connect("__feed__", token, { persistent: true, ownerId: "app-feed-presence" });
+        }
+      }
+    }
+    return () => {
+      wsClient.off("force_disconnect", onForceDisconnect);
+      wsClient.off("call_invite", onCallInvite);
+    };
+  }, [user, location.pathname]);
+
+  useEffect(() => {
+    const handleVisibility = () => {
+      if (document.visibilityState === "visible") {
+        wsClient.reconnectOnForeground();
+        void useAuthStore.getState().checkUser();
+      }
+    };
+    document.addEventListener("visibilitychange", handleVisibility);
+    return () => document.removeEventListener("visibilitychange", handleVisibility);
+  }, []);
+
+  const isFeedWithTopBar = isFeedWithTopBarPath(location.pathname);
+  const isFeedNoTopBar = isFeedNoTopBarPath(location.pathname);
+  const isFeedFullScreen = isFeedFullScreenPath(location.pathname);
+  const isFullScreen = isFullScreenPath(location.pathname);
+  const showBottomNav = showBottomNavFor(location.pathname, isAuthenticated);
+  const isPublicRoute = isPublicPath(location.pathname);
+
+  if (isLoading) {
+    return (
+      <div className="min-h-screen bg-transparent flex items-center justify-center">
+        <div className="w-10 h-10 border-2 border-[#E6E9EE]/25 border-t-[#E6E9EE] rounded-full animate-spin elix-loader" />
+      </div>
+    );
+  }
+
+  if (!isAuthenticated && !isPublicRoute) {
+    return <Navigate to="/login" replace state={{ from: location.pathname }} />;
+  }
+
+  if (isAuthenticated && bounceAuthenticatedAuthPath(location.pathname)) {
+    return <Navigate to="/feed" replace />;
+  }
+
+  return (
+    <div
+      className={cn(
+        "elix-app-shell fixed inset-0 w-full h-[100dvh] flex flex-col text-text font-sans overflow-hidden",
+        (location.pathname === "/feed" || location.pathname === "/") && "elix-feed-chrome-shell",
+      )}
+    >
+      <OfflineBanner />
+      <IncomingCallModal />
+      <LiveNotifyBanner />
+      <ToastHost />
+      <div
+        className="fixed left-0 top-0 bottom-0 z-[9998]"
+        style={{ width: EDGE_SWIPE_WIDTH }}
+        onTouchStart={handleEdgeTouchStart}
+        onTouchEnd={handleEdgeTouchEnd}
+        onTouchCancel={() => {
+          swipeStart.current = null;
+        }}
+        aria-hidden
+      />
+      <TopNav />
+      <main
+        className={cn(
+          "flex-1 feed-column-width self-center min-h-0 overflow-auto",
+          showBottomNav && !isFullScreen && "pt-topbar pb-[var(--bottom-ui-reserve)]",
+          showBottomNav && isFeedWithTopBar && "pt-0 pb-0",
+          showBottomNav && isFeedNoTopBar && "pt-0 pb-0",
+          showBottomNav && isFullScreen && !isFeedFullScreen && "pt-[3mm]",
+          !showBottomNav && "pt-[3mm]",
+        )}
+      >
+        <ErrorBoundary>
+          <Suspense fallback={<PageLoader />}>
+            <Routes>
+              <Route path="/" element={<Navigate to={isAuthenticated ? "/feed" : "/login"} replace />} />
+              <Route path="/login" element={<Login />} />
+              <Route path="/register" element={<Register />} />
+              <Route path="/auth/callback" element={<AuthCallback />} />
+              <Route path="/terms" element={<Terms />} />
+              <Route path="/privacy" element={<Privacy />} />
+              <Route path="/copyright" element={<Copyright />} />
+              <Route path="/legal" element={<Legal />} />
+              <Route path="/legal/audio" element={<LegalAudio />} />
+              <Route path="/legal/ugc" element={<LegalUGC />} />
+              <Route path="/legal/affiliate" element={<LegalAffiliate />} />
+              <Route path="/legal/dmca" element={<LegalDMCA />} />
+              <Route path="/legal/safety" element={<LegalSafety />} />
+              <Route path="/legal/supplier" element={<LegalSupplier />} />
+              <Route path="/guidelines" element={<Guidelines />} />
+              <Route path="/how-it-works" element={<HowItWorks />} />
+              <Route path="/support" element={<Support />} />
+              <Route path="/forgot-password" element={<ForgotPassword />} />
+              <Route path="/reset-password" element={<ResetPassword />} />
+              <Route element={<RequireAuth />}>
+                <Route path="/feed" element={<VideoFeed />} />
+                <Route path="/stem" element={<StemFeed />} />
+                <Route path="/following" element={<FollowingFeed />} />
+                <Route path="/search" element={<SearchPage />} />
+                <Route path="/discover" element={<Discover />} />
+                <Route path="/rising-stars" element={<RisingStars />} />
+                <Route path="/rising-stars/challenge/:challengeId" element={<RisingStarsChallenge />} />
+                <Route path="/engagement" element={<EngagementHub />} />
+                <Route path="/engagement/missions" element={<EngagementMissions />} />
+                <Route path="/engagement/fan-level" element={<EngagementFanLevel />} />
+                <Route path="/engagement/mvp" element={<EngagementMvp />} />
+                <Route path="/engagement/achievements" element={<EngagementAchievements />} />
+                <Route path="/engagement/rewards" element={<EngagementRewards />} />
+                <Route path="/engagement/daily-login" element={<EngagementDailyLogin />} />
+                <Route path="/engagement/collections" element={<EngagementCollections />} />
+                <Route path="/hashtag/:tag" element={<Hashtag />} />
+                <Route path="/report" element={<Report />} />
+                <Route path="/video/:videoId" element={<VideoView />} />
+                <Route path="/live" element={<LiveDiscover />} />
+                <Route path="/live/:streamId" element={<LiveStreamGuard />} />
+                <Route path="/live/start" element={<Navigate to="/live" replace />} />
+                <Route path="/live/broadcast" element={<LiveStreamKeyed />} />
+                <Route path="/live/watch/:streamId" element={<LiveWatchRedirect />} />
+                <Route path="/watch/:streamId" element={<SpectatorLiveShell />}>
+                  <Route path="profile/:userId" element={<ProfileLiveOverlay />} />
+                </Route>
+                <Route path="/profile" element={<Profile />} />
+                <Route path="/profile/:userId" element={<Profile />} />
+                <Route path="/friends" element={<FriendsFeed />} />
+                <Route path="/saved" element={<SavedVideos />} />
+                <Route path="/music" element={<MusicFeed />} />
+                <Route path="/music/:songId" element={<MusicFeed />} />
+                <Route path="/create" element={<Create />} />
+                <Route path="/creator/login-details" element={<CreatorLoginDetails />} />
+                <Route path="/inbox" element={<Inbox />} />
+                <Route path="/alerts" element={<AlertsPage />} />
+                <Route path="/inbox/:threadId" element={<ChatThread />} />
+                <Route path="/upload" element={<Upload />} />
+                <Route path="/edit-profile" element={<EditProfile />} />
+                <Route path="/settings" element={<Settings />} />
+                <Route path="/settings/payout" element={<CreatorPayout />} />
+                <Route path="/settings/blocked" element={<BlockedAccounts />} />
+                <Route path="/settings/safety" element={<SafetyCenter />} />
+                <Route path="/settings/security" element={<SecuritySettings />} />
+                <Route path="/settings/notifications" element={<NotificationSettings />} />
+                <Route path="/profile/:userId/followers" element={<FollowList />} />
+                <Route path="/profile/:userId/following" element={<FollowList />} />
+                <Route path="/purchase-coins" element={<PurchaseCoins />} />
+                <Route path="/shop" element={<Shop />} />
+                <Route path="/shop/:itemId" element={<Shop />} />
+                <Route path="/call" element={<VideoCall />} />
+                <Route path="/ai-studio" element={<AIStudio />} />
+                <Route element={<RequireAdmin />}>
+                  <Route path="/admin" element={<AdminDashboard />} />
+                  <Route path="/admin/users" element={<AdminUsers />} />
+                  <Route path="/admin/reports" element={<AdminReports />} />
+                  <Route path="/admin/economy" element={<AdminEconomy />} />
+                  <Route path="/admin/monetisation" element={<AdminMonetisation />} />
+                  <Route path="/admin/purchases" element={<AdminPurchases />} />
+                  <Route path="/admin/withdrawals" element={<AdminWithdrawals />} />
+                  <Route path="/admin/rising-stars" element={<AdminRisingStars />} />
+                  <Route path="/admin/progression" element={<AdminProgression />} />
+                </Route>
+              </Route>
+              <Route path="*" element={<Navigate to="/feed" replace />} />
+            </Routes>
+          </Suspense>
+        </ErrorBoundary>
+      </main>
+      {showBottomNav && <BottomNav />}
+    </div>
+  );
+}
+
+export default App;
