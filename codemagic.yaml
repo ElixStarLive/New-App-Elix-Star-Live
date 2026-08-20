@@ -116,20 +116,44 @@ workflows:
             echo "ERROR: No IPA found"
             exit 1
           fi
-          if [ -z "${APP_STORE_CONNECT_ISSUER_ID:-}" ]; then
-            echo "ERROR: APP_STORE_CONNECT_ISSUER_ID missing (group app_store_credentials)"
+          export APP_STORE_CONNECT_KEY_ID="${APP_STORE_CONNECT_KEY_IDENTIFIER:-${APP_STORE_CONNECT_KEY_ID:-}}"
+          export APP_STORE_CONNECT_KEY_IDENTIFIER="$APP_STORE_CONNECT_KEY_ID"
+          if [ -z "${APP_STORE_CONNECT_KEY_ID:-}" ] || [ -z "${APP_STORE_CONNECT_ISSUER_ID:-}" ] || [ -z "${APP_STORE_CONNECT_PRIVATE_KEY:-}" ]; then
+            echo "ERROR: app_store_credentials group missing KEY_ID, ISSUER_ID, or PRIVATE_KEY"
             exit 1
           fi
-          KEY_ID="${APP_STORE_CONNECT_KEY_IDENTIFIER:-${APP_STORE_CONNECT_KEY_ID:-}}"
-          if [ -z "$KEY_ID" ]; then
-            echo "ERROR: APP_STORE_CONNECT_KEY_ID missing (group app_store_credentials)"
-            exit 1
-          fi
-          export APP_STORE_CONNECT_KEY_IDENTIFIER="$KEY_ID"
-          app-store-connect publish \
-            --path "$IPA_PATH" \
-            --issuer-id "$APP_STORE_CONNECT_ISSUER_ID" \
-            --key-id "$KEY_ID"
+          python3 - <<'PY'
+          import os, re, pathlib, base64, sys
+          key_id = os.environ["APP_STORE_CONNECT_KEY_ID"].strip()
+          raw = os.environ["APP_STORE_CONNECT_PRIVATE_KEY"]
+          text = raw.strip().replace("\\n", "\n")
+          if "BEGIN PRIVATE KEY" not in text:
+              try:
+                  text = base64.b64decode(text).decode("utf-8")
+              except Exception:
+                  print("ERROR: APP_STORE_CONNECT_PRIVATE_KEY is not a PEM or base64 .p8")
+                  sys.exit(1)
+          body = text.replace("-----BEGIN PRIVATE KEY-----", "").replace("-----END PRIVATE KEY-----", "")
+          body = re.sub(r"\s+", "", body)
+          if len(body) < 80:
+              print("ERROR: APP_STORE_CONNECT_PRIVATE_KEY is too short; re-paste the full .p8 file")
+              sys.exit(1)
+          lines = [body[i:i+64] for i in range(0, len(body), 64)]
+          pem = "-----BEGIN PRIVATE KEY-----\n" + "\n".join(lines) + "\n-----END PRIVATE KEY-----\n"
+          homes = [
+              pathlib.Path.home() / ".appstoreconnect" / "private_keys",
+              pathlib.Path.home() / ".private_keys",
+          ]
+          for folder in homes:
+              folder.mkdir(parents=True, exist_ok=True)
+              (folder / f"AuthKey_{key_id}.p8").write_text(pem, encoding="utf-8")
+          PY
+          xcrun altool --upload-app \
+            --type ios \
+            --file "$IPA_PATH" \
+            --apiKey "$APP_STORE_CONNECT_KEY_ID" \
+            --apiIssuer "$APP_STORE_CONNECT_ISSUER_ID" \
+            --verbose
     artifacts:
       - build/ios/ipa/*.ipa
       - ios/App/build/ios/ipa/*.ipa
