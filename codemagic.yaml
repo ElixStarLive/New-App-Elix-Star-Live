@@ -116,7 +116,20 @@ workflows:
             echo "ERROR: No IPA found"
             exit 1
           fi
-          app-store-connect publish --path "$IPA_PATH"
+          if [ -z "${APP_STORE_CONNECT_ISSUER_ID:-}" ]; then
+            echo "ERROR: APP_STORE_CONNECT_ISSUER_ID missing (group app_store_credentials)"
+            exit 1
+          fi
+          KEY_ID="${APP_STORE_CONNECT_KEY_IDENTIFIER:-${APP_STORE_CONNECT_KEY_ID:-}}"
+          if [ -z "$KEY_ID" ]; then
+            echo "ERROR: APP_STORE_CONNECT_KEY_ID missing (group app_store_credentials)"
+            exit 1
+          fi
+          export APP_STORE_CONNECT_KEY_IDENTIFIER="$KEY_ID"
+          app-store-connect publish \
+            --path "$IPA_PATH" \
+            --issuer-id "$APP_STORE_CONNECT_ISSUER_ID" \
+            --key-id "$KEY_ID"
     artifacts:
       - build/ios/ipa/*.ipa
       - ios/App/build/ios/ipa/*.ipa
