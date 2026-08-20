@@ -58,7 +58,7 @@ workflows:
       - name: Increment iOS build number
         script: |
           cd ios/App
-          agvtool new-version -all $(($BUILD_NUMBER))
+          agvtool new-version -all $((150 + BUILD_NUMBER))
       - name: Build signed IPA
         script: |
           xcode-project build-ipa \
@@ -100,7 +100,7 @@ workflows:
       - name: Increment iOS build number
         script: |
           cd ios/App
-          agvtool new-version -all $(($BUILD_NUMBER))
+          agvtool new-version -all $((150 + BUILD_NUMBER))
       - name: Build signed IPA
         script: |
           xcode-project build-ipa \
