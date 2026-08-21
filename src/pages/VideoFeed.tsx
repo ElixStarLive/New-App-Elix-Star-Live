@@ -3,10 +3,8 @@ import { platform } from "@/lib/platform";
 import { useForYouFeed } from "@/features/feed/useForYouFeed";
 import { ForYouPlayer } from "@/components/ForYouPlayer";
 import { ForYouLiveCard } from "@/components/ForYouLiveCard";
-import { ForYouStoriesOverlay } from "@/components/ForYouStoriesOverlay";
 
 export default function VideoFeed() {
-  const pageRef = useRef<HTMLDivElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
   const {
     slides,
@@ -19,7 +17,6 @@ export default function VideoFeed() {
     reload,
     loadMore,
     updateVideo,
-    liveHostIds,
   } = useForYouFeed();
   const nativeFeed = platform.isNative;
 
@@ -73,8 +70,7 @@ export default function VideoFeed() {
   }, [slides, setActiveIndex]);
 
   return (
-    <div ref={pageRef} className="h-full min-h-0 w-full flex flex-col bg-transparent relative">
-      <ForYouStoriesOverlay pageRef={pageRef} liveHostIds={liveHostIds} />
+    <div className="h-full min-h-0 w-full flex flex-col bg-transparent relative">
       <div
         ref={containerRef}
         className="flex-1 min-h-0 w-full overflow-y-scroll snap-y snap-mandatory relative"

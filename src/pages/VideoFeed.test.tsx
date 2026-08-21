@@ -143,6 +143,7 @@ describe("PAGE-007 For You", () => {
     container = mounted.container;
     await flush();
     expect(mounted.container.textContent).toContain("Nothing here yet");
+    expect(mounted.container.textContent).not.toContain("Add story");
     const refresh = [...mounted.container.querySelectorAll("button")].find((el) => el.textContent === "Refresh");
     expect(refresh).toBeTruthy();
     await act(async () => {
