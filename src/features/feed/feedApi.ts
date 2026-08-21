@@ -14,6 +14,7 @@ import {
 } from "@shared/contracts";
 import { apiRequest, apiUploadForm } from "@/lib/apiClient";
 import { asNonNegInt, isRecord } from "@/lib/isRecord";
+import { rankStemItems } from "@/features/feed/stemRank";
 
 const FOR_YOU_PAGE_SIZE = 20;
 
@@ -285,12 +286,24 @@ export async function apiFetchStemFeed(cursor?: string | null): Promise<{
   page: FeedPage | null;
   error: string | null;
 }> {
-  const qs = cursor ? `?cursor=${encodeURIComponent(cursor)}` : "";
-  const { data, error } = await apiRequest<unknown>(`/api/feed/stem${qs}`);
+  if (cursor) return { page: { items: [], nextCursor: null }, error: null };
+  const { data, error } = await apiRequest<unknown>("/api/videos");
   if (error) return { page: null, error: error.message };
-  const parsed = feedPageSchema.safeParse(data);
-  if (!parsed.success) return { page: null, error: "Invalid feed response" };
-  return { page: parsed.data, error: null };
+  const rows = isRecord(data) && Array.isArray(data.videos) ? data.videos : isRecord(data) && Array.isArray(data.items) ? data.items : null;
+  if (!rows) {
+    const parsed = parseForYouPage(data);
+    if (!parsed) return { page: null, error: "Invalid feed response" };
+    return { page: { items: rankStemItems(parsed.items), nextCursor: null }, error: null };
+  }
+  const mapped: FeedItem[] = [];
+  for (const row of rows) {
+    if (!isRecord(row)) continue;
+    if (asText(row.privacy) === "private") continue;
+    const direct = feedItemSchema.safeParse(row);
+    const item = direct.success ? direct.data : mapProductionFeedVideo(row);
+    if (item?.mediaUrl) mapped.push(item);
+  }
+  return { page: { items: rankStemItems(mapped), nextCursor: null }, error: null };
 }
 
 export async function apiLikeVideo(videoId: string): Promise<{ ok: true } | { ok: false; error: string }> {
