@@ -133,6 +133,7 @@ describe("PAGE-007 For You", () => {
     await flush();
     expect(mounted.container.textContent).toContain("Creator");
     expect(feedApi.apiFetchForYouFeed).toHaveBeenCalledTimes(1);
+    expect(feedApi.apiFetchStories).not.toHaveBeenCalled();
   });
 
   it("shows empty feed copy and refresh", async () => {

@@ -3,7 +3,7 @@ import {
   feedPageSchema,
   followListResponseSchema,
   liveStartResponseSchema,
-  liveStreamsResponseSchema,
+  liveStreamCardSchema,
   liveTokenResponseSchema,
   type FeedItem,
   type FeedPage,
@@ -17,9 +17,15 @@ import { asNonNegInt, isRecord } from "@/lib/isRecord";
 import { rankStemItems } from "@/features/feed/stemRank";
 
 const FOR_YOU_PAGE_SIZE = 20;
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 function asText(value: unknown): string {
   return typeof value === "string" ? value.trim() : "";
+}
+
+function asUuid(value: unknown): string {
+  const text = asText(value);
+  return UUID_RE.test(text) ? text : "";
 }
 
 function mapProductionFeedVideo(raw: Record<string, unknown>): FeedItem | null {
@@ -394,15 +400,50 @@ export async function apiFollowList(
   return { users: parsed.data.users, error: null };
 }
 
+export function mapLiveStreamCard(raw: unknown): LiveStreamCard | null {
+  const direct = liveStreamCardSchema.safeParse(raw);
+  if (direct.success) return direct.data;
+  if (!isRecord(raw)) return null;
+  const hostId = asUuid(raw.hostId) || asUuid(raw.host_id) || asUuid(raw.user_id) || asUuid(raw.userId);
+  if (!hostId) return null;
+  const roomId =
+    asText(raw.roomId) || asText(raw.room_id) || asText(raw.stream_key) || asText(raw.streamKey) || hostId;
+  const streamId = asUuid(raw.streamId) || asUuid(raw.stream_id) || asUuid(raw.id) || asUuid(roomId) || hostId;
+  const avatar = asText(raw.avatarUrl) || asText(raw.avatar_url);
+  const parsed = liveStreamCardSchema.safeParse({
+    streamId,
+    roomId,
+    hostId,
+    displayName: asText(raw.displayName) || asText(raw.display_name) || asText(raw.title) || "LIVE",
+    username: asText(raw.username),
+    avatarUrl: avatar || null,
+    title: asText(raw.title),
+    viewerCount: asNonNegInt(raw.viewerCount ?? raw.viewer_count ?? raw.viewers),
+    startedAt: asText(raw.startedAt) || asText(raw.started_at),
+  });
+  return parsed.success ? parsed.data : null;
+}
+
+export function parseLiveStreamsResponse(data: unknown): LiveStreamCard[] | null {
+  if (!isRecord(data) || !Array.isArray(data.streams)) return null;
+  const streams: LiveStreamCard[] = [];
+  for (const row of data.streams) {
+    const mapped = mapLiveStreamCard(row);
+    if (mapped) streams.push(mapped);
+  }
+  if (data.streams.length > 0 && streams.length === 0) return null;
+  return streams;
+}
+
 export async function apiLiveStreams(): Promise<{
   streams: LiveStreamCard[];
   error: string | null;
 }> {
   const { data, error } = await apiRequest<unknown>("/api/live/streams");
   if (error) return { streams: [], error: error.message };
-  const parsed = liveStreamsResponseSchema.safeParse(data);
-  if (!parsed.success) return { streams: [], error: "Invalid live list" };
-  return { streams: parsed.data.streams, error: null };
+  const parsed = parseLiveStreamsResponse(data);
+  if (!parsed) return { streams: [], error: "Invalid live list" };
+  return { streams: parsed, error: null };
 }
 
 export async function apiLiveStart(title?: string): Promise<{

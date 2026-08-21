@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { FeedItem, LiveStreamCard } from "@shared/contracts";
-import { apiFetchForYouFeed, apiFetchProfile, apiLiveStreams } from "@/features/feed/feedApi";
+import { apiFetchForYouFeed, apiFetchProfile, apiLiveStreams, mapLiveStreamCard } from "@/features/feed/feedApi";
 import { createLiveSnapshotGate, pruneEndedBefore, reconcileLiveSnapshot } from "@/features/feed/livePresence";
 import { wsClient } from "@/lib/wsClient";
 import { isRecord } from "@/lib/isRecord";
@@ -22,49 +22,16 @@ export type ForYouSlide = ForYouLiveSlide | ForYouVideoSlide;
 
 type TrackedLive = LiveStreamCard & { discoveredAt: number };
 
-const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
-
-function isUuid(value: string): boolean {
-  return UUID_RE.test(value);
-}
-
 export function liveKey(stream: LiveStreamCard): string {
   return stream.roomId || stream.streamId;
 }
 
 function parseLiveFromWs(data: unknown, discoveredAt: number): TrackedLive | null {
-  if (!isRecord(data)) return null;
-  const roomId =
-    (typeof data.stream_key === "string" && data.stream_key) ||
-    (typeof data.room_id === "string" && data.room_id) ||
-    (typeof data.streamKey === "string" && data.streamKey) ||
-    "";
-  const hostId =
-    (typeof data.user_id === "string" && data.user_id) ||
-    (typeof data.hostUserId === "string" && data.hostUserId) ||
-    (typeof data.host_id === "string" && data.host_id) ||
-    "";
-  if (!roomId || !isUuid(hostId)) return null;
-  const streamIdRaw =
-    (typeof data.streamId === "string" && data.streamId) ||
-    (typeof data.stream_id === "string" && data.stream_id) ||
-    (typeof data.id === "string" && data.id) ||
-    "";
-  const streamId = isUuid(streamIdRaw) ? streamIdRaw : hostId;
+  const card = mapLiveStreamCard(data);
+  if (!card) return null;
   return {
-    streamId,
-    roomId,
-    hostId,
-    displayName:
-      (typeof data.display_name === "string" && data.display_name) ||
-      (typeof data.displayName === "string" && data.displayName) ||
-      (typeof data.title === "string" && data.title) ||
-      "LIVE",
-    username: typeof data.username === "string" ? data.username : "",
-    avatarUrl: typeof data.avatar_url === "string" ? data.avatar_url : typeof data.avatarUrl === "string" ? data.avatarUrl : null,
-    title: typeof data.title === "string" ? data.title : "",
-    viewerCount: typeof data.viewers === "number" ? data.viewers : typeof data.viewerCount === "number" ? data.viewerCount : 0,
-    startedAt: new Date(discoveredAt).toISOString(),
+    ...card,
+    startedAt: card.startedAt || new Date(discoveredAt).toISOString(),
     discoveredAt,
   };
 }
