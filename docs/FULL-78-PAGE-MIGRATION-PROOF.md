@@ -42,7 +42,7 @@ All 78 rows below are **NOT VERIFIED** until a page completes the full gate with
 | PAGE-025 | NOT VERIFIED | NOT VERIFIED | NOT VERIFIED | NOT VERIFIED | NOT VERIFIED | NOT VERIFIED | — |
 | PAGE-026 | NOT VERIFIED | NOT VERIFIED | NOT VERIFIED | NOT VERIFIED | NOT VERIFIED | NOT VERIFIED | — |
 | PAGE-027 | YES | YES | YES | PASS | PASS | PASS | *(pending commit)* |
-| PAGE-028 | NOT VERIFIED | NOT VERIFIED | NOT VERIFIED | NOT VERIFIED | NOT VERIFIED | NOT VERIFIED | — |
+| PAGE-028 | YES | YES | YES | PASS | PASS | PASS | *(pending)* |
 | PAGE-029 | NOT VERIFIED | NOT VERIFIED | NOT VERIFIED | NOT VERIFIED | NOT VERIFIED | NOT VERIFIED | — |
 | PAGE-030 | NOT VERIFIED | NOT VERIFIED | NOT VERIFIED | NOT VERIFIED | NOT VERIFIED | NOT VERIFIED | — |
 | PAGE-031 | NOT VERIFIED | NOT VERIFIED | NOT VERIFIED | NOT VERIFIED | NOT VERIFIED | NOT VERIFIED | — |
@@ -136,6 +136,13 @@ All 78 rows below are **NOT VERIFIED** until a page completes the full gate with
 - **Tests:** ForgotPassword + authSession.forgot → **8+** (suite with reset below)
 - **Runtime forgot:** **BLOCKED** — local API DOWN
 - **Commit:** `0e7aaf3`
+
+## PAGE-028 Following list
+
+- **Fixed:** A→B owner change clears prior rows (same contract as PAGE-027); idle/loading spinner gate; auth/social contract imports; toast on failed follow uses stable copy.
+- **Tests:** followingApi + followingSession + page028Ownership → **10 passed / 0 failed**
+- **Runtime GET following:** **BLOCKED** — local API not verified this pass
+- **Commit:** *(pending)*
 
 ## PAGE-027 Followers
 
