@@ -137,6 +137,13 @@ All 78 rows below are **NOT VERIFIED** until a page completes the full gate with
 - **Runtime forgot:** **BLOCKED** — local API DOWN
 - **Commit:** `0e7aaf3`
 
+## PAGE-030 Inbox
+
+- **Fixed:** restored Inbox session/API/activity overlay wiring (was stale page-local chat-only owner); added missing inbox/alerts/calls/etc contract modules required by barrel; chatApi inbox threads paths.
+- **Tests:** page030Ownership + inboxSession + preview + activityLine ? **18 passed**
+- **Locked UI:** no intentional visual redesign; restored approved Inbox owner from NEW main tree.
+- **Commit:** *(pending)*
+
 ## PAGE-029 Creator login details
 
 - **Fixed:** committed missing `creatorLogin` session/storage stack; added `CREATOR_LOGIN_HOME` named exit in settingsNav (hardware back / close ? Settings).
