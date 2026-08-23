@@ -12,7 +12,7 @@
 | PAGE-004 | YES | YES | YES | PASS | PASS | PASS | `85014e1` |
 | PAGE-005 | YES | YES | YES | PASS | PASS | PASS | `843d9f9` |
 | PAGE-006 | YES | YES | YES | PASS | PASS | PASS | `319c394` |
-| PAGE-007 | NO | NO | NO | — | — | — | — |
+| PAGE-007 | YES | YES | IN PROGRESS | — | — | — | backend `pending` |
 | PAGE-008 | NO | NO | NO | — | — | — | — |
 | PAGE-009 | NO | NO | NO | — | — | — | — |
 | PAGE-010 | NO | NO | NO | — | — | — | — |

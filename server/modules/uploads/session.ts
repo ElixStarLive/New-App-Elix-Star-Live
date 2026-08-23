@@ -205,6 +205,14 @@ export async function publishUploadSession(userId: string, sessionId: string, in
        WHERE id = $1 AND user_id = $3`,
       [session.id, published, userId],
     );
+    if (session.kind !== "story") {
+      try {
+        const { enrollVideoInForYou } = await import("../feed/foryouLifecycle.js");
+        await enrollVideoInForYou({ videoId: published, creatorUserId: userId, privacy });
+      } catch {
+        /* enroll is best-effort; publish already succeeded */
+      }
+    }
     return { id: published, kind: session.kind, processingStatus: "ready" as const };
   });
 }

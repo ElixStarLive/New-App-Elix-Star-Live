@@ -163,19 +163,24 @@ router.post("/track-view", requireAuth, async (req: AuthedRequest, res) => {
     res.json({ accepted: true, counted: false });
     return;
   }
-  const inserted = liveNeon
-    ? await getPool().query(
-        `UPDATE videos SET views = COALESCE(views, 0) + 1 WHERE id = $1 RETURNING id AS video_id`,
-        [videoId],
-      )
-    : await getPool().query(
-        `INSERT INTO video_views (video_id, viewer_id) VALUES ($1, $2)
+  // One viewer = one public view (scroll-back must not inflate). Frozen OLD contract.
+  const inserted = await getPool().query(
+    `INSERT INTO video_views (video_id, viewer_id) VALUES ($1, $2)
      ON CONFLICT (video_id, viewer_id) DO NOTHING
      RETURNING video_id`,
-        [videoId, viewerId],
-      );
+    [videoId, viewerId],
+  );
   const counted = (inserted.rowCount ?? 0) > 0;
-  if (counted) await bumpEngagement(viewerId, "watch", 1);
+  if (counted) {
+    await getPool().query(`UPDATE videos SET views = COALESCE(views, 0) + 1 WHERE id = $1`, [videoId]);
+    await bumpEngagement(viewerId, "watch", 1);
+    try {
+      const { onQualifiedUniqueViewForFeed } = await import("./foryouLifecycle.js");
+      await onQualifiedUniqueViewForFeed({ videoId, creatorUserId: video.user_id });
+    } catch {
+      /* lifecycle optional until tables exist */
+    }
+  }
   res.json({ accepted: true, counted });
 });
 
@@ -188,6 +193,12 @@ router.post("/track-interaction", requireAuth, async (req: AuthedRequest, res) =
         parsed.data.videoId,
       ]);
   if (!found.rows[0]) throw new AppError("not_found", "Video not found", 404);
+  // Only `shares` is maintained here — like/comment/save have their own counters.
+  if (parsed.data.type === "share") {
+    await getPool().query(`UPDATE videos SET shares = COALESCE(shares, 0) + 1 WHERE id = $1`, [
+      parsed.data.videoId,
+    ]);
+  }
   res.json({ ok: true });
 });
 
