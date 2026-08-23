@@ -6,16 +6,31 @@ import { isAppleSignInEnabled, isPasswordResetEnabled } from "@/lib/authFeatures
 import { useIsMountedRef } from "@/hooks/useIsMountedRef";
 import { AuthPasswordField } from "@/components/AuthPasswordField";
 
-function persistRememberedEmail(save: boolean, email: string): void {
+const REMEMBER_EMAIL_KEY = "login_saved_email";
+const REMEMBER_FLAG_KEY = "login_save_details";
+const LEGACY_PASSWORD_KEY = "login_saved_password";
+
+function readRememberedEmail(): { save: boolean; email: string } {
+  try {
+    const save = window.localStorage.getItem(REMEMBER_FLAG_KEY) === "true";
+    const email = window.localStorage.getItem(REMEMBER_EMAIL_KEY) || "";
+    window.localStorage.removeItem(LEGACY_PASSWORD_KEY);
+    return { save, email: save ? email : "" };
+  } catch {
+    return { save: false, email: "" };
+  }
+}
+
+function writeRememberedEmail(save: boolean, email: string): void {
   try {
     if (save) {
-      window.localStorage.setItem("login_saved_email", email);
-      window.localStorage.setItem("login_save_details", "true");
+      window.localStorage.setItem(REMEMBER_EMAIL_KEY, email);
+      window.localStorage.setItem(REMEMBER_FLAG_KEY, "true");
     } else {
-      window.localStorage.removeItem("login_saved_email");
-      window.localStorage.setItem("login_save_details", "false");
+      window.localStorage.removeItem(REMEMBER_EMAIL_KEY);
+      window.localStorage.setItem(REMEMBER_FLAG_KEY, "false");
     }
-    window.localStorage.removeItem("login_saved_password");
+    window.localStorage.removeItem(LEGACY_PASSWORD_KEY);
   } catch {
     /* storage may be unavailable */
   }
@@ -42,21 +57,18 @@ export default function Login() {
   }, [navigate, from]);
 
   useEffect(() => {
-    const savedSaveDetails = window.localStorage.getItem("login_save_details") === "true";
-    const savedEmail = window.localStorage.getItem("login_saved_email") || "";
-    setSaveDetails(savedSaveDetails);
-    if (savedSaveDetails && savedEmail) {
-      setEmail(savedEmail);
-    }
-    try {
-      window.localStorage.removeItem("login_saved_password");
-    } catch {
-      /* ignore */
-    }
+    const remembered = readRememberedEmail();
+    setSaveDetails(remembered.save);
+    if (remembered.email) setEmail(remembered.email);
   }, []);
 
+  const unlockSubmit = useCallback(() => {
+    submitLock.current = false;
+    if (isMounted.current) setIsSubmitting(false);
+  }, [isMounted]);
+
   const finishAuthenticated = useCallback(() => {
-    persistRememberedEmail(saveDetails, email.trim());
+    writeRememberedEmail(saveDetails, email.trim());
     if (isMounted.current) {
       navigate(from, { replace: true });
     }
@@ -71,21 +83,23 @@ export default function Login() {
     try {
       const res = await signInWithPassword(email.trim(), password);
       if (!res.error) {
-        persistRememberedEmail(saveDetails, email.trim());
+        writeRememberedEmail(saveDetails, email.trim());
       }
       if (!isMounted.current) return;
       if (res.error) {
-        submitLock.current = false;
+        if (res.error === "aborted" || res.error.toLowerCase().includes("aborted")) {
+          unlockSubmit();
+          return;
+        }
         setError(res.error);
-        setIsSubmitting(false);
+        unlockSubmit();
         return;
       }
       finishAuthenticated();
     } catch {
       if (isMounted.current) {
-        submitLock.current = false;
         setError("An unexpected error occurred. Please try again.");
-        setIsSubmitting(false);
+        unlockSubmit();
       }
     }
   };
@@ -98,21 +112,19 @@ export default function Login() {
     try {
       const { error: err } = await signInWithApple();
       if (!err) {
-        persistRememberedEmail(saveDetails, email.trim());
+        writeRememberedEmail(saveDetails, email.trim());
       }
       if (!isMounted.current) return;
       if (err) {
-        submitLock.current = false;
         setError(err);
-        setIsSubmitting(false);
+        unlockSubmit();
         return;
       }
       finishAuthenticated();
     } catch {
       if (isMounted.current) {
-        submitLock.current = false;
         setError("Apple sign-in failed. Please try again.");
-        setIsSubmitting(false);
+        unlockSubmit();
       }
     }
   };

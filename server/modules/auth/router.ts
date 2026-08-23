@@ -194,14 +194,18 @@ function productionAuthUser(user: UserRow) {
   };
 }
 
-async function writeProductionLogin(res: Response, user: UserRow): Promise<void> {
-  const session = await issueSession(user);
-  setAuthSessionCookie(res, session.token);
+async function writeProductionSession(res: Response, user: UserRow, token: string): Promise<void> {
+  setAuthSessionCookie(res, token);
   res.json({
     user: productionAuthUser(user),
-    session: { access_token: session.token, accessToken: session.token },
+    session: { access_token: token, accessToken: token },
     profile_meta: await loadLoginProfileMeta(user),
   });
+}
+
+async function writeProductionLogin(res: Response, user: UserRow): Promise<void> {
+  const session = await issueSession(user);
+  await writeProductionSession(res, user, session.token);
 }
 
 async function writeProductionRegister(
@@ -582,15 +586,19 @@ router.post("/change-password", requireAuth, async (req: AuthedRequest, res) => 
 });
 
 router.get("/me", requireAuth, async (req: AuthedRequest, res: Response) => {
+  const token = req.accessToken;
+  if (!token) throw new AppError("unauthenticated", "Session expired", 401);
   const { rows } = (await isLiveNeonSchema())
     ? await getPool().query<UserRow>(`${LIVE_AUTH_USER_SELECT} WHERE u.id = $1`, [req.userId])
     : await getPool().query<UserRow>(
-        `SELECT id, email, username, display_name, avatar_url, bio, is_verified, is_admin, email_confirmed_at
-     FROM users WHERE id = $1 AND deleted_at IS NULL`,
+        `SELECT id, email, username, display_name, avatar_url, bio, is_verified, is_admin,
+                email_confirmed_at, created_at, banned_until
+         FROM users WHERE id = $1 AND deleted_at IS NULL`,
         [req.userId],
       );
   if (!rows[0]) throw new AppError("unauthenticated", "Session expired", 401);
-  res.json({ user: await toSessionUser(rows[0]) });
+  // Same production login body as POST /login (OLD handleMe parity).
+  await writeProductionSession(res, rows[0], token);
 });
 
 router.post("/logout", requireAuth, async (req: AuthedRequest, res: Response) => {

@@ -4191,10 +4191,15 @@ describe("http integration", () => {
     const me = await fetch(`${base}/api/auth/me`, {
       headers: { Authorization: `Bearer ${user.token}` },
     });
-    const meBody = (await me.json()) as { user?: { isAdmin?: boolean; id?: string } };
+    const meBody = (await me.json()) as {
+      user?: { id?: string; user_metadata?: { username?: string } };
+      session?: { access_token?: string };
+      profile_meta?: { is_admin?: boolean };
+    };
     expect(me.status).toBe(200);
     expect(meBody.user?.id).toBe(user.id);
-    expect(meBody.user?.isAdmin).toBe(false);
+    expect(meBody.session?.access_token).toBe(user.token);
+    expect(meBody.profile_meta?.is_admin).toBe(false);
 
     const logout = await fetch(`${base}/api/auth/logout`, {
       method: "POST",

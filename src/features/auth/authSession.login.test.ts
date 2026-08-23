@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { authLoginWithPassword, displayLoginError } from "./authSession";
+import { authGetMe, authLoginWithPassword, displayLoginError } from "./authSession";
 
 vi.mock("@/lib/apiClient", () => ({
   apiRequest: vi.fn(),
@@ -137,8 +137,57 @@ describe("displayLoginError", () => {
     ).toBe("Please verify your email address before logging in.");
   });
 
-  it("passes through network and server failures", () => {
-    expect(displayLoginError("Network error")).toBe("Network error");
+  it("passes through suspended and other server failures", () => {
     expect(displayLoginError("Account suspended.")).toBe("Account suspended.");
+  });
+
+  it("maps network failures to the login copy", () => {
+    expect(displayLoginError("Network error")).toBe("Cannot reach backend. Try again later.");
+    expect(displayLoginError("Failed to fetch")).toBe("Cannot reach backend. Try again later.");
+    expect(displayLoginError("Request timed out")).toBe("Cannot reach backend. Try again later.");
+  });
+});
+
+describe("authGetMe", () => {
+  beforeEach(() => {
+    apiRequestMock.mockReset();
+  });
+
+  it("accepts the production login/me body and returns the session token", async () => {
+    apiRequestMock.mockResolvedValue({
+      data: productionLoginBody,
+      error: null,
+    });
+    const result = await authGetMe();
+    expect(result.ok).toBe(true);
+    if (result.ok) {
+      expect(result.token).toBe("prod-tok");
+      expect(result.user.username).toBe("andrei");
+      expect(result.user.isAdmin).toBe(false);
+    }
+    expect(apiRequestMock).toHaveBeenCalledWith("/api/auth/me");
+  });
+
+  it("rejects a bare { user } session body", async () => {
+    apiRequestMock.mockResolvedValue({
+      data: {
+        user: {
+          id: "00000000-0000-4000-8000-000000000001",
+          username: "andrei",
+          displayName: "Andrei",
+          avatarUrl: null,
+          bio: "",
+          isVerified: false,
+          followerCount: 0,
+          followingCount: 0,
+          email: "andrei@example.com",
+          isAdmin: false,
+          emailConfirmed: true,
+        },
+      },
+      error: null,
+    });
+    const result = await authGetMe();
+    expect(result.ok).toBe(false);
   });
 });

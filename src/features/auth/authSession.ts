@@ -1,5 +1,4 @@
 import {
-  meSuccessSchema,
   productionLoginSuccessSchema,
   productionRegisterSuccessSchema,
   sessionUserFromProductionLogin,
@@ -45,11 +44,31 @@ function registerDisplayName(email: string, username?: string): string {
 
 export function displayLoginError(message: string): string {
   const lower = message.toLowerCase();
-  if (lower.includes("invalid") || lower.includes("credentials")) {
+  if (
+    lower.includes("invalid login") ||
+    lower.includes("invalid credentials") ||
+    lower.includes("incorrect email")
+  ) {
     return "Incorrect email/username or password.";
   }
   if (lower.includes("confirm")) {
     return "Please verify your email address before logging in.";
+  }
+  if (
+    lower.includes("fetch") ||
+    lower.includes("network") ||
+    lower.includes("failed to fetch") ||
+    lower.includes("request timed out") ||
+    lower.includes("request_failed") ||
+    lower.includes("not_json") ||
+    lower.includes("response_not_json")
+  ) {
+    const isLocal =
+      typeof window !== "undefined" &&
+      (window.location.hostname === "localhost" || window.location.hostname === "127.0.0.1");
+    return isLocal
+      ? "Cannot reach backend. Start both frontend and backend: npm run dev:all"
+      : "Cannot reach backend. Try again later.";
   }
   return message || "Login failed. Please try again.";
 }
@@ -125,11 +144,11 @@ export async function authGetMe(): Promise<AuthMeResult> {
       isAuthFailure: isAuthFailureMessage(error.message, error.status),
     };
   }
-  const parsed = meSuccessSchema.safeParse(data);
-  if (!parsed.success) {
+  const parsed = parseProductionLogin(data);
+  if (!parsed.ok) {
     return { ok: false, error: "Invalid session response", isAuthFailure: false };
   }
-  return { ok: true, token: null, user: parsed.data.user };
+  return { ok: true, token: parsed.token, user: parsed.user };
 }
 
 export async function authLogout(): Promise<{ ok: true } | { ok: false; error: string }> {
