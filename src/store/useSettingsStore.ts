@@ -1,13 +1,8 @@
 import { create } from "zustand";
 import { persist } from "zustand/middleware";
+import { isLanguageCode, type LanguageCode } from "@/lib/languages";
 
-export type AppLanguage = "en" | "ro" | "es" | "fr" | "de" | "it" | "pt";
-
-const LANGUAGES: AppLanguage[] = ["en", "ro", "es", "fr", "de", "it", "pt"];
-
-export function isLanguageCode(value: string): value is AppLanguage {
-  return (LANGUAGES as string[]).includes(value);
-}
+export type AppLanguage = LanguageCode;
 
 type SettingsState = {
   muteAllSounds: boolean;
