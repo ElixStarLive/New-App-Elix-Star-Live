@@ -11,7 +11,7 @@
 | PAGE-003 | YES | YES | YES | PASS | PASS | PASS | `5be73da` |
 | PAGE-004 | YES | YES | YES | PASS | PASS | PASS | `85014e1` |
 | PAGE-005 | YES | YES | YES | PASS | PASS | PASS | `843d9f9` |
-| PAGE-006 | YES | YES | YES | PASS | PASS | PASS | _(pending commit)_ |
+| PAGE-006 | YES | YES | YES | PASS | PASS | PASS | `319c394` |
 | PAGE-007 | NO | NO | NO | — | — | — | — |
 | PAGE-008 | NO | NO | NO | — | — | — | — |
 | PAGE-009 | NO | NO | NO | — | — | — | — |
