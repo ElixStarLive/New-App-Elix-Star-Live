@@ -22,6 +22,7 @@ const feedApi = vi.hoisted(() => ({
   apiPostVideoComment: vi.fn(),
   apiMusicPreview: vi.fn(),
   apiDownloadVoiceOnlyVideo: vi.fn(),
+  apiFetchProfiles: vi.fn(),
 }));
 
 const ws = vi.hoisted(() => ({
@@ -129,6 +130,7 @@ describe("PAGE-009 Following", () => {
     feedApi.apiFetchStories.mockResolvedValue({ users: [], error: null });
     feedApi.apiFollowList.mockResolvedValue({ users: [], error: null });
     feedApi.apiLiveStreams.mockResolvedValue({ streams: [], error: null });
+    feedApi.apiFetchProfiles.mockResolvedValue({ profiles: [], error: null });
     feedApi.apiLikeVideo.mockResolvedValue({ ok: true });
     feedApi.apiUnlikeVideo.mockResolvedValue({ ok: true });
     feedApi.apiUnfollow.mockResolvedValue({ ok: true });

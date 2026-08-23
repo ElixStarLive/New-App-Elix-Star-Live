@@ -1,4 +1,4 @@
-# FULL 78-PAGE MIGRATION PROOF
+﻿# FULL 78-PAGE MIGRATION PROOF
 
 **Authority:** Owner order 2026-08-23 — FULL migration PAGE-001→078, one page at a time.  
 **Rule:** `Actual migration performed = YES` only after THIS pass: OLD file inspect + NEW file inspect + compare + rebuild gaps + cleanup + page tests + commit.  
@@ -15,7 +15,7 @@
 | PAGE-006 | YES | YES | YES | PASS | PASS | PASS | `cce6b69` |
 | PAGE-007 | YES | YES | YES | PASS | PASS | PASS | `d3a8967` |
 | PAGE-008 | YES | YES | YES | PASS | PASS | PASS | `d0a79ac` |
-| PAGE-009 | NO | NO | NO | — | — | — | — |
+| PAGE-009 | YES | YES | YES | PASS | PASS | PASS | — |
 | PAGE-010 | NO | NO | NO | — | — | — | — |
 | PAGE-011 | NO | NO | NO | — | — | — | — |
 | PAGE-012 | NO | NO | NO | — | — | — | — |
@@ -156,6 +156,16 @@ All prior YES rows voided. Migration restarted at PAGE-001. One page per commit.
 - **Keep:** server-authoritative ranking; empty/error Refresh; no live cards on STEM. Device playback deferred with PAGE-007 media gate.
 - **Tests:** StemFeed + page008Ownership + stemRank + feedApi.stem + useStemFeed + query.cursor → **18/18 PASS**.
 - **Commit:** `d0a79ac`
+
+## PAGE-009 evidence
+
+- **OLD inspected:** `FollowingFeed.tsx`, `GET /api/feed/following`, FeedStoryCirclesOverlay Following chrome.
+- **NEW inspected:** `FollowingFeed.tsx`, `FollowingFeedOverlay`, `useFollowingFeed`, relation LIMIT 80.
+- **Gaps fixed:** FollowingFeed.test — mock `apiFetchProfiles` for overlay. Server IT page-size assertion deferred (needs server-file permission).
+- **Keep:** unfollow removes creator rows; empty → Discover; no For You fallback. Runtime media shared defer with PAGE-008.
+- **Tests:** FollowingFeed + page009Ownership + feedApi.following + useFollowingFeed → **13/13 PASS**.
+- **Commit:** (this commit)
+
 
 
 
