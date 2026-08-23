@@ -724,22 +724,50 @@ router.post("/verify-email", async (req: Request, res: Response) => {
 });
 
 router.post("/consent", requireAuth, async (req: AuthedRequest, res: Response) => {
-  if (await isLiveNeonSchema()) {
-    res.json({ ok: true });
-    return;
-  }
   const consentType = req.body?.consent_type;
   const version = req.body?.version;
   const ageConfirmed = req.body?.age_confirmed_13_plus;
   if (consentType !== REGISTER_CONSENT_TYPE || version !== REGISTER_CONSENT_VERSION || ageConfirmed !== true) {
     throw new AppError("validation_error", "Terms, privacy, and age confirmation are required.", 400);
   }
+
+  if (await isLiveNeonSchema()) {
+    // Frozen OLD production table: (user_id, consent_type, version) + age flag.
+    await getPool().query(
+      `INSERT INTO user_consents (user_id, consent_type, version, age_confirmed_13_plus, accepted_at, meta)
+       VALUES ($1, $2, $3, TRUE, NOW(), '{}'::jsonb)
+       ON CONFLICT (user_id, consent_type, version) DO UPDATE SET
+         age_confirmed_13_plus = EXCLUDED.age_confirmed_13_plus,
+         accepted_at = EXCLUDED.accepted_at,
+         meta = EXCLUDED.meta`,
+      [req.userId, REGISTER_CONSENT_TYPE, REGISTER_CONSENT_VERSION],
+    );
+    res.json({
+      ok: true,
+      consent: {
+        user_id: req.userId,
+        consent_type: REGISTER_CONSENT_TYPE,
+        version: REGISTER_CONSENT_VERSION,
+        age_confirmed_13_plus: true,
+      },
+    });
+    return;
+  }
+
   await getPool().query(
     `INSERT INTO user_consents (user_id, kind) VALUES ($1, $2)
      ON CONFLICT (user_id, kind) DO NOTHING`,
     [req.userId, REGISTER_CONSENT_TYPE],
   );
-  res.json({ ok: true });
+  res.json({
+    ok: true,
+    consent: {
+      user_id: req.userId,
+      consent_type: REGISTER_CONSENT_TYPE,
+      version: REGISTER_CONSENT_VERSION,
+      age_confirmed_13_plus: true,
+    },
+  });
 });
 
 router.post("/delete", requireAuth, async (req: AuthedRequest, res: Response) => {

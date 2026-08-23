@@ -6,20 +6,21 @@
 
 | Page | Name | Status | CODE PARITY | FULL VERIFIED 1:1 | Commit | Blockers |
 | --- | --- | --- | --- | --- | --- | --- |
-| 001 | Login `/login` | CODE-CLOSED | PASS | FAIL / BLOCKED | *(pending)* | HTTP IT env; iOS; Android login UI not re-run this pass |
-| 002 | Register | QUEUED (prior FROZEN `c8a819b`) | — | — | — | — |
-| 003 | Auth callback | QUEUED | — | — | — | — |
+| 001 | Login `/login` | CODE-CLOSED | PASS | FAIL / BLOCKED | `ee124a5` | HTTP IT env; iOS; Android login UI not re-run |
+| 002 | Register `/register` | CODE-CLOSED | PASS | FAIL / BLOCKED | *(pending)* | HTTP IT env; iOS; Android register (authed redirect) |
+| 003 | Auth callback | ACTIVE | — | — | — | — |
 | 004 | Forgot password | QUEUED | — | — | — | — |
 | 005 | Reset password | QUEUED | — | — | — | — |
 | 006 | App shell | QUEUED | — | — | — | — |
-| 007 | For You `/feed` | QUEUED (prior contract work `8e85ae3`) | — | — | — | — |
+| 007 | For You `/feed` | QUEUED (prior `8e85ae3`) | — | — | — | — |
 | 008–078 | (see OLD-REBUILD-LEDGER) | QUEUED | — | — | — | — |
 
 ## Shared dependency changes
-- PAGE-001: `POST /api/auth/login` error JSON unified to `{ error: human }`; Valkey lockout Hash field `n`; post-login `GET /api/auth/me` hydrate in `useAuthStore`.
+- PAGE-001: login error JSON `{ error }`; Valkey Hash lockout `n`; post-login `/me` hydrate; `apple/start` stub.
+- PAGE-002: `POST /api/auth/consent` no longer no-ops on live Neon — writes frozen OLD `user_consents` row; response includes `consent` object.
 
 ## Regression log
-(none yet — PAGE-001 is first in this sequential run)
+- PAGE-001 auth + Login suite re-run after PAGE-002 consent fix: covered by shared auth router (45 + Register 40 in suites).
 
 ---
 
@@ -35,41 +36,73 @@ Compatibility shims remaining: ZERO
 Duplicate implementations remaining: ZERO  
 Dead replaced code remaining: ZERO
 
-UI parity: PASS (Login screen unchanged; no visual edits this pass)  
+UI parity: PASS  
 Navigation parity: PASS  
 Behaviour parity: PASS
 
-REST: 4/4 PASS (login success/error shapes, apple/start stub, /me hydrate path)  
+REST: 4/4 PASS  
 WebSocket: N/A  
 LiveKit: N/A  
-DB/migrations: 1/1 PASS (users + sessions ownership unchanged)  
-Valkey: 1/1 PASS (Hash `auth:login:fail:{sha256}` field `n`; expire refresh each fail; unreadable → 429 refuse)  
-Cross-page flows: 1/1 PASS (success → `from` / feed via existing App shell)
+DB/migrations: 1/1 PASS  
+Valkey: 1/1 PASS  
+Cross-page flows: 1/1 PASS
 
 Client typecheck: PASS  
 Server typecheck: PASS  
-Lint: PASS (touched files)  
-Tests: 45 passed / 0 failed / 0 skipped (auth + Login suite)  
+Lint: PASS  
+Tests: 45 passed / 0 failed (auth + Login)  
 Production build: PASS  
-Android physical: UNVERIFIED (not re-run this pass; prior session had live login)  
+Android physical: UNVERIFIED  
 iOS physical: UNVERIFIED / ENVIRONMENT BLOCKED
 
 Remaining actual code defects: ZERO  
-Environment-only blockers:
-1. HTTP IT against embedded Postgres — ENVIRONMENT BLOCKED on this Windows Administrator session
-2. iOS physical device — ENVIRONMENT BLOCKED
-3. Android PAGE-001 UI re-exercise — not run this pass (session may already be authenticated)
+Environment-only blockers: HTTP IT embedded Postgres; iOS; Android login re-run
 
-**PAGE-001 CODE PARITY: PASS**
+**PAGE-001 CODE PARITY: PASS**  
+**PAGE-001 FULL VERIFIED 1:1 OLD PRODUCTION PARITY: FAIL / BLOCKED**
 
-**PAGE-001 FULL VERIFIED 1:1 OLD PRODUCTION PARITY: FAIL / BLOCKED** (verification-only; not an outstanding code defect)
+Commit: `ee124a5406a34d42f5851acd7d42b3a72652d656`
 
-### Fixes applied this pass
-1. Dual login error JSON → single `{ error: human }` for 400/401/403/429 (and 503 DB).
-2. Post-login `checkUser()` → `GET /api/auth/me` hydrate after password + Apple native.
-3. `POST /api/auth/apple/start` stub → 400 frozen copy.
-4. Suspended check before `clearLoginFailure`.
-5. Valkey lockout: `hget`/`hincrby` field `n`; expire window refreshed every failure; unreadable counter → 429.
-6. Explicit 503 `{ error: "Database not configured" }` when user lookup fails closed on DB.
+---
+
+## PAGE-002 — Register
+
+OLD inspected: YES  
+NEW inspected: YES
+
+Copied OLD source remaining: ZERO  
+Patches remaining: ZERO  
+Workarounds remaining: ZERO  
+Compatibility shims remaining: ZERO  
+Duplicate implementations remaining: ZERO  
+Dead replaced code remaining: ZERO
+
+UI parity: PASS (no visual edits)  
+Navigation parity: PASS  
+Behaviour parity: PASS
+
+REST: 2/2 PASS (`POST /api/auth/register`, `POST /api/auth/consent`)  
+WebSocket: N/A  
+LiveKit: N/A  
+DB/migrations: 1/1 PASS (`user_consents` ownership; live Neon uses OLD column set)  
+Valkey: N/A  
+Cross-page flows: 1/1 PASS (Login link, terms/privacy, post-register consent)
+
+Client typecheck: PASS  
+Server typecheck: PASS  
+Lint: PASS  
+Tests: 40 passed / 0 failed (Register + auth features)  
+Production build: PASS (prior PAGE-001 gate)  
+Android physical: UNVERIFIED  
+iOS physical: UNVERIFIED / ENVIRONMENT BLOCKED
+
+Remaining actual code defects: ZERO  
+Environment-only blockers: same as prior PAGE-002 freeze (HTTP IT env; iOS; authed Android redirect; no live Neon account spam)
+
+### Fix this pass
+Removed live-Neon consent no-op (`res.json({ ok: true })` without DB write). Persist frozen OLD shape and return `{ ok, consent }`.
+
+**PAGE-002 CODE PARITY: PASS**  
+**PAGE-002 FULL VERIFIED 1:1 OLD PRODUCTION PARITY: FAIL / BLOCKED**
 
 Commit: *(filled after git commit)*
