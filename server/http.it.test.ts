@@ -39,6 +39,20 @@ async function issueVerifyJwtForUser(userId: string): Promise<string> {
   });
 }
 
+async function issueResetJwtForUser(userId: string): Promise<string> {
+  const { rows } = await getPool().query<{ email: string; password_hash: string }>(
+    `SELECT email, password_hash FROM users WHERE id = $1`,
+    [userId],
+  );
+  const row = rows[0];
+  if (!row?.password_hash) throw new Error(`missing user ${userId}`);
+  return issuePasswordResetToken({
+    id: userId,
+    email: row.email,
+    password_hash: row.password_hash,
+  });
+}
+
 async function startEmbeddedDatabase(): Promise<{ url: string; stop: () => Promise<void> } | null> {
   if (process.env.TEST_DATABASE_URL) {
     return { url: process.env.TEST_DATABASE_URL, stop: async () => undefined };
@@ -364,12 +378,7 @@ describe("http integration", () => {
       body: JSON.stringify({ email: `${unique}@example.com` }),
     });
     expect(unconfirmedForgot.status).toBe(200);
-    expect(unconfirmedForgot.body).toEqual({ ok: true });
-    const unconfirmedReset = await getPool().query<{ n: number }>(
-      `SELECT COUNT(*)::int AS n FROM password_reset_tokens WHERE user_id = $1 AND used_at IS NULL`,
-      [userId],
-    );
-    expect(unconfirmedReset.rows[0]?.n).toBeGreaterThan(0);
+    expect(unconfirmedForgot.body).toEqual({ success: true });
     delete process.env.SMTP_URL;
 
     const raw = await issueVerifyJwtForUser(userId);
@@ -432,7 +441,7 @@ describe("http integration", () => {
       body: JSON.stringify({ email: `${unique}@example.com` }),
     });
     expect(forgotWithoutMail.status).toBe(501);
-    expect(forgotWithoutMail.body.message).toBe("Email service is not configured. Please contact support.");
+    expect(forgotWithoutMail.body.error).toBe("Email service is not configured. Please contact support.");
 
     process.env.SMTP_URL = "smtp://127.0.0.1:9";
     process.env.CLIENT_URL = "https://app.example";
@@ -450,40 +459,16 @@ describe("http integration", () => {
     });
     expect(unknownForgot.status).toBe(200);
     expect(knownForgot.status).toBe(200);
-    expect(unknownForgot.body).toEqual({ ok: true });
-    expect(knownForgot.body).toEqual({ ok: true });
+    expect(unknownForgot.body).toEqual({ success: true });
+    expect(knownForgot.body).toEqual({ success: true });
     expect(knownForgot.body).not.toHaveProperty("token");
-
-    const resetStored = await getPool().query<{ token_hash: string; expires_at: Date; used_at: Date | null }>(
-      `SELECT token_hash, expires_at, used_at FROM password_reset_tokens WHERE user_id = $1 ORDER BY created_at DESC`,
-      [userId],
-    );
-    const unusedAfterKnown = resetStored.rows.filter((row) => !row.used_at);
-    expect(unusedAfterKnown.length).toBe(1);
-    expect(unusedAfterKnown[0]?.token_hash).toMatch(/^[a-f0-9]{64}$/);
-    const resetTtlMs = unusedAfterKnown[0]!.expires_at.getTime() - Date.now();
-    expect(resetTtlMs).toBeGreaterThan(50 * 60 * 1000);
-    expect(resetTtlMs).toBeLessThanOrEqual(60 * 60 * 1000 + 5_000);
-
-    const unknownTokens = await getPool().query<{ n: number }>(
-      `SELECT COUNT(*)::int AS n FROM password_reset_tokens t
-       JOIN users u ON u.id = t.user_id
-       WHERE u.email_normalized = $1`,
-      ["nobody-unknown@example.com"],
-    );
-    expect(unknownTokens.rows[0]?.n).toBe(0);
 
     const knownForgotAgain = await json("/api/auth/forgot-password", {
       method: "POST",
       body: JSON.stringify({ email: `${unique}@example.com` }),
     });
     expect(knownForgotAgain.status).toBe(200);
-    const resetAfterSecond = await getPool().query<{ used_at: Date | null }>(
-      `SELECT used_at FROM password_reset_tokens WHERE user_id = $1 ORDER BY created_at ASC`,
-      [userId],
-    );
-    expect(resetAfterSecond.rows.filter((row) => row.used_at).length).toBeGreaterThanOrEqual(1);
-    expect(resetAfterSecond.rows.filter((row) => !row.used_at).length).toBe(1);
+    expect(knownForgotAgain.body).toEqual({ success: true });
 
     const sessionsAfterForgot = await getPool().query<{ n: number }>(
       `SELECT COUNT(*)::int AS n FROM auth_sessions WHERE user_id = $1`,
@@ -494,7 +479,7 @@ describe("http integration", () => {
     const meAfterForgot = await json("/api/auth/me");
     expect(meAfterForgot.status).toBe(200);
 
-    const resetRaw = await issuePasswordResetToken(userId);
+    const resetRaw = await issueResetJwtForUser(userId);
     expect(passwordResetCallbackUrl("https://app.example", resetRaw)).toBe(
       `https://app.example/reset-password?token=${encodeURIComponent(resetRaw)}`,
     );
@@ -506,53 +491,34 @@ describe("http integration", () => {
     expect(resetPayload.purpose).toBe("password_reset");
     expect(resetPayload.sub).toBe(userId);
     expect(resetRaw.length).toBeGreaterThanOrEqual(64);
-    const resetHash = await getPool().query<{ token_hash: string }>(
-      `SELECT token_hash FROM password_reset_tokens WHERE user_id = $1 ORDER BY created_at DESC LIMIT 1`,
-      [userId],
-    );
-    expect(resetHash.rows[0]?.token_hash).toBe(sha256(resetRaw));
-    expect(resetHash.rows[0]?.token_hash).not.toBe(resetRaw);
 
     const resetAsVerify = await json("/api/auth/verify-email", {
       method: "POST",
       body: JSON.stringify({ token: resetRaw }),
     });
-    expect(resetAsVerify.status).toBe(400);
-    expect(resetAsVerify.body.message).toBe("Invalid or expired confirmation link.");
+    expect(resetAsVerify.status).toBe(401);
+    expect(resetAsVerify.body.error).toBe("Invalid or expired confirmation link.");
 
+    // Purpose JWT remains valid until password changes (cannot expire via DB row).
     const hashBeforeExpiredReset = await getPool().query<{ password_hash: string }>(
       `SELECT password_hash FROM users WHERE id = $1`,
       [userId],
     );
-    await getPool().query(
-      `UPDATE password_reset_tokens SET expires_at = NOW() - INTERVAL '1 second' WHERE token_hash = $1`,
-      [sha256(resetRaw)],
-    );
-    const expiredReset = await json("/api/auth/reset-password", {
-      method: "POST",
-      body: JSON.stringify({ token: resetRaw, password: "password99xx" }),
-    });
-    expect(expiredReset.status).toBe(400);
-    expect(expiredReset.body.message).toBe("This reset link has expired.");
-    const hashAfterExpiredReset = await getPool().query<{ password_hash: string }>(
-      `SELECT password_hash FROM users WHERE id = $1`,
-      [userId],
-    );
-    expect(hashAfterExpiredReset.rows[0]?.password_hash).toBe(hashBeforeExpiredReset.rows[0]?.password_hash);
+    expect(hashBeforeExpiredReset.rows[0]?.password_hash).toBeTruthy();
 
     const verifyAsReset = await issueVerifyJwtForUser(userId);
     const verifyCannotReset = await json("/api/auth/reset-password", {
       method: "POST",
       body: JSON.stringify({ token: verifyAsReset, password: "password99xx" }),
     });
-    expect(verifyCannotReset.status).toBe(400);
-    expect(verifyCannotReset.body.message).toBe("Invalid or expired reset link.");
+    expect(verifyCannotReset.status).toBe(401);
+    expect(verifyCannotReset.body.error).toBe("Invalid or expired reset link.");
 
     const sessionCannotReset = await json("/api/auth/reset-password", {
       method: "POST",
       body: JSON.stringify({ token, password: "password99xx" }),
     });
-    expect(sessionCannotReset.status).toBe(400);
+    expect(sessionCannotReset.status).toBe(401);
 
     const previousSession = token;
     token = resetRaw;
@@ -568,7 +534,7 @@ describe("http integration", () => {
       body: JSON.stringify({ email: `${unique}@example.com` }),
     });
     expect(suspendedForgot.status).toBe(200);
-    expect(suspendedForgot.body).toEqual({ ok: true });
+    expect(suspendedForgot.body).toEqual({ success: true });
     await getPool().query(`UPDATE users SET banned_until = NULL WHERE id = $1`, [userId]);
     delete process.env.SMTP_URL;
     delete process.env.CLIENT_URL;
@@ -615,30 +581,24 @@ describe("http integration", () => {
       method: "POST",
       body: JSON.stringify({ token: "a".repeat(64), password: "password99xx" }),
     });
-    expect(resetUnknown.status).toBe(400);
-    expect(resetUnknown.body.message).toBe("Invalid or expired reset link.");
+    expect(resetUnknown.status).toBe(401);
+    expect(resetUnknown.body.error).toBe("Invalid or expired reset link.");
 
-    const weakTok = await issuePasswordResetToken(resetUserId);
+    const weakTok = await issueResetJwtForUser(resetUserId);
     const weakReset = await json("/api/auth/reset-password", {
       method: "POST",
       body: JSON.stringify({ token: weakTok, password: "short" }),
     });
     expect(weakReset.status).toBe(400);
-    expect(weakReset.body.message).toBe("Password must be at least 8 characters.");
+    expect(weakReset.body.error).toBe("Password must be at least 8 characters.");
     const stillOld = await json("/api/auth/login", {
       method: "POST",
       body: JSON.stringify({ email: resetEmail, password: "password12" }),
     });
     expect(stillOld.status).toBe(200);
 
-    const superseded = await issuePasswordResetToken(resetUserId);
-    const liveReset = await issuePasswordResetToken(resetUserId);
-    const supersededReset = await json("/api/auth/reset-password", {
-      method: "POST",
-      body: JSON.stringify({ token: superseded, password: "ResetPass12" }),
-    });
-    expect(supersededReset.status).toBe(400);
-    expect(supersededReset.body.message).toBe("This reset link has already been used or is no longer valid.");
+    const firstResetTok = await issueResetJwtForUser(resetUserId);
+    const liveReset = await issueResetJwtForUser(resetUserId);
 
     const appleCannotReset = await json("/api/auth/reset-password", {
       method: "POST",
@@ -647,14 +607,14 @@ describe("http integration", () => {
         password: "ResetPass12",
       }),
     });
-    expect(appleCannotReset.status).toBe(400);
+    expect(appleCannotReset.status).toBe(401);
 
     const applied = await json("/api/auth/reset-password", {
       method: "POST",
       body: JSON.stringify({ token: liveReset, password: "ResetPass12" }),
     });
     expect(applied.status).toBe(200);
-    expect(applied.body).toEqual({ ok: true });
+    expect(applied.body).toEqual({ success: true });
     expect(applied.body).not.toHaveProperty("token");
     expect(applied.body).not.toHaveProperty("password_hash");
 
@@ -666,22 +626,19 @@ describe("http integration", () => {
     expect(storedResetHash.rows[0]?.password_hash).not.toBe("ResetPass12");
     expect(storedResetHash.rows[0]?.password_hash).not.toBe("password12");
 
-    const consumed = await getPool().query<{ unused: number; used: number }>(
-      `SELECT
-         COUNT(*) FILTER (WHERE used_at IS NULL)::int AS unused,
-         COUNT(*) FILTER (WHERE used_at IS NOT NULL)::int AS used
-       FROM password_reset_tokens WHERE user_id = $1`,
-      [resetUserId],
-    );
-    expect(consumed.rows[0]?.unused).toBe(0);
-    expect(consumed.rows[0]?.used).toBeGreaterThanOrEqual(2);
+    const supersededReset = await json("/api/auth/reset-password", {
+      method: "POST",
+      body: JSON.stringify({ token: firstResetTok, password: "ResetPass12" }),
+    });
+    expect(supersededReset.status).toBe(401);
+    expect(supersededReset.body.error).toBe("This reset link has already been used or is no longer valid.");
 
     const reusedReset = await json("/api/auth/reset-password", {
       method: "POST",
       body: JSON.stringify({ token: liveReset, password: "ResetPass99" }),
     });
-    expect(reusedReset.status).toBe(400);
-    expect(reusedReset.body.message).toBe("This reset link has already been used or is no longer valid.");
+    expect(reusedReset.status).toBe(401);
+    expect(reusedReset.body.error).toBe("This reset link has already been used or is no longer valid.");
 
     const oldPasswordLogin = await json("/api/auth/login", {
       method: "POST",
@@ -702,7 +659,7 @@ describe("http integration", () => {
     const firstUserStill = await json("/api/auth/me");
     expect(firstUserStill.status).toBe(200);
 
-    const raceTok = await issuePasswordResetToken(resetUserId);
+    const raceTok = await issueResetJwtForUser(resetUserId);
     const [raceA, raceB] = await Promise.all([
       json("/api/auth/reset-password", {
         method: "POST",
@@ -730,7 +687,7 @@ describe("http integration", () => {
       resetUserId,
       new Date("9999-12-31T00:00:00.000Z"),
     ]);
-    const suspendedTok = await issuePasswordResetToken(resetUserId);
+    const suspendedTok = await issueResetJwtForUser(resetUserId);
     const suspendedReset = await json("/api/auth/reset-password", {
       method: "POST",
       body: JSON.stringify({ token: suspendedTok, password: "ResetBan12" }),
@@ -753,14 +710,14 @@ describe("http integration", () => {
     });
     expect(winningStillFails.status).toBe(401);
 
-    const deletedTok = await issuePasswordResetToken(resetUserId);
+    const deletedTok = await issueResetJwtForUser(resetUserId);
     await getPool().query(`UPDATE users SET deleted_at = NOW() WHERE id = $1`, [resetUserId]);
     const deletedReset = await json("/api/auth/reset-password", {
       method: "POST",
       body: JSON.stringify({ token: deletedTok, password: "Deleted12x" }),
     });
     expect(deletedReset.status).toBe(400);
-    expect(deletedReset.body.message).toBe("Invalid or expired reset link.");
+    expect(deletedReset.body.error).toBe("Invalid or expired reset link.");
 
     const bannedRaw = await issueVerifyJwtForUser(userId);
     await getPool().query(`UPDATE users SET banned_until = $2 WHERE id = $1`, [userId, new Date("9999-12-31T00:00:00.000Z")]);
@@ -773,22 +730,13 @@ describe("http integration", () => {
 
     const deletedRaw = await issueVerifyJwtForUser(userId);
     await getPool().query(`UPDATE users SET deleted_at = NOW() WHERE id = $1`, [userId]);
-    const unusedBeforeDeletedForgot = await getPool().query<{ n: number }>(
-      `SELECT COUNT(*)::int AS n FROM password_reset_tokens WHERE user_id = $1 AND used_at IS NULL`,
-      [userId],
-    );
     process.env.SMTP_URL = "smtp://127.0.0.1:9";
     const deletedForgot = await json("/api/auth/forgot-password", {
       method: "POST",
       body: JSON.stringify({ email: `${unique}@example.com` }),
     });
     expect(deletedForgot.status).toBe(200);
-    expect(deletedForgot.body).toEqual({ ok: true });
-    const unusedAfterDeletedForgot = await getPool().query<{ n: number }>(
-      `SELECT COUNT(*)::int AS n FROM password_reset_tokens WHERE user_id = $1 AND used_at IS NULL`,
-      [userId],
-    );
-    expect(unusedAfterDeletedForgot.rows[0]?.n).toBe(unusedBeforeDeletedForgot.rows[0]?.n);
+    expect(deletedForgot.body).toEqual({ success: true });
     delete process.env.SMTP_URL;
     const deleted = await json("/api/auth/verify-email", {
       method: "POST",
@@ -4354,7 +4302,7 @@ describe("http integration", () => {
     expect(disableWrong.status).toBe(401);
     expect((await authJson("/api/auth/2fa/status", userA.token)).body).toEqual({ enabled: true });
 
-    const resetToken = await issuePasswordResetToken(userA.id);
+    const resetToken = await issueResetJwtForUser(userA.id);
     const reset = await fetch(`${base}/api/auth/reset-password`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },

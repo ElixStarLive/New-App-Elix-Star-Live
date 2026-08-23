@@ -6,73 +6,67 @@
 
 | Page | Name | Status | CODE PARITY | FULL VERIFIED 1:1 | Commit | Blockers |
 | --- | --- | --- | --- | --- | --- | --- |
-| 001 | Login `/login` | CODE-CLOSED | PASS | FAIL / BLOCKED | `ee124a5` | HTTP IT env; iOS; Android login UI not re-run |
-| 002 | Register `/register` | CODE-CLOSED | PASS | FAIL / BLOCKED | `2fd6c47` | HTTP IT env; iOS; Android register (authed redirect) |
-| 003 | Auth callback `/auth/callback` | CODE-CLOSED | PASS | FAIL / BLOCKED | *(pending)* | HTTP IT env; iOS; Android callback deep-link |
-| 004 | Forgot password | QUEUED | — | — | — | — |
-| 005 | Reset password | QUEUED | — | — | — | — |
+| 001 | Login `/login` | CODE-CLOSED | PASS | FAIL / BLOCKED | `ee124a5` | HTTP IT env; iOS; Android |
+| 002 | Register `/register` | CODE-CLOSED | PASS | FAIL / BLOCKED | `2fd6c47` | HTTP IT env; iOS; Android |
+| 003 | Auth callback `/auth/callback` | CODE-CLOSED | PASS | FAIL / BLOCKED | `505bd4c` | HTTP IT env; iOS; Android |
+| 004 | Forgot password `/forgot-password` | CODE-CLOSED | PASS | FAIL / BLOCKED | *(pending)* | HTTP IT env; iOS; Android |
+| 005 | Reset password `/reset-password` | CODE-CLOSED | PASS | FAIL / BLOCKED | *(pending)* | HTTP IT env; iOS; Android |
 | 006 | App shell | QUEUED | — | — | — | — |
 | 007 | For You `/feed` | QUEUED (prior `8e85ae3`) | — | — | — | — |
 | 008–078 | (see OLD-REBUILD-LEDGER) | QUEUED | — | — | — | — |
 
 ## Shared dependency changes
-- PAGE-001: login error JSON `{ error }`; Valkey Hash lockout `n`; post-login `/me` hydrate; `apple/start` stub.
-- PAGE-002: `POST /api/auth/consent` persists live Neon OLD `user_consents` shape.
-- PAGE-003: email verify uses purpose JWT (`purpose=email_verify` + `pv` binding); success returns production login session + `already_confirmed`; resend uses Valkey `email_confirm_sent:{email}` + `{ success: true }`.
+- PAGE-001–003: auth login/consent/verify purpose JWT session.
+- PAGE-004/005: password reset purpose JWT (`purpose=password_reset` + `pv` hash binding); forgot/reset bodies `{ success: true }`; live Neon `elix_auth_users` / session delete.
 
 ## Regression log
-- PAGE-001/002 auth suites covered via shared router after PAGE-003 edits.
-- PAGE-003 AuthCallback + verify client tests: 38 passed in auth feature batch; AuthCallback 3/3.
+- PAGE-004/005 Forgot+Reset page tests: 18/18 PASS with passwordReset unit tests.
+- PAGE-001–003 auth paths share `signPurposeToken` / `verifyPurposeToken`.
 
 ---
 
 ## PAGE-001 — Login
-
-Commit: `ee124a5406a34d42f5851acd7d42b3a72652d656`  
-**PAGE-001 CODE PARITY: PASS** / FULL VERIFIED: FAIL / BLOCKED
+Commit: `ee124a5` · CODE PARITY PASS · FULL VERIFIED FAIL/BLOCKED
 
 ## PAGE-002 — Register
+Commit: `2fd6c47` · CODE PARITY PASS · FULL VERIFIED FAIL/BLOCKED
 
-Commit: `2fd6c477eda049433f7254a6415ded654024f602`  
-**PAGE-002 CODE PARITY: PASS** / FULL VERIFIED: FAIL / BLOCKED
+## PAGE-003 — Auth Callback
+Commit: `505bd4c` · CODE PARITY PASS · FULL VERIFIED FAIL/BLOCKED
 
 ---
 
-## PAGE-003 — Auth Callback
+## PAGE-004 — Forgot Password
 
-OLD inspected: YES  
-NEW inspected: YES
+OLD inspected: YES · NEW inspected: YES  
+Copied OLD / patches / workarounds / shims / duplicates / dead: ZERO  
 
-Copied OLD source remaining: ZERO  
-Patches remaining: ZERO  
-Workarounds remaining: ZERO  
-Compatibility shims remaining: ZERO  
-Duplicate implementations remaining: ZERO  
-Dead replaced code remaining: ZERO (stopped using `email_verify_tokens` table; baseline table retained — migration not deleted)
+UI parity: PASS · Navigation: PASS · Behaviour: PASS  
+REST: 1/1 PASS (`POST /api/auth/forgot-password` → always `{ success: true }` when processed; 501 mail off)  
+WebSocket/LiveKit: N/A · Valkey: request throttle retained · DB: N/A (JWT issued, not table)  
 
-UI parity: PASS (matched OLD chrome: transparent page, same copy structure; success redirects `/profile`)  
-Navigation parity: PASS  
-Behaviour parity: PASS
+Client/Server typecheck: PASS · Lint: PASS · Tests: ForgotPassword suite PASS · Build: prior PASS  
+Android/iOS: UNVERIFIED  
 
-REST: 2/2 PASS (`POST /api/auth/verify-email` session body; `POST /api/auth/resend-confirmation` `{ success }`)  
-WebSocket: N/A  
-LiveKit: N/A  
-DB/migrations: 1/1 PASS (`email_confirmed_at` on users / elix_auth_users)  
-Valkey: 1/1 PASS (resend cooldown `email_confirm_sent:{email}`)  
-Cross-page flows: 1/1 PASS (Register confirmation link → callback → profile)
+**PAGE-004 CODE PARITY: PASS** · FULL VERIFIED: FAIL/BLOCKED  
+Commit: *(pending)*
 
-Client typecheck: PASS  
-Server typecheck: PASS  
-Lint: PASS (touched files)  
-Tests: AuthCallback 3/3 PASS; emailVerify + authVerifyEmail included in 38-pass auth batch  
-Production build: PASS  
-Android physical: UNVERIFIED  
-iOS physical: UNVERIFIED / ENVIRONMENT BLOCKED
+---
+
+## PAGE-005 — Reset Password
+
+OLD inspected: YES · NEW inspected: YES  
+Copied OLD / patches / workarounds / shims / duplicates / dead: ZERO  
+
+UI parity: PASS · Navigation: PASS · Behaviour: PASS  
+REST: 1/1 PASS (`POST /api/auth/reset-password` → `{ success: true }`; session revoke; binding single-use)  
+WebSocket: disconnect on reset · LiveKit: N/A · DB: password + sessions · Valkey: N/A  
+
+Client/Server typecheck: PASS · Lint: PASS · Tests: ResetPassword suite PASS  
+Android/iOS: UNVERIFIED  
+
+**PAGE-005 CODE PARITY: PASS** · FULL VERIFIED: FAIL/BLOCKED  
+Commit: *(pending)*
 
 Remaining actual code defects: ZERO  
-Environment-only blockers: HTTP IT env; physical devices; live email send not exercised against production SMTP
-
-**PAGE-003 CODE PARITY: PASS**  
-**PAGE-003 FULL VERIFIED 1:1 OLD PRODUCTION PARITY: FAIL / BLOCKED**
-
-Commit: *(filled after git commit)*
+Environment-only blockers: HTTP IT embedded Postgres; physical devices

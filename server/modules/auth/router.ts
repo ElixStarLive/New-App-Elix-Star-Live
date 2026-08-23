@@ -677,46 +677,70 @@ router.post("/forgot-password", async (req: Request, res: Response) => {
   const body = forgotPasswordBodySchema.parse(req.body);
   const emailNormalized = normalizeEmail(body.email);
   if (!mailIsConfigured()) {
-    throw new AppError("unavailable", "Email service is not configured. Please contact support.", 501);
+    res.status(501).json({ error: "Email service is not configured. Please contact support." });
+    return;
   }
-  await assertPasswordResetRequestAllowed(emailNormalized);
-  await recordPasswordResetRequest(emailNormalized);
-  const { rows } = (await isLiveNeonSchema())
-    ? await getPool().query<{ id: string; email: string }>(
-        `SELECT id, email FROM elix_auth_users WHERE email_lower = $1`,
-        [emailNormalized],
-      )
-    : await getPool().query<{ id: string; email: string }>(
-        `SELECT id, email FROM users WHERE email_normalized = $1 AND deleted_at IS NULL`,
-        [emailNormalized],
-      );
-  const user = rows[0];
-  if (user) {
-    const raw = await issuePasswordResetToken(user.id);
-    const origin = env().CLIENT_URL || "http://localhost:5173";
-    try {
-      await sendMail(
-        user.email,
-        "Reset your Elix Star Live password",
-        `Click this link to reset your password: ${passwordResetCallbackUrl(origin, raw)}\n\nThis link expires in 1 hour. If you did not request a password reset, ignore this email.`,
-      );
-    } catch (error) {
-      logger.error({ err: error, userId: user.id }, "password reset email send failed");
+  try {
+    await assertPasswordResetRequestAllowed(emailNormalized);
+    await recordPasswordResetRequest(emailNormalized);
+    const { rows } = (await isLiveNeonSchema())
+      ? await getPool().query<{ id: string; email: string; password_hash: string }>(
+          `SELECT id, email, password_hash FROM elix_auth_users WHERE email_lower = $1 LIMIT 1`,
+          [emailNormalized],
+        )
+      : await getPool().query<{ id: string; email: string; password_hash: string }>(
+          `SELECT id, email, password_hash FROM users WHERE email_normalized = $1 AND deleted_at IS NULL LIMIT 1`,
+          [emailNormalized],
+        );
+    const user = rows[0];
+    if (user?.password_hash) {
+      const raw = await issuePasswordResetToken({
+        id: user.id,
+        email: user.email,
+        password_hash: user.password_hash,
+      });
+      const origin = env().CLIENT_URL || "http://localhost:5173";
+      try {
+        await sendMail(
+          user.email,
+          "Reset your Elix Star password",
+          `Click this link to reset your password: ${passwordResetCallbackUrl(origin, raw)}\n\nThis link expires in 1 hour. If you did not request a password reset, ignore this email.`,
+        );
+      } catch (error) {
+        // Frozen OLD: still 200 success — do not leak whether the account exists.
+        logger.error({ err: error, userId: user.id }, "password reset email send failed");
+      }
     }
+    res.json({ success: true });
+  } catch (error) {
+    if (error instanceof AppError) {
+      res.status(error.status).json({ error: error.message });
+      return;
+    }
+    // Frozen OLD: unexpected failures still answer success (no enumeration).
+    logger.error({ err: error }, "forgot-password failed");
+    res.json({ success: true });
   }
-  res.json({ ok: true });
 });
 
 router.post("/reset-password", async (req: Request, res: Response) => {
   const body = resetPasswordBodySchema.parse(req.body);
-  const result = await applyPasswordReset(body.token, body.password);
   try {
-    const { disconnectUserSessions } = await import("../../websocket/index.js");
-    disconnectUserSessions(result.userId, "Password changed");
+    const result = await applyPasswordReset(body.token, body.password);
+    try {
+      const { disconnectUserSessions } = await import("../../websocket/index.js");
+      disconnectUserSessions(result.userId, "Password changed");
+    } catch (error) {
+      logger.warn({ err: error, userId: result.userId }, "password reset socket revoke failed");
+    }
+    res.json({ success: true });
   } catch (error) {
-    logger.warn({ err: error, userId: result.userId }, "password reset socket revoke failed");
+    if (error instanceof AppError) {
+      res.status(error.status).json({ error: error.message });
+      return;
+    }
+    throw error;
   }
-  res.json({ ok: true });
 });
 
 router.post("/resend-confirmation", async (req: Request, res: Response) => {
