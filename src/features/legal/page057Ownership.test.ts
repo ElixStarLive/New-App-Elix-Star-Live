@@ -39,6 +39,7 @@ describe("PAGE-057 Terms ownership", () => {
     expect(page).not.toMatch(/\/api\/terms|acceptTerms|I Agree|mailto:/);
     expect(content).not.toMatch(/\/api\/terms|POST \/api\/legal/);
     expect(register).toMatch(/to="\/terms"/);
+    expect(register).toMatch(/containerReturnState\("\/register"\)/);
     expect(login).not.toMatch(/to="\/terms"|navigate\("\/terms"/);
     expect(settings).toMatch(/go\("\/terms"\)/);
     expect(privacy).not.toMatch(/LEGAL_TERMS_TITLE|legalTermsSections/);

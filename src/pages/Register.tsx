@@ -6,6 +6,7 @@ import { useIsMountedRef } from "@/hooks/useIsMountedRef";
 import { AuthPasswordField } from "@/components/AuthPasswordField";
 import { authSaveConsent } from "@/features/auth/authSession";
 import { showToast } from "@/lib/toast";
+import { containerReturnState } from "@/lib/settingsNav";
 import { REGISTER_WELCOME_STARTER } from "@shared/contracts";
 
 export default function Register() {
@@ -195,6 +196,7 @@ export default function Register() {
               I confirm I am at least 13 years old and agree to the{" "}
               <Link
                 to="/terms"
+                state={containerReturnState("/register")}
                 className="text-[#F5F5F7] underline"
                 onClick={(e) => e.stopPropagation()}
               >
@@ -203,6 +205,7 @@ export default function Register() {
               and{" "}
               <Link
                 to="/privacy"
+                state={containerReturnState("/register")}
                 className="text-[#F5F5F7] underline"
                 onClick={(e) => e.stopPropagation()}
               >

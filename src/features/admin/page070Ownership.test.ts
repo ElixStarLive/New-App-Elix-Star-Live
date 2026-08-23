@@ -60,7 +60,8 @@ describe("PAGE-070 Admin Dashboard ownership", () => {
     expect(settings).toMatch(/user\?\.isAdmin === true/);
     expect(settings).toMatch(/go\("\/admin"\)/);
     expect(nav).toMatch(/path === "\/admin"/);
-    expect(shell).toMatch(/pathname === "\/admin"/);
+    // PAGE-006: admin keeps bottom nav (not a shell-hidden path).
+    expect(shell).not.toMatch(/pathname === "\/admin"|pathname\.startsWith\("\/admin"\)/);
     expect(ws).toMatch(/class WsClient/);
     expect(page).not.toMatch(/reconnectOnForeground|new WebSocket/);
   });
