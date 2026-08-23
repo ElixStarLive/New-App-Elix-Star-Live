@@ -278,24 +278,37 @@ function mailIsConfigured(): boolean {
   return Boolean(process.env.SMTP_URL?.trim());
 }
 
-async function assertLoginAllowed(identifier: string): Promise<void> {
-  if (!env().valkeyUrl) return;
+async function assertLoginAllowed(
+  identifier: string,
+): Promise<{ ok: true } | { ok: false; status: number; error: string }> {
+  if (!env().valkeyUrl) return { ok: true };
   try {
-    const count = Number((await requireValkey().get(loginFailKey(identifier))) ?? "0");
+    // Frozen OLD Valkey shape: Hash field `n` on auth:login:fail:{sha256}
+    const count = Number((await requireValkey().hget(loginFailKey(identifier), "n")) ?? "0");
     if (count >= LOGIN_FAIL_MAX) {
-      throw new AppError("rate_limited", "Too many failed sign-in attempts. Please try again later.", 429);
+      return {
+        ok: false,
+        status: 429,
+        error: "Too many failed sign-in attempts. Please try again later.",
+      };
     }
-  } catch (error) {
-    if (error instanceof AppError) throw error;
-    throw new AppError("unavailable", "Login temporarily unavailable. Please try again.", 503);
+    return { ok: true };
+  } catch {
+    // Frozen OLD: unreadable lockout counter refuses the attempt (same 429 copy).
+    return {
+      ok: false,
+      status: 429,
+      error: "Too many failed sign-in attempts. Please try again later.",
+    };
   }
 }
 
 async function recordLoginFailure(identifier: string): Promise<void> {
   if (!env().valkeyUrl) return;
   const key = loginFailKey(identifier);
-  const count = await requireValkey().incr(key);
-  if (count === 1) await requireValkey().expire(key, LOGIN_FAIL_WINDOW_SEC);
+  await requireValkey().hincrby(key, "n", 1);
+  // Frozen OLD: every failure restarts the 15-minute lockout window.
+  await requireValkey().expire(key, LOGIN_FAIL_WINDOW_SEC);
 }
 
 async function clearLoginFailure(identifier: string): Promise<void> {
@@ -489,10 +502,24 @@ router.post("/login", async (req: Request, res: Response) => {
   const body = loginBodySchema.parse(req.body);
   const identifier = loginIdentifier(body);
   if (!identifier || !body.password) {
-    throw new AppError("validation_error", "Please enter both email and password.", 400);
+    res.status(400).json({ error: "Please enter both email and password." });
+    return;
   }
-  await assertLoginAllowed(identifier);
-  const user = await findUserByLogin(identifier);
+
+  const allowed = await assertLoginAllowed(identifier);
+  if (!allowed.ok) {
+    res.status(allowed.status).json({ error: allowed.error });
+    return;
+  }
+
+  let user: (UserRow & { password_hash: string | null }) | null;
+  try {
+    user = await findUserByLogin(identifier);
+  } catch {
+    res.status(503).json({ error: "Database not configured" });
+    return;
+  }
+
   if (!user?.password_hash) {
     await verifyPassword(body.password, await loginDecoyHash());
     await recordLoginFailure(identifier);
@@ -506,14 +533,27 @@ router.post("/login", async (req: Request, res: Response) => {
     return;
   }
   if (!user.email_confirmed_at && mailIsConfigured()) {
-    throw new AppError(
-      "forbidden",
-      "Please confirm your email before logging in. Check your inbox or request a new confirmation email.",
-      403,
-    );
+    res.status(403).json({
+      error:
+        "Please confirm your email before logging in. Check your inbox or request a new confirmation email.",
+    });
+    return;
+  }
+  // Suspended/banned before clearing lockout (frozen OLD order).
+  if (user.banned_until && new Date(user.banned_until).getTime() > Date.now()) {
+    res.status(403).json({ error: "Account suspended." });
+    return;
   }
   await clearLoginFailure(identifier);
-  await writeProductionLogin(res, user);
+  try {
+    await writeProductionLogin(res, user);
+  } catch (error) {
+    if (error instanceof AppError && error.status === 403) {
+      res.status(403).json({ error: error.message });
+      return;
+    }
+    throw error;
+  }
 });
 
 router.post("/guest", async (_req: Request, res: Response) => {
@@ -830,6 +870,10 @@ async function appleNative(req: Request, res: Response): Promise<void> {
   await writeProductionLogin(res, user);
 }
 
+router.post("/apple/start", (_req: Request, res: Response) => {
+  // Frozen OLD stub — web clients must use native Sign in with Apple.
+  res.status(400).json({ error: "Update the app to use native Sign in with Apple." });
+});
 router.post("/apple", (req, res, next) => {
   void appleNative(req, res).catch(next);
 });

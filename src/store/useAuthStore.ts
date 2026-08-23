@@ -118,6 +118,8 @@ export const useAuthStore = create<AuthStore>()(
         }
         isolateWalletAccount();
         set(applySession(result.token, result.user));
+        // Ledger: hydrate GET /api/auth/me after password login.
+        await get().checkUser();
         return { error: null };
       },
 
@@ -178,6 +180,7 @@ export const useAuthStore = create<AuthStore>()(
           if (!parsed.ok) return { error: parsed.error };
           isolateWalletAccount();
           set(applySession(parsed.token, parsed.user));
+          await get().checkUser();
           return { error: null };
         } catch (err) {
           const code =
