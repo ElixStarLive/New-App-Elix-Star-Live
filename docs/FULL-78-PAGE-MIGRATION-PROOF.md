@@ -47,9 +47,9 @@ All 78 rows below are **NOT VERIFIED** until a page completes the full gate with
 | PAGE-030 | YES | YES | YES | PASS | PASS | PASS | `02ac3c8` |
 | PAGE-031 | YES | YES | YES | PASS | PASS | PASS | `14c2473` |
 | PAGE-032 | YES | YES | YES | PASS | PASS | PASS | `8542edb` |
-| PAGE-033 | NOT VERIFIED | NOT VERIFIED | NOT VERIFIED | NOT VERIFIED | NOT VERIFIED | NOT VERIFIED | — |
-| PAGE-034 | NOT VERIFIED | NOT VERIFIED | NOT VERIFIED | NOT VERIFIED | NOT VERIFIED | NOT VERIFIED | — |
-| PAGE-035 | NOT VERIFIED | NOT VERIFIED | NOT VERIFIED | NOT VERIFIED | NOT VERIFIED | NOT VERIFIED | — |
+| PAGE-033 | YES | YES | YES | PASS | PASS | PASS | `3d6b07d` |
+| PAGE-034 | YES | YES | YES | PASS | PASS | PASS | `ccc38dc` |
+| PAGE-035 | YES | YES | YES | PASS | PASS | PASS | `11feac2` |
 | PAGE-036 | NOT VERIFIED | NOT VERIFIED | NOT VERIFIED | NOT VERIFIED | NOT VERIFIED | NOT VERIFIED | — |
 | PAGE-037 | NOT VERIFIED | NOT VERIFIED | NOT VERIFIED | NOT VERIFIED | NOT VERIFIED | NOT VERIFIED | — |
 | PAGE-038 | NOT VERIFIED | NOT VERIFIED | NOT VERIFIED | NOT VERIFIED | NOT VERIFIED | NOT VERIFIED | — |
@@ -193,8 +193,29 @@ All 78 rows below are **NOT VERIFIED** until a page completes the full gate with
 - **Runtime notifications API:** **BLOCKED** — local API DOWN
 - **Commit:** `8542edb`
 
+## PAGE-033 Chat thread
+
+- **Fixed:** failed thread load showed “Start the conversation!” empty copy; now surfaces the load error. Locked ChatThread chrome preserved.
+- **Tests:** ChatThread + chatThreadSession/merge/links + page033 ownership → **17 passed / 0 failed**
+- **Runtime chat APIs:** **BLOCKED** — local API DOWN
+- **Commit:** `3d6b07d`
+
+## PAGE-034 Video Call
+
+- **Fixed:** `useCallStore` status uses `connected` (not `active`); `setActive`/`markCallConnected` write `connected`; VideoCall LiveKit `onConnected` → `markCallConnected`; removed REST `callApi` in favor of WS session + `/api/calls/:id/token`; committed call session/signals/token + `shared/contracts/calls.ts` + Royce close icon dep.
+- **Tests:** `npx vitest run src/pages/VideoCall.test.tsx src/features/calls/` → **18 passed / 0 failed** (excludes PAGE-035 ownership until its commit)
+- **Runtime LiveKit/WS call:** **BLOCKED** — local API DOWN; device not verified
+- **Commit:** `ccc38dc`
+
+## PAGE-035 Incoming Call Modal
+
+- **Fixed:** replaced deleted REST `callApi` with `acceptIncomingCall`/`rejectIncomingCall`; hide modal on `/call`; locked chrome preserved (AvatarRing + `elix-solid-red` decline).
+- **Tests:** IncomingCallModal + page035 ownership + videoCallSession regression → **14 passed / 0 failed**
+- **Runtime incoming invite:** **BLOCKED** — local API DOWN
+- **Commit:** `11feac2`
+
 ## Release blockers (remaining)
 
-1. PAGE-007→026 and PAGE-033→078 not completed under this gate.
+1. PAGE-007→026 and PAGE-036→078 not completed under this gate.
 2. Live HTTP E2E blocked while local API is down.
 3. Full production build / device gates still open for later pages.
