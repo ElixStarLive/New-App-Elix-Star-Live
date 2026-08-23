@@ -1,74 +1,91 @@
 import { useEffect, useRef, useState, type ReactNode } from "react";
-import { useLocation, useNavigate, useParams, useSearchParams } from "react-router-dom";
-import type { FeedItem, UserPublic } from "@shared/contracts";
+import { Navigate, useLocation, useNavigate, useParams, useSearchParams } from "react-router-dom";
 import {
+  Ban,
   Bookmark,
   Copy,
   Flag,
   Grid3X3,
   Heart,
-  Lock,
   Play,
   Repeat2,
-  Settings,
   Share2,
   ShoppingBag,
   Sparkles,
-  X,
 } from "lucide-react";
-import { useAuthStore } from "@/store/useAuthStore";
-import {
-  apiFetchLikedFeed,
-  apiFetchProfile,
-  apiFetchReposts,
-  apiFetchSavedFeed,
-  apiFetchUserVideos,
-  apiFollow,
-  apiUnfollow,
-  apiUploadAvatar,
-} from "@/features/feed/feedApi";
-import { apiListShopItems, type ShopItem } from "@/features/shop/shopApi";
-import { apiEnsureDmThread } from "@/features/chat/chatApi";
-import { AvatarRing } from "@/components/AvatarRing";
 import { LevelBadge } from "@/components/LevelBadge";
+import ReportModal from "@/components/ReportModal";
+import { RoyceCloseIcon } from "@/components/royce";
+import { StoryGoldRingAvatar } from "@/components/StoryGoldRingAvatar";
+import { apiEnsureDmThread } from "@/features/chat/chatApi";
+import { createPublicProfileSession } from "@/features/profile/publicProfileSession";
+import { type PublicProfileTab } from "@/features/profile/publicProfileApi";
+import { usePublicProfileSession } from "@/features/profile/usePublicProfileSession";
 import { PROFILE_PAGE_AVATAR_PX } from "@/lib/profileFrame";
-import { exitToFromLocationState, PROFILE_EXIT_TO, inboxReturnState, containerReturnState } from "@/lib/settingsNav";
-import { showToast } from "@/lib/toast";
+import { containerReturnState, exitToFromLocationState, PROFILE_EXIT_TO } from "@/lib/settingsNav";
 import { formatCompactNumber } from "@/lib/formatCompactNumber";
 import { getPublicWebOrigin } from "@/lib/api";
 import { nativeShareUrl, openExternalLink } from "@/lib/platform";
+import { showToast } from "@/lib/toast";
+import { useAuthStore } from "@/store/useAuthStore";
 
-type ProfileTab = "videos" | "shop" | "private" | "reposts" | "saved" | "liked";
+const TABS: { id: PublicProfileTab; label: string; icon: ReactNode }[] = [
+  { id: "videos", label: "Videos", icon: <Grid3X3 size={18} className="royce-icon-gold" /> },
+  { id: "shop", label: "Shop", icon: <ShoppingBag size={18} className="royce-icon-gold" /> },
+  { id: "reposts", label: "Reposts", icon: <Repeat2 size={18} className="royce-icon-gold" /> },
+  { id: "saved", label: "Saved", icon: <Bookmark size={18} className="royce-icon-gold" /> },
+  { id: "liked", label: "Liked", icon: <Heart size={18} className="royce-icon-gold" /> },
+];
+
+function ActionChip({ label, onClick, icon }: { label: string; onClick: () => void; icon: ReactNode }) {
+  return (
+    <button type="button" onClick={onClick} className="flex flex-col items-center gap-0.5 px-3 py-2 whitespace-nowrap">
+      <span className="royce-glow-disc" style={{ width: 26, height: 26 }} aria-hidden>
+        {icon}
+      </span>
+      <span className="text-[11px] font-bold text-white">{label}</span>
+    </button>
+  );
+}
+
+function requestedTab(raw: string | null): PublicProfileTab {
+  return TABS.some((tab) => tab.id === raw) ? (raw as PublicProfileTab) : "videos";
+}
 
 export default function Profile() {
   const { userId } = useParams();
   const navigate = useNavigate();
   const location = useLocation();
+  const [params] = useSearchParams();
   const me = useAuthStore((s) => s.user);
-  const updateUser = useAuthStore((s) => s.updateUser);
-  const targetId = userId || me?.id || "";
-  const isOwnProfile = Boolean(me && targetId === me.id);
-  const [profile, setProfile] = useState<UserPublic | null>(null);
-  const [error, setError] = useState<string | null>(null);
-  const [following, setFollowing] = useState(false);
-  const [showShare, setShowShare] = useState(false);
-  const [uploadingAvatar, setUploadingAvatar] = useState(false);
-  const fileInputRef = useRef<HTMLInputElement>(null);
+  const targetKey = (userId || "").trim();
+  const sessionRef = useRef(createPublicProfileSession());
+  const session = sessionRef.current;
+  const snap = usePublicProfileSession(session);
+  const profile = snap.profile;
+  const [storyIndex, setStoryIndex] = useState<number | null>(null);
+  const [reportOpen, setReportOpen] = useState(false);
+  const tabQuery = params.get("tab");
 
   useEffect(() => {
-    if (!targetId) return;
-    void apiFetchProfile(targetId).then((res) => {
-      if (res.error || !res.profile) setError(res.error || "Profile not found");
-      else {
-        setProfile(res.profile);
-        setFollowing(Boolean(res.profile.isFollowing));
-      }
-    });
-  }, [targetId]);
+    if (!targetKey || (me?.id && targetKey === me.id)) return;
+    void session.load(targetKey, me?.id ?? null, requestedTab(tabQuery));
+    return () => {
+      session.dispose();
+    };
+  }, [session, targetKey, me?.id, tabQuery]);
+
+  if (targetKey && me?.id && targetKey === me.id) {
+    return <Navigate to="/profile" replace />;
+  }
+
+  if (profile && me?.id && profile.id === me.id) {
+    return <Navigate to="/profile" replace />;
+  }
 
   const close = () => navigate(exitToFromLocationState(location.state, PROFILE_EXIT_TO), { replace: true });
+  const nested = () => containerReturnState(`${location.pathname}${location.search}`);
   const profileUrl = profile ? `${getPublicWebOrigin()}/profile/${profile.id}` : "";
-  const emailLine = isOwnProfile ? me?.email ?? "" : "";
 
   const copyLink = () => {
     if (!profileUrl) {
@@ -81,11 +98,15 @@ export default function Profile() {
     );
   };
 
+  const liveActive = Boolean(profile?.isLive);
+  const hasStory = snap.stories.length > 0;
+  const story = storyIndex != null ? snap.stories[storyIndex] : null;
+
   return (
     <div className="page-above-bottom-nav elix-page-glass text-white z-[1]">
       <div className="page-above-bottom-nav__inner elix-settings-write flex flex-col min-h-0">
         <header className="flex items-center justify-between px-4 pb-2 relative z-20" style={{ paddingTop: "var(--page-header-top)" }}>
-          <button type="button" onClick={() => setShowShare(true)} title="Share profile" className="relative z-20 p-1">
+          <button type="button" onClick={() => session.setShareOpen(true)} title="Share profile" className="relative z-20 p-1">
             <span className="royce-glow-disc" style={{ width: 34, height: 34 }} aria-hidden>
               <Share2 size={18} className="royce-icon-gold" strokeWidth={2} />
             </span>
@@ -94,67 +115,41 @@ export default function Profile() {
             <div className="text-[16px] font-bold text-white truncate">Profile</div>
           </div>
           <button type="button" onClick={close} title="Close" aria-label="Close" className="relative z-20 p-1">
-            <X size={20} className="text-[#E6E9EE]" />
+            <RoyceCloseIcon />
           </button>
         </header>
 
-        {error ? <p className="px-4 text-rose-300 text-sm">{error}</p> : null}
+        {snap.phase === "error" ? <p className="px-4 text-rose-300 text-sm">{snap.error}</p> : null}
+        {snap.phase === "loading" && !profile ? (
+          <div className="flex items-center justify-center py-16">
+            <div className="w-8 h-8 border-2 border-[#E6E9EE]/25 border-t-[#E6E9EE] rounded-full animate-spin elix-loader" />
+          </div>
+        ) : null}
 
         {profile ? (
           <>
             <div className="shrink-0">
               <div className="flex flex-col items-center mt-2 mb-3 overflow-visible">
                 <div
-                  className={`relative overflow-visible ${isOwnProfile ? "cursor-pointer" : ""}`}
+                  className={`relative overflow-visible ${liveActive || hasStory ? "cursor-pointer" : ""}`}
                   style={{ width: PROFILE_PAGE_AVATAR_PX + 8, height: PROFILE_PAGE_AVATAR_PX + 8 }}
                   onClick={() => {
-                    if (!isOwnProfile || uploadingAvatar) return;
-                    fileInputRef.current?.click();
+                    if (liveActive) {
+                      navigate(`/watch/${profile.id}`, { state: nested() });
+                      return;
+                    }
+                    if (hasStory) setStoryIndex(0);
                   }}
                 >
-                  <div className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 rounded-full">
-                    <AvatarRing src={profile.avatarUrl} alt={profile.displayName} size={PROFILE_PAGE_AVATAR_PX} />
+                  <div
+                    className={`absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 rounded-full ${hasStory && !liveActive ? "p-[2px]" : ""}`}
+                    style={{
+                      background: hasStory && !liveActive ? "linear-gradient(135deg, #E6E9EE, #FFFFFF, #E6E9EE)" : "transparent",
+                    }}
+                  >
+                    <StoryGoldRingAvatar size={PROFILE_PAGE_AVATAR_PX} src={profile.avatarUrl ?? ""} alt={profile.displayName} live={liveActive} />
                   </div>
-                  {isOwnProfile ? (
-                    <button
-                      type="button"
-                      className="profile-add-story-btn bottom-0 right-0 z-50"
-                      title="Add story"
-                      aria-label="Add story"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        navigate("/create");
-                      }}
-                    >
-                      <span className="profile-add-story-btn__plus" aria-hidden>
-                        +
-                      </span>
-                    </button>
-                  ) : null}
                 </div>
-                <input
-                  ref={fileInputRef}
-                  type="file"
-                  className="hidden"
-                  accept="image/*"
-                  aria-label="Upload profile photo"
-                  onChange={(e) => {
-                    const file = e.target.files?.[0];
-                    if (e.target) e.target.value = "";
-                    if (!file) return;
-                    setUploadingAvatar(true);
-                    void apiUploadAvatar(file, file.name).then((res) => {
-                      setUploadingAvatar(false);
-                      if (res.error || !res.avatarUrl) {
-                        showToast(res.error || "Avatar upload failed");
-                        return;
-                      }
-                      updateUser({ avatarUrl: res.avatarUrl });
-                      setProfile((prev) => (prev ? { ...prev, avatarUrl: res.avatarUrl } : prev));
-                    });
-                  }}
-                />
-                {uploadingAvatar ? <div className="text-xs text-white/70 mt-1">Uploading...</div> : null}
               </div>
 
               <div className="flex flex-col items-center px-4" style={{ marginTop: "-6px" }}>
@@ -170,18 +165,17 @@ export default function Profile() {
                   </button>
                 </div>
                 <div className="mt-1 flex items-center gap-2">
-                  {emailLine ? <span className="text-[13px] text-[#C8CDD5] font-medium">{emailLine}</span> : null}
-                  <LevelBadge level={1} circleSize={22} size={16} />
+                  <LevelBadge level={1} hideCircle />
                 </div>
               </div>
 
               <div className="mx-4 mt-4">
                 <div className="flex items-center justify-center gap-6 px-4 py-3">
-                  <button type="button" className="flex flex-col items-center min-w-[60px] active:opacity-80" onClick={() => navigate(`/profile/${profile.id}/following`)}>
+                  <button type="button" className="flex flex-col items-center min-w-[60px] active:opacity-80" onClick={() => navigate(`/profile/${profile.id}/following`, { state: nested() })}>
                     <span className="text-[17px] font-extrabold text-white">{formatCompactNumber(profile.followingCount)}</span>
                     <span className="text-[11px] text-[#E6E9EE] font-medium">Following</span>
                   </button>
-                  <button type="button" className="flex flex-col items-center min-w-[60px] active:opacity-80" onClick={() => navigate(`/profile/${profile.id}/followers`)}>
+                  <button type="button" className="flex flex-col items-center min-w-[60px] active:opacity-80" onClick={() => navigate(`/profile/${profile.id}/followers`, { state: nested() })}>
                     <span className="text-[17px] font-extrabold text-white">{formatCompactNumber(profile.followerCount)}</span>
                     <span className="text-[11px] text-[#E6E9EE] font-medium">Followers</span>
                   </button>
@@ -198,66 +192,157 @@ export default function Profile() {
 
               {profile.bio ? <p className="text-center text-[13px] text-white/70 mt-3 px-8 leading-relaxed">{profile.bio}</p> : null}
 
-              {!isOwnProfile ? (
-                <div className="flex items-center justify-center gap-2 mt-4 px-6">
-                  <button
-                    type="button"
-                    onClick={() => {
-                      void (following ? apiUnfollow(profile.id) : apiFollow(profile.id)).then((r) => {
-                        if (!r.ok) showToast(r.error);
-                        else setFollowing(!following);
-                      });
-                    }}
-                    className={`flex-1 max-w-[120px] py-2.5 rounded-md text-sm font-bold transition ${
-                      following ? "bg-white/10 text-white border border-white/10" : "elix-solid-red"
-                    }`}
-                  >
-                    {following ? "Following" : "Follow"}
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => {
-                      void apiEnsureDmThread(profile.id).then((r) => {
-                        if (!r.threadId) showToast(r.error || "Could not open chat");
-                        else navigate(`/inbox/${r.threadId}`, { state: inboxReturnState() });
-                      });
-                    }}
-                    className="flex-1 max-w-[120px] py-2.5 bg-white/10 border border-white/10 rounded-md text-sm font-bold text-white"
-                  >
-                    Message
-                  </button>
-                  <button type="button" onClick={() => setShowShare(true)} className="w-10 h-10 bg-white/10 border border-white/10 rounded-md flex items-center justify-center" title="Share profile">
-                    <span className="royce-glow-disc" style={{ width: 32, height: 32 }} aria-hidden>
-                      <Share2 size={16} className="royce-icon-gold" strokeWidth={2} />
-                    </span>
-                  </button>
-                </div>
-              ) : null}
+              <div className="flex items-center justify-center gap-2 mt-4 px-6">
+                <button
+                  type="button"
+                  disabled={snap.followBusy}
+                  onClick={() => {
+                    void session.toggleFollow().then((r) => {
+                      if (!r.ok) showToast(r.error);
+                    });
+                  }}
+                  className={`flex-1 max-w-[120px] py-2.5 rounded-md text-sm font-bold transition disabled:opacity-50 ${
+                    profile.isFollowing ? "bg-white/10 text-white border border-white/10" : "elix-solid-red"
+                  }`}
+                >
+                  {profile.isFollowing ? "Following" : "Follow"}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    void apiEnsureDmThread(profile.id).then((r) => {
+                      if (!r.threadId) showToast(r.error || "Could not open chat");
+                      else navigate(`/inbox/${r.threadId}`, { state: nested() });
+                    });
+                  }}
+                  className="flex-1 max-w-[120px] py-2.5 bg-white/10 border border-white/10 rounded-md text-sm font-bold text-white"
+                >
+                  Message
+                </button>
+                <button type="button" onClick={() => session.setShareOpen(true)} className="w-10 h-10 bg-white/10 border border-white/10 rounded-md flex items-center justify-center" title="Share profile">
+                  <span className="royce-glow-disc" style={{ width: 32, height: 32 }} aria-hidden>
+                    <Share2 size={16} className="royce-icon-gold" strokeWidth={2} />
+                  </span>
+                </button>
+              </div>
 
               <div className="mt-2">
                 <div className="flex justify-center overflow-x-auto no-scrollbar">
-                  <ActionChip label="AI Studio" onClick={() => navigate("/ai-studio")} icon={<Sparkles size={12} className="royce-icon-gold" />} />
-                  <ActionChip label="Elix Studio" onClick={() => navigate("/creator/login-details")} icon={<Sparkles size={12} className="royce-icon-gold" />} />
-                  <ActionChip label="Shop" onClick={() => navigate("/shop")} icon={<ShoppingBag size={12} className="royce-icon-gold" />} />
-                  <ActionChip label="Showcase" onClick={() => navigate(`/profile/${profile.id}?tab=shop`)} icon={<ShoppingBag size={12} className="royce-icon-gold" />} />
-                  {isOwnProfile ? (
-                    <ActionChip label="Settings" onClick={() => navigate("/settings")} icon={<Settings size={12} className="royce-icon-gold" />} />
-                  ) : null}
+                  <ActionChip label="AI Studio" onClick={() => navigate("/ai-studio", { state: nested() })} icon={<Sparkles size={12} className="royce-icon-gold" />} />
+                  <ActionChip label="Elix Studio" onClick={() => navigate("/creator/login-details", { state: nested() })} icon={<Sparkles size={12} className="royce-icon-gold" />} />
+                  <ActionChip label="Shop" onClick={() => navigate("/shop", { state: nested() })} icon={<ShoppingBag size={12} className="royce-icon-gold" />} />
+                  <ActionChip label="Showcase" onClick={() => session.setTab("shop")} icon={<ShoppingBag size={12} className="royce-icon-gold" />} />
                 </div>
               </div>
 
-              <ProfileTabs userId={profile.id} isSelf={isOwnProfile} />
+              <div className="w-full mt-1 flex flex-col min-h-0 flex-1">
+                <div className="border-b border-white/10 flex">
+                  {TABS.map((item) => (
+                    <button
+                      key={item.id}
+                      type="button"
+                      onClick={() => session.setTab(item.id)}
+                      className={`flex-1 pb-2.5 pt-2.5 flex justify-center border-b-2 transition-colors ${
+                        snap.tab === item.id ? "border-white text-white" : "border-transparent text-white/30"
+                      }`}
+                      aria-label={item.label}
+                    >
+                      {item.icon}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            </div>
+
+            <div className="flex-1 min-h-0 overflow-y-auto overflow-x-hidden overscroll-contain">
+              {snap.tabError ? <p className="px-4 pt-3 text-rose-300 text-sm">{snap.tabError}</p> : null}
+              {snap.tab === "shop" ? (
+                snap.tabLoading && snap.shopItems.length === 0 ? (
+                  <div className="flex items-center justify-center py-16">
+                    <div className="w-8 h-8 border-2 border-[#E6E9EE]/25 border-t-[#E6E9EE] rounded-full animate-spin elix-loader" />
+                  </div>
+                ) : snap.shopItems.length > 0 ? (
+                  <div className="grid grid-cols-2 gap-3 px-3 py-3">
+                    {snap.shopItems.map((item) => (
+                      <button key={item.id} type="button" className="bg-white/5 rounded-2xl overflow-hidden border border-white/5 text-left" onClick={() => navigate("/shop", { state: nested() })}>
+                        {item.imageUrl ? <img src={item.imageUrl} alt="" className="w-full aspect-square object-cover" /> : <div className="aspect-square bg-white/5" />}
+                        <div className="relative border-t border-white/15 px-2.5 py-2">
+                          <h3 className="text-sm font-bold text-gold-metallic truncate">{item.name}</h3>
+                          <p className="text-base font-extrabold text-white mt-0.5">{item.priceLabel}</p>
+                        </div>
+                      </button>
+                    ))}
+                  </div>
+                ) : !snap.tabLoading ? (
+                  <div className="flex-1 flex flex-col items-center justify-center py-16 gap-2">
+                    <ShoppingBag size={32} className="text-white/20" />
+                    <span className="text-white/30 text-sm">No items for sale yet</span>
+                  </div>
+                ) : null
+              ) : (
+                <>
+                  {snap.tabLoading && snap.items.length === 0 ? (
+                    <div className="flex items-center justify-center py-16">
+                      <div className="w-8 h-8 border-2 border-[#E6E9EE]/25 border-t-[#E6E9EE] rounded-full animate-spin elix-loader" />
+                    </div>
+                  ) : (
+                    <div className="grid grid-cols-3 gap-[2px] px-3 pt-3 pb-2">
+                      {snap.items.map((item) => (
+                        <button
+                          key={item.id}
+                          type="button"
+                          className="aspect-[3/4] bg-transparent relative group text-left rounded-xl overflow-hidden"
+                          onClick={() =>
+                            navigate(`/video/${item.id}`, {
+                              state: { ...nested(), fromProfile: true },
+                            })
+                          }
+                        >
+                          {item.thumbnail || item.url ? (
+                            item.url ? (
+                              <video src={`${item.url}#t=0.1`} poster={item.thumbnail || undefined} muted playsInline preload="metadata" className="absolute inset-0 size-full object-cover opacity-90 group-hover:opacity-100 transition pointer-events-none" />
+                            ) : (
+                              <img src={item.thumbnail ?? ""} alt="" className="absolute inset-0 size-full object-cover opacity-90 group-hover:opacity-100 transition pointer-events-none" loading="lazy" />
+                            )
+                          ) : (
+                            <div className="absolute inset-0 bg-[#080A0E]" />
+                          )}
+                          <span className="absolute bottom-1.5 left-1.5 z-[2] flex flex-col items-start gap-0.5 text-[11px] font-bold text-white drop-shadow-md">
+                            <Play size={10} fill="white" />
+                            <span className="leading-none">{formatCompactNumber(item.stats.views)}</span>
+                          </span>
+                        </button>
+                      ))}
+                    </div>
+                  )}
+                  {!snap.tabLoading && snap.items.length === 0 && !snap.tabError ? (
+                    <div className="flex-1 flex flex-col items-center justify-center py-16 text-white/30 text-sm">
+                      {snap.tab === "videos" ? "No videos yet" : null}
+                      {snap.tab === "reposts" ? "No reposts yet" : null}
+                      {snap.tab === "saved" ? "No saved videos" : null}
+                      {snap.tab === "liked" ? "No liked videos" : null}
+                    </div>
+                  ) : null}
+                  {snap.nextCursor ? (
+                    <div className="flex justify-center py-3">
+                      <button type="button" disabled={snap.tabLoadingMore} onClick={() => void session.loadMore()} className="px-4 py-2 rounded-lg bg-white/10 text-xs font-semibold text-white/80 disabled:opacity-40">
+                        {snap.tabLoadingMore ? "Loading…" : "Load more"}
+                      </button>
+                    </div>
+                  ) : null}
+                </>
+              )}
             </div>
           </>
         ) : null}
 
-        {showShare && profile ? (
-          <div className="fixed inset-0 z-[80] bg-[#080A0E] flex flex-col max-w-[480px] mx-auto">
+        {snap.shareOpen && profile ? (
+          <div className="fixed inset-x-0 top-0 z-[80] elix-page-glass flex flex-col max-w-[480px] mx-auto fixed-above-bottom-nav">
             <header className="flex items-center justify-between px-4 pb-2" style={{ paddingTop: "var(--page-header-top)" }}>
               <span className="w-10" />
               <h2 className="text-[16px] font-bold">Share to</h2>
-              <button type="button" onClick={() => setShowShare(false)} aria-label="Close" className="p-1">
-                <X size={18} />
+              <button type="button" onClick={() => session.setShareOpen(false)} aria-label="Close share" className="p-1">
+                <RoyceCloseIcon />
               </button>
             </header>
             <div className="grid grid-cols-5 gap-y-3 gap-x-1.5 px-4 pt-4">
@@ -282,14 +367,22 @@ export default function Profile() {
                 {
                   name: "Report",
                   action: () => {
-                    setShowShare(false);
-                    navigate("/report", { state: containerReturnState(location.pathname) });
+                    session.setShareOpen(false);
+                    setReportOpen(true);
+                  },
+                },
+                {
+                  name: "Block",
+                  action: () => {
+                    void session.blockTarget().then((r) => {
+                      if (!r.ok) showToast(r.error);
+                    });
                   },
                 },
               ].map((item) => (
                 <button key={item.name} type="button" onClick={item.action} className="flex flex-col items-center gap-1 active:scale-95">
                   <span className="royce-glow-disc" style={{ width: 44, height: 44 }} aria-hidden>
-                    {item.name === "Report" ? <Flag size={18} className="royce-icon-gold" /> : <Share2 size={18} className="royce-icon-gold" />}
+                    {item.name === "Report" ? <Flag size={18} className="royce-icon-gold" /> : item.name === "Block" ? <Ban size={18} className="royce-icon-gold" /> : <Share2 size={18} className="royce-icon-gold" />}
                   </span>
                   <span className="text-[8px] font-semibold truncate w-full text-center text-[#C8CDD5]">{item.name}</span>
                 </button>
@@ -297,160 +390,55 @@ export default function Profile() {
             </div>
           </div>
         ) : null}
-      </div>
-    </div>
-  );
-}
 
-function ActionChip({ label, onClick, icon }: { label: string; onClick: () => void; icon: ReactNode }) {
-  return (
-    <button type="button" onClick={onClick} className="flex flex-col items-center gap-0.5 px-3 py-2 whitespace-nowrap">
-      <span className="royce-glow-disc" style={{ width: 26, height: 26 }} aria-hidden>
-        {icon}
-      </span>
-      <span className="text-[11px] font-bold text-white">{label}</span>
-    </button>
-  );
-}
-
-function ProfileTabs({ userId, isSelf }: { userId: string; isSelf: boolean }) {
-  const navigate = useNavigate();
-  const [params] = useSearchParams();
-  const tabs: { id: ProfileTab; label: string; icon: ReactNode }[] = [
-    { id: "videos", label: "Videos", icon: <Grid3X3 size={18} className="royce-icon-gold" /> },
-    { id: "shop", label: "Shop", icon: <ShoppingBag size={18} className="royce-icon-gold" /> },
-    ...(isSelf ? [{ id: "private" as const, label: "Private", icon: <Lock size={18} className="royce-icon-gold" /> }] : []),
-    { id: "reposts", label: "Reposts", icon: <Repeat2 size={18} className="royce-icon-gold" /> },
-    { id: "saved", label: "Saved", icon: <Bookmark size={18} className="royce-icon-gold" /> },
-    { id: "liked", label: "Liked", icon: <Heart size={18} className="royce-icon-gold" /> },
-  ];
-  const requested = params.get("tab");
-  const initial = tabs.some((t) => t.id === requested) ? (requested as ProfileTab) : "videos";
-  const [activeTab, setActiveTab] = useState<ProfileTab>(initial);
-  const [items, setItems] = useState<FeedItem[]>([]);
-  const [shopItems, setShopItems] = useState<ShopItem[]>([]);
-  const [loading, setLoading] = useState(false);
-
-  useEffect(() => {
-    const allowed: ProfileTab[] = isSelf
-      ? ["videos", "shop", "private", "reposts", "saved", "liked"]
-      : ["videos", "shop", "reposts", "saved", "liked"];
-    if (requested && allowed.includes(requested as ProfileTab)) setActiveTab(requested as ProfileTab);
-  }, [requested, isSelf]);
-
-  useEffect(() => {
-    let cancelled = false;
-    setLoading(true);
-    const load = async () => {
-      if (activeTab === "shop") {
-        const res = await apiListShopItems(userId);
-        if (cancelled) return;
-        if (res.error) showToast(res.error);
-        setShopItems(res.items);
-        setItems([]);
-        setLoading(false);
-        return;
-      }
-      const res =
-        activeTab === "videos"
-          ? await apiFetchUserVideos(userId, "public")
-          : activeTab === "private"
-            ? await apiFetchUserVideos(userId, "private")
-            : activeTab === "saved"
-              ? await apiFetchSavedFeed()
-              : activeTab === "liked"
-                ? await apiFetchLikedFeed()
-                : await apiFetchReposts(userId);
-      if (cancelled) return;
-      if (res.error || !res.page) showToast(res.error || "Could not load");
-      setItems(res.page?.items ?? []);
-      setShopItems([]);
-      setLoading(false);
-    };
-    void load();
-    return () => {
-      cancelled = true;
-    };
-  }, [activeTab, userId]);
-
-  return (
-    <div className="w-full mt-1 flex flex-col min-h-0 flex-1">
-      <div className="border-b border-white/10 flex">
-        {tabs.map((tab) => (
-          <button
-            key={tab.id}
-            type="button"
-            onClick={() => setActiveTab(tab.id)}
-            className={`flex-1 pb-2.5 pt-2.5 flex justify-center border-b-2 transition-colors ${
-              activeTab === tab.id ? "border-white text-white" : "border-transparent text-white/30"
-            }`}
-            aria-label={tab.label}
+        {story ? (
+          <div
+            className="fixed inset-0 z-[10060] bg-transparent flex justify-center"
+            onClick={() => {
+              if (storyIndex != null && storyIndex + 1 < snap.stories.length) setStoryIndex(storyIndex + 1);
+              else setStoryIndex(null);
+            }}
           >
-            {tab.icon}
-          </button>
-        ))}
-      </div>
-      {isSelf && activeTab === "private" ? (
-        <div className="px-3 pt-2 pb-1 flex justify-end">
-          <button type="button" onClick={() => navigate("/create")} className="px-3 py-1.5 rounded-md bg-[#E6E9EE] text-white text-[11px] font-bold">
-            Post Story
-          </button>
-        </div>
-      ) : null}
-      {loading ? (
-        <div className="flex items-center justify-center py-16">
-          <div className="w-8 h-8 border-2 border-[#E6E9EE]/25 border-t-[#E6E9EE] rounded-full animate-spin elix-loader" />
-        </div>
-      ) : null}
-      {activeTab === "shop" && !loading ? (
-        <div className="grid grid-cols-2 gap-3 px-3 py-2 pb-6">
-          {shopItems.map((item) => (
-            <button key={item.id} type="button" className="bg-white/5 rounded-2xl overflow-hidden border border-white/5 text-left" onClick={() => navigate("/shop")}>
-              {item.imageUrl ? <img src={item.imageUrl} alt="" className="w-full aspect-square object-cover" /> : <div className="aspect-square bg-white/5" />}
-              <div className="relative border-t border-white/15 px-2.5 py-2">
-                <h3 className="text-sm font-bold text-gold-metallic truncate">{item.name}</h3>
-                <p className="text-base font-extrabold text-white mt-0.5">{item.priceLabel}</p>
-              </div>
-            </button>
-          ))}
-          {shopItems.length === 0 ? <p className="col-span-2 text-white/40 text-sm text-center py-8">No items for sale yet</p> : null}
-        </div>
-      ) : null}
-      {activeTab !== "shop" && !loading ? (
-        <div className="grid grid-cols-3 gap-[2px] px-3 pt-3 pb-2">
-          {items.map((item) => (
-            <button
-              key={item.id}
-              type="button"
-              className="aspect-[3/4] bg-transparent relative group text-left rounded-xl overflow-hidden"
-              onClick={() => navigate(item.kind === "live" ? `/watch/${item.streamId || item.id}` : `/video/${item.id}`)}
-            >
-              {item.thumbnailUrl || item.mediaUrl ? (
-                item.kind === "video" && item.mediaUrl ? (
-                  <video src={`${item.mediaUrl}#t=0.1`} poster={item.thumbnailUrl ?? undefined} muted playsInline preload="metadata" className="absolute inset-0 size-full object-cover" />
-                ) : (
-                  <img src={item.thumbnailUrl ?? ""} alt="" className="absolute inset-0 size-full object-cover" />
-                )
+            <div className="relative w-full max-w-[480px] h-full min-h-0 overflow-hidden bg-transparent">
+              <button
+                type="button"
+                className="absolute top-[calc(var(--safe-top)+12px)] left-3 z-10 text-white text-sm font-bold px-2 py-1"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setStoryIndex(null);
+                }}
+              >
+                Close
+              </button>
+              {/\.(png|jpe?g|gif|webp)(\?|$)/i.test(story.mediaUrl) ? (
+                <img src={story.mediaUrl} alt="" className="absolute inset-0 w-full h-full object-cover" draggable={false} />
               ) : (
-                <div className="absolute inset-0 bg-[#080A0E]" />
+                <video
+                  key={story.id}
+                  src={story.mediaUrl}
+                  className="absolute inset-0 w-full h-full object-cover"
+                  autoPlay
+                  playsInline
+                  controls={false}
+                  onEnded={() => {
+                    if (storyIndex != null && storyIndex + 1 < snap.stories.length) setStoryIndex(storyIndex + 1);
+                    else setStoryIndex(null);
+                  }}
+                />
               )}
-              <span className="absolute bottom-1.5 left-1.5 z-[2] flex flex-col items-start gap-0.5 text-[11px] font-bold text-white drop-shadow-md">
-                <Play size={10} fill="white" />
-                <span className="leading-none">{formatCompactNumber(item.viewCount ?? 0)}</span>
-              </span>
-            </button>
-          ))}
-        </div>
-      ) : null}
-      {activeTab !== "shop" && !loading && items.length === 0 ? (
-        <p className="text-white/40 text-sm text-center py-8">
-          {activeTab === "videos" && "No videos yet"}
-          {activeTab === "private" && "No private videos"}
-          {activeTab === "reposts" && "No reposts yet"}
-          {activeTab === "saved" && "No saved videos"}
-          {activeTab === "liked" && "No liked videos"}
-        </p>
-      ) : null}
+            </div>
+          </div>
+        ) : null}
+        {profile ? (
+          <ReportModal
+            isOpen={reportOpen}
+            onClose={() => setReportOpen(false)}
+            videoId=""
+            contentType="user"
+            contentId={profile.id}
+          />
+        ) : null}
+      </div>
     </div>
   );
 }
