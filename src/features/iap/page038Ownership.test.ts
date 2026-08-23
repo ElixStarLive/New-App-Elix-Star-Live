@@ -27,6 +27,8 @@ describe("PAGE-038 Purchase Coins ownership", () => {
     expect(api).not.toMatch(/stripe|Stripe|sk_live|APPLE_IAP_KEY|GOOGLE_SERVICE_ACCOUNT/);
     expect(index).toMatch(/app\.get\("\/api\/coin-packages"/);
     expect(index).toMatch(/app\.post\("\/api\/verify-purchase"/);
+    expect(index).not.toMatch(/app\.use\("\/api\/iap"/);
+    expect(index).not.toMatch(/\/api\/iap\/verify/);
     expect(index).not.toMatch(/\/api\/chat/);
     expect(iapRouter).not.toMatch(/router\.(get|post)\("/);
     expect(walletRouter).not.toMatch(/iap\/verify/);

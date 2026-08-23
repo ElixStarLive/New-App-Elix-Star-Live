@@ -20,7 +20,7 @@ import liveRouter from "./modules/live/router.js";
 import giftsRouter from "./modules/gifts/router.js";
 import walletRouter from "./modules/wallet/router.js";
 import testCoinsRouter from "./modules/testCoins/router.js";
-import iapRouter, { handleGetCoinPackages, handleVerifyPurchase } from "./modules/iap/router.js";
+import { handleGetCoinPackages, handleVerifyPurchase } from "./modules/iap/router.js";
 import promoteRouter from "./modules/promote/router.js";
 import heartsRouter from "./modules/hearts/router.js";
 import videosRouter from "./modules/videos/router.js";
@@ -132,7 +132,6 @@ export async function createApp() {
   app.use("/api/gifts", giftsRouter);
   app.use("/api/wallet", walletRouter);
   app.use("/api/test-coins", testCoinsRouter);
-  app.use("/api/iap", iapRouter);
   app.get("/api/coin-packages", (req, res, next) => {
     void handleGetCoinPackages(req, res).catch(next);
   });
