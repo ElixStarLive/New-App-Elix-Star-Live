@@ -20,7 +20,7 @@ All 78 rows below are **NOT VERIFIED** until a page completes the full gate with
 | PAGE-003 | YES | YES | YES | PASS | PASS | PASS | `39d04b9` |
 | PAGE-004 | YES | YES | YES | PASS | PASS | PASS | `0e7aaf3` |
 | PAGE-005 | YES | YES | YES | PASS | PASS | PASS | `bcf96af` |
-| PAGE-006 | NOT VERIFIED | NOT VERIFIED | NOT VERIFIED | NOT VERIFIED | NOT VERIFIED | NOT VERIFIED | — |
+| PAGE-006 | YES | YES | YES | PASS | PASS | PASS | — |
 | PAGE-007 | NOT VERIFIED | NOT VERIFIED | NOT VERIFIED | NOT VERIFIED | NOT VERIFIED | NOT VERIFIED | — |
 | PAGE-008 | NOT VERIFIED | NOT VERIFIED | NOT VERIFIED | NOT VERIFIED | NOT VERIFIED | NOT VERIFIED | — |
 | PAGE-009 | NOT VERIFIED | NOT VERIFIED | NOT VERIFIED | NOT VERIFIED | NOT VERIFIED | NOT VERIFIED | — |
@@ -44,7 +44,7 @@ All 78 rows below are **NOT VERIFIED** until a page completes the full gate with
 | PAGE-027 | YES | YES | YES | PASS | PASS | PASS | `e56fcf7` |
 | PAGE-028 | YES | YES | YES | PASS | PASS | PASS | `fae3406` |
 | PAGE-029 | YES | YES | YES | PASS | PASS | PASS | `64a2aa5` |
-| PAGE-030 | NOT VERIFIED | NOT VERIFIED | NOT VERIFIED | NOT VERIFIED | NOT VERIFIED | NOT VERIFIED | — |
+| PAGE-030 | YES | YES | YES | PASS | PASS | PASS | `02ac3c8` |
 | PAGE-031 | NOT VERIFIED | NOT VERIFIED | NOT VERIFIED | NOT VERIFIED | NOT VERIFIED | NOT VERIFIED | — |
 | PAGE-032 | NOT VERIFIED | NOT VERIFIED | NOT VERIFIED | NOT VERIFIED | NOT VERIFIED | NOT VERIFIED | — |
 | PAGE-033 | NOT VERIFIED | NOT VERIFIED | NOT VERIFIED | NOT VERIFIED | NOT VERIFIED | NOT VERIFIED | — |
@@ -165,8 +165,15 @@ All 78 rows below are **NOT VERIFIED** until a page completes the full gate with
 - **Runtime auth login:** **BLOCKED** — local API DOWN
 - **Commit:** `64a2aa5`
 
+## PAGE-030 Inbox
+
+- **Fixed:** `inboxSession.load` clears prior viewer threads/activity/notices when the signed-in user id changes (A→B no longer flashes A’s DMs); committed Inbox session owner + contracts (locked UI preserved).
+- **Tests:** Inbox page + page030 ownership + inboxSession + inboxPreview → **23 passed / 0 failed** (suite includes PAGE-031 overlay cases in `Inbox.test.tsx`)
+- **Runtime inbox APIs:** **BLOCKED** — local API DOWN
+- **Commit:** `02ac3c8`
+
 ## Release blockers (remaining)
 
-1. PAGE-006→026 and PAGE-030→078 not completed under this gate.
+1. PAGE-006→026 and PAGE-031→078 not completed under this gate.
 2. Live HTTP E2E blocked while local API is down.
 3. Full production build / device gates still open for later pages.
