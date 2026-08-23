@@ -7,7 +7,7 @@
 | Page | OLD inspected | NEW inspected | Actual migration performed | Contracts aligned | Cleanup complete | Tests | Commit |
 | --- | --- | --- | --- | --- | --- | --- | --- |
 | PAGE-001 | YES | YES | YES | PASS | PASS | PASS | `8d778a1` |
-| PAGE-002 | YES | YES | YES | PASS | PASS | PASS | pending |
+| PAGE-002 | YES | YES | YES | PASS | PASS | PASS | `d636117` |
 | PAGE-003 | NO | NO | NO | — | — | — | — |
 | PAGE-004 | NO | NO | NO | — | — | — | — |
 | PAGE-005 | NO | NO | NO | — | — | — | — |
