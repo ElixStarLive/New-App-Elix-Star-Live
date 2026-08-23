@@ -141,7 +141,7 @@ All 78 rows below are **NOT VERIFIED** until a page completes the full gate with
 
 - **Fixed:** committed missing `creatorLogin` session/storage stack; added `CREATOR_LOGIN_HOME` named exit in settingsNav (hardware back / close ? Settings).
 - **Tests:** creatorLogin suite ? **11 passed / 0 failed**
-- **Commit:** *(pending)*
+- **Commit:** `2c2b4ad`
 
 ## PAGE-028 Following list
 
