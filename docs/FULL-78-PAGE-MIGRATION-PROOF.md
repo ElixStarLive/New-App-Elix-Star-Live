@@ -143,7 +143,7 @@ All 78 rows below are **NOT VERIFIED** until a page completes the full gate with
 - **Tests:** `npx vitest run src/features/profile/followersApi.test.ts src/features/profile/followersSession.test.ts src/features/profile/page027Ownership.test.ts` → **10 passed / 0 failed**
 - **Agent4 handoff:** `shared/contracts/index.ts` still exports missing `inbox`/`alerts`/`calls`/`risingStars`/`promote`/`hearts` modules (uncommitted on main tree) — restore barrel or drop dead exports.
 - **Runtime GET /api/profiles/:id/followers:** **BLOCKED** — local API not verified this pass
-- **Commit:** *(set on commit)*
+- **Commit:** `079902f`
 
 ## Release blockers (remaining)
 
