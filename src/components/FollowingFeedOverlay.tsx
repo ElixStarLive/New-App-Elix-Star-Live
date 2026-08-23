@@ -1,7 +1,7 @@
-import { useCallback, useEffect, useState, type RefObject } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { ChevronLeft, Plus, Search } from "lucide-react";
 import { useNavigate } from "react-router-dom";
-import { apiFetchStories, apiLiveStreams, apiFetchProfiles } from "@/features/feed/feedApi";
+import { apiFetchStories, apiFollowList, apiFetchProfiles, apiLiveStreams } from "@/features/feed/feedApi";
 import { StoryGoldRingAvatar } from "@/components/StoryGoldRingAvatar";
 import { usePullRevealStrip } from "@/hooks/usePullRevealStrip";
 import { FEED_HOME, containerReturnState } from "@/lib/settingsNav";
@@ -27,18 +27,38 @@ type SuggestedUser = {
   is_live: boolean;
 };
 
-export function StemFeedOverlay({
+export function FollowingFeedOverlay({
   pageRef,
   onStoryOpenChange,
+  title = "Following",
+  returnPath = "/following",
+  followingFirst = true,
+  layout = "overlay",
+  showPageChrome = true,
+  sitBelowTopNav = false,
+  liveByHost: liveByHostProp,
+  onSearch,
+  onBack,
 }: {
-  pageRef: RefObject<HTMLElement | null>;
+  pageRef: { current: HTMLElement | null };
   onStoryOpenChange?: (open: boolean) => void;
+  title?: string;
+  returnPath?: string;
+  followingFirst?: boolean;
+  layout?: "overlay" | "inline";
+  showPageChrome?: boolean;
+  sitBelowTopNav?: boolean;
+  liveByHost?: Map<string, string>;
+  onSearch?: () => void;
+  onBack?: () => void;
 }) {
   const navigate = useNavigate();
   const user = useAuthStore((s) => s.user);
   const [groups, setGroups] = useState<StoryGroup[]>([]);
+  const [followedIds, setFollowedIds] = useState<Set<string>>(() => new Set());
   const [suggestedUsers, setSuggestedUsers] = useState<SuggestedUser[]>([]);
-  const [liveByHost, setLiveByHost] = useState<Map<string, string>>(() => new Map());
+  const [fetchedLiveByHost, setFetchedLiveByHost] = useState<Map<string, string>>(() => new Map());
+  const liveByHost = liveByHostProp ?? fetchedLiveByHost;
   const [storyViewer, setStoryViewer] = useState<{ group: StoryGroup; itemIndex: number } | null>(null);
   const { visible } = usePullRevealStrip(pageRef, {
     disabled: Boolean(storyViewer),
@@ -52,7 +72,19 @@ export function StemFeedOverlay({
     });
   }, []);
 
+  const reloadFollowedIds = useCallback(() => {
+    if (!followingFirst || !user?.id) {
+      setFollowedIds(new Set());
+      return;
+    }
+    void apiFollowList(user.id, "following").then((res) => {
+      if (res.error) return;
+      setFollowedIds(new Set(res.users.map((row) => row.id)));
+    });
+  }, [followingFirst, user?.id]);
+
   const reloadLive = useCallback(() => {
+    if (liveByHostProp) return;
     void apiLiveStreams().then((res) => {
       if (res.error) return;
       const next = new Map<string, string>();
@@ -60,9 +92,9 @@ export function StemFeedOverlay({
         const roomId = stream.roomId || stream.streamId;
         if (stream.hostId && roomId) next.set(stream.hostId, roomId);
       }
-      setLiveByHost(next);
+      setFetchedLiveByHost(next);
     });
-  }, []);
+  }, [liveByHostProp]);
 
   const reloadSuggested = useCallback(() => {
     void Promise.all([apiFetchProfiles(), apiLiveStreams()]).then(([profilesResult, liveResult]) => {
@@ -79,28 +111,27 @@ export function StemFeedOverlay({
           is_live: liveHosts.has(p.user_id),
         }))
         .filter((p) => Boolean(p.id) && p.id !== user?.id);
-      mapped.sort((a, b) => {
-        if (a.is_live === b.is_live) return 0;
-        return a.is_live ? -1 : 1;
-      });
       setSuggestedUsers(mapped);
     });
   }, [user?.id]);
 
   useEffect(() => {
     reloadStories();
+    reloadFollowedIds();
     reloadLive();
     reloadSuggested();
     const onFocus = () => {
       reloadStories();
+      reloadFollowedIds();
       reloadLive();
       reloadSuggested();
     };
     window.addEventListener("focus", onFocus);
     return () => window.removeEventListener("focus", onFocus);
-  }, [reloadLive, reloadStories, reloadSuggested]);
+  }, [reloadFollowedIds, reloadLive, reloadStories, reloadSuggested]);
 
   useEffect(() => {
+    if (liveByHostProp) return;
     const onStarted = () => {
       reloadLive();
       reloadSuggested();
@@ -115,23 +146,58 @@ export function StemFeedOverlay({
       wsClient.off("stream_started", onStarted);
       wsClient.off("stream_ended", onEnded);
     };
-  }, [reloadLive, reloadSuggested]);
+  }, [liveByHostProp, reloadLive, reloadSuggested]);
 
   useEffect(() => {
     onStoryOpenChange?.(Boolean(storyViewer));
   }, [onStoryOpenChange, storyViewer]);
 
   const ownStory = user?.id ? groups.find((g) => g.userId === user.id) : undefined;
+  const storyCircles = useMemo(() => {
+    const others = groups.filter((g) => g.userId !== user?.id && g.stories.length > 0);
+    return [...others].sort((a, b) => {
+      if (followingFirst) {
+        const aF = followedIds.has(a.userId) ? 0 : 1;
+        const bF = followedIds.has(b.userId) ? 0 : 1;
+        if (aF !== bF) return aF - bF;
+      }
+      const aLive = liveByHost.has(a.userId) ? 0 : 1;
+      const bLive = liveByHost.has(b.userId) ? 0 : 1;
+      return aLive - bLive;
+    });
+  }, [followedIds, followingFirst, groups, liveByHost, user?.id]);
+  const suggestedStrip = useMemo(() => {
+    const storyIds = new Set(storyCircles.map((g) => g.userId));
+    return [...suggestedUsers]
+      .filter((u) => !storyIds.has(u.id))
+      .sort((a, b) => {
+        if (followingFirst) {
+          const aF = followedIds.has(a.id) ? 0 : 1;
+          const bF = followedIds.has(b.id) ? 0 : 1;
+          if (aF !== bF) return aF - bF;
+        }
+        if (a.is_live === b.is_live) return 0;
+        return a.is_live ? -1 : 1;
+      });
+  }, [followedIds, followingFirst, storyCircles, suggestedUsers]);
   const stripShown = visible && !storyViewer;
   const storyItem = storyViewer ? storyViewer.group.stories[storyViewer.itemIndex] : null;
 
   const goSearch = useCallback(() => {
-    navigate("/search", { state: containerReturnState("/stem") });
-  }, [navigate]);
+    if (onSearch) {
+      onSearch();
+      return;
+    }
+    navigate("/search", { state: containerReturnState(returnPath) });
+  }, [navigate, onSearch, returnPath]);
 
   const goBack = useCallback(() => {
+    if (onBack) {
+      onBack();
+      return;
+    }
     navigate(FEED_HOME, { replace: true });
-  }, [navigate]);
+  }, [navigate, onBack]);
 
   const goUploadStory = useCallback(() => {
     navigate("/upload?type=story");
@@ -153,18 +219,12 @@ export function StemFeedOverlay({
     return () => window.clearTimeout(timer);
   }, [advanceStory, storyViewer, storyItem?.mediaUrl, storyItem?.id]);
 
-  return (
-    <>
-      <div
-        className={`fixed inset-x-0 top-0 z-[20] flex justify-center pointer-events-none transition-[transform,opacity] duration-300 ease-out ${
-          stripShown ? "translate-y-0 opacity-100" : "-translate-y-[120%] opacity-0 invisible pointer-events-none"
-        }`}
-        aria-hidden={!stripShown}
-      >
+  const stripBody = (
         <div
-          className={`feed-column-width w-full feed-story-strip ${stripShown ? "overflow-visible" : "overflow-hidden"}`}
-          style={{ paddingTop: "var(--safe-top)" }}
+          className={`${layout === "overlay" ? "feed-column-width" : ""} w-full feed-story-strip ${stripShown ? "overflow-visible" : "overflow-hidden"}`}
+          style={layout === "overlay" && !sitBelowTopNav ? { paddingTop: "var(--safe-top)" } : undefined}
         >
+          {showPageChrome ? (
           <div
             className="w-full px-3 flex items-center justify-between pointer-events-auto"
             style={{ minHeight: "var(--topnav-bar-height)" }}
@@ -172,13 +232,14 @@ export function StemFeedOverlay({
             <button type="button" onClick={goSearch} className="p-1" aria-label="Search">
               <Search size={18} className="text-white" />
             </button>
-            <h1 className="elix-silver-red-text text-sm font-bold drop-shadow-[0_1px_2px_rgba(0,0,0,0.9)]">STEM</h1>
+            <h1 className="elix-silver-red-text text-sm font-bold drop-shadow-[0_1px_2px_rgba(0,0,0,0.9)]">{title}</h1>
             <button type="button" onClick={goBack} className="p-1" title="Back" aria-label="Back">
               <span className="royce-glow-disc" aria-hidden>
                 <ChevronLeft size={18} strokeWidth={2.35} className="royce-icon-gold block" />
               </span>
             </button>
           </div>
+          ) : null}
           <div className="px-4 pt-0 pb-1 overflow-visible pointer-events-auto">
             <div
               className="w-full flex gap-3 overflow-x-auto overflow-y-visible no-scrollbar min-h-[78px]"
@@ -218,68 +279,90 @@ export function StemFeedOverlay({
                   {ownStory?.stories.length ? "Your story" : "Add story"}
                 </div>
               </button>
-              {groups
-                .filter((g) => g.userId !== user?.id && g.stories.length > 0)
-                .map((g) => {
-                  const roomId = liveByHost.get(g.userId);
-                  return (
-                    <button
-                      key={`story-${g.userId}`}
-                      type="button"
-                      onClick={() => {
-                        if (roomId) navigate(`/watch/${encodeURIComponent(roomId)}`);
-                        else setStoryViewer({ group: g, itemIndex: 0 });
-                      }}
-                      className="flex-shrink-0 flex flex-col items-center gap-0.5"
-                      style={{ width: 80, minWidth: 80 }}
-                      title={g.displayName || g.username}
-                    >
-                      <StoryGoldRingAvatar
-                        size={58}
-                        live={Boolean(roomId)}
-                        data-avatar-circle={roomId ? "live" : undefined}
-                        src={g.avatarUrl || DEFAULT_AVATAR}
-                        alt={g.displayName || g.username}
-                      />
-                      <div className="elix-silver-red-text text-[10px] truncate w-full text-center leading-tight">
-                        {g.displayName || g.username}
-                      </div>
-                    </button>
-                  );
-                })}
-              {suggestedUsers
-                .filter((u) => !groups.some((g) => g.userId === u.id && g.stories.length > 0))
-                .map((u) => {
-                  const roomId = liveByHost.get(u.id);
-                  const isLive = u.is_live || Boolean(roomId);
-                  return (
-                    <button
-                      key={`suggest-${u.id}`}
-                      type="button"
-                      onClick={() => {
-                        if (isLive && roomId) navigate(`/watch/${encodeURIComponent(roomId)}`);
-                        else navigate(`/profile/${encodeURIComponent(u.id)}`);
-                      }}
-                      className="flex-shrink-0 flex flex-col items-center gap-0.5"
-                      style={{ width: 80, minWidth: 80 }}
-                    >
-                      <StoryGoldRingAvatar
-                        size={58}
-                        live={isLive}
-                        data-avatar-circle={isLive ? "live" : undefined}
-                        src={u.avatar_url || DEFAULT_AVATAR}
-                        alt={u.name || u.username}
-                      />
-                      <div className="elix-silver-red-text text-[10px] truncate w-full text-center leading-tight">
-                        {u.name || u.username}
-                      </div>
-                    </button>
-                  );
-                })}
+              {storyCircles.map((g) => {
+                const roomId = liveByHost.get(g.userId);
+                return (
+                  <button
+                    key={`story-${g.userId}`}
+                    type="button"
+                    onClick={() => {
+                      if (roomId) navigate(`/watch/${encodeURIComponent(roomId)}`);
+                      else setStoryViewer({ group: g, itemIndex: 0 });
+                    }}
+                    className="flex-shrink-0 flex flex-col items-center gap-0.5"
+                    style={{ width: 80, minWidth: 80 }}
+                    title={g.displayName || g.username}
+                  >
+                    <StoryGoldRingAvatar
+                      size={58}
+                      live={Boolean(roomId)}
+                      data-avatar-circle={roomId ? "live" : undefined}
+                      src={g.avatarUrl || DEFAULT_AVATAR}
+                      alt={g.displayName || g.username}
+                    />
+                    <div className="elix-silver-red-text text-[10px] truncate w-full text-center leading-tight">
+                      {g.displayName || g.username}
+                    </div>
+                  </button>
+                );
+              })}
+              {suggestedStrip.map((u) => {
+                const roomId = liveByHost.get(u.id);
+                const isLive = u.is_live || Boolean(roomId);
+                return (
+                  <button
+                    key={`suggest-${u.id}`}
+                    type="button"
+                    onClick={() => {
+                      if (isLive && roomId) navigate(`/watch/${encodeURIComponent(roomId)}`);
+                      else navigate(`/profile/${u.id}`, { state: containerReturnState(returnPath) });
+                    }}
+                    className="flex-shrink-0 flex flex-col items-center gap-0.5"
+                    style={{ width: 80, minWidth: 80 }}
+                    title={u.name || u.username}
+                  >
+                    <StoryGoldRingAvatar
+                      size={58}
+                      live={isLive}
+                      data-avatar-circle={isLive ? "live" : undefined}
+                      src={u.avatar_url || DEFAULT_AVATAR}
+                      alt={u.name || u.username}
+                    />
+                    <div className="elix-silver-red-text text-[10px] truncate w-full text-center leading-tight">
+                      {u.name || u.username}
+                    </div>
+                  </button>
+                );
+              })}
             </div>
           </div>
         </div>
-      </div>
+  );
+
+  return (
+    <>
+      {layout === "inline" ? (
+        <div
+          className={`w-full shrink-0 overflow-hidden transition-[max-height,opacity] duration-300 ease-out feed-story-strip ${
+            stripShown ? "max-h-[160px] opacity-100" : "max-h-0 opacity-0 pointer-events-none"
+          }`}
+          aria-hidden={!stripShown}
+        >
+          {stripBody}
+        </div>
+      ) : (
+        <div
+          className={`fixed inset-x-0 z-[20] flex justify-center pointer-events-none transition-[transform,opacity] duration-300 ease-out ${
+            sitBelowTopNav ? "" : "top-0"
+          } ${
+            stripShown ? "translate-y-0 opacity-100" : "-translate-y-[120%] opacity-0 invisible pointer-events-none"
+          }`}
+          style={sitBelowTopNav ? { top: "calc(var(--safe-top) + var(--topnav-bar-height))" } : undefined}
+          aria-hidden={!stripShown}
+        >
+          {stripBody}
+        </div>
+      )}
 
       {storyViewer && storyItem?.mediaUrl ? (
         <div className="absolute inset-0 z-[40] bg-black" data-story-container="feed-overlay">
