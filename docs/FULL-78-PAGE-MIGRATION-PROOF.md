@@ -8,7 +8,7 @@
 | Page | OLD inspected | NEW inspected | Actual migration performed | Contracts aligned | Cleanup complete | Tests | Commit |
 | --- | --- | --- | --- | --- | --- | --- | --- |
 | PAGE-001 | YES | YES | YES | PASS | PASS | PASS | `7c692ca` |
-| PAGE-002 | NO | NO | NO | — | — | — | — |
+| PAGE-002 | YES | YES | YES | PASS | PASS | PASS | — |
 | PAGE-003 | NO | NO | NO | — | — | — | — |
 | PAGE-004 | NO | NO | NO | — | — | — | — |
 | PAGE-005 | NO | NO | NO | — | — | — | — |
@@ -97,3 +97,11 @@ All prior YES rows voided. Migration restarted at PAGE-001. One page per commit.
 - **Gaps fixed:** none — chrome, remember-email-only, dual-submit, Apple/forgot flags, no Google/guest/TOTP, 401 copy, dual token already aligned.
 - **Tests:** 28/28 PASS.
 - **Commit:** `7c692ca`
+
+## PAGE-002 evidence
+
+- **OLD inspected:** `Elix Star Live/src/pages/Register.tsx` (terms, consent POST, welcome toast, navigate `from`).
+- **NEW inspected:** `src/pages/Register.tsx`, `authRegister` / `authSaveConsent`, `POST /api/auth/register` + `/consent`.
+- **Gaps fixed:** none this pass (Terms/Privacy `returnTo: /register` already present vs OLD which lacked it — keep).
+- **Tests:** Register + authSession.register → **11/11 PASS**.
+- **Commit:** (this commit)
