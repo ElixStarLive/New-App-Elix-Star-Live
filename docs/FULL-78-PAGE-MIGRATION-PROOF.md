@@ -8,7 +8,7 @@
 | --- | --- | --- | --- | --- | --- | --- | --- |
 | PAGE-001 | YES | YES | YES | PASS | PASS | PASS | `8d778a1` |
 | PAGE-002 | YES | YES | YES | PASS | PASS | PASS | `d636117` |
-| PAGE-003 | NO | NO | NO | — | — | — | — |
+| PAGE-003 | YES | YES | YES | PASS | PASS | PASS | pending |
 | PAGE-004 | NO | NO | NO | — | — | — | — |
 | PAGE-005 | NO | NO | NO | — | — | — | — |
 | PAGE-006 | NO | NO | NO | — | — | — | — |
@@ -84,6 +84,14 @@
 | PAGE-076 | NO | NO | NO | — | — | — | — |
 | PAGE-077 | NO | NO | NO | — | — | — | — |
 | PAGE-078 | NO | NO | NO | — | — | — | — |
+
+## PAGE-003 evidence
+
+- **OLD inspected:** `Elix Star Live/src/pages/AuthCallback.tsx`, `docs/OLD-REBUILD-LEDGER.md` PAGE-003, `CONTRACTS` verify-email.
+- **NEW inspected:** `src/pages/AuthCallback.tsx`, `authVerifyEmail`, `POST /api/auth/verify-email`.
+- **Compare result:** NEW already matches OLD source behaviour (token verify → seed session → `checkUser` → `/profile`; missing/error/oauth error paths; Go to Login). Pack line “then login” is incorrect vs OLD `AuthCallback.tsx` which navigates `/profile` — NEW keeps OLD source.
+- **Gaps fixed:** none required this pass (session shape already emits `access_token`+`accessToken` from PAGE-001 restore).
+- **Tests:** AuthCallback + authSession.verify PASS.
 
 ## PAGE-002 evidence
 
