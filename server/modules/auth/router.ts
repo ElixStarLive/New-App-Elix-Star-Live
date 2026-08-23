@@ -727,17 +727,32 @@ router.post("/delete", requireAuth, async (req: AuthedRequest, res: Response) =>
 });
 
 async function appleNative(req: Request, res: Response): Promise<void> {
+  if (env().APPLE_SIGN_IN_ENABLED !== "true") {
+    throw new AppError("unavailable", "Apple Sign-In is not enabled.", 503);
+  }
   const body = appleNativeBodySchema.parse(req.body);
+  const idToken = body.idToken.trim();
+  if (!idToken) {
+    throw new AppError("validation_error", "Apple identity token is required.", 400);
+  }
+  const givenName = typeof body.givenName === "string" ? body.givenName.trim() : "";
+  const familyName = typeof body.familyName === "string" ? body.familyName.trim() : "";
+  const suppliedName = `${givenName} ${familyName}`.trim();
   const jwks = createRemoteJWKSet(new URL("https://appleid.apple.com/auth/keys"));
-  const { payload } = await jwtVerify(body.identityToken, jwks, {
+  const { payload } = await jwtVerify(idToken, jwks, {
     issuer: "https://appleid.apple.com",
     audience: env().APPLE_BUNDLE_ID,
   }).catch(() => {
-    throw new AppError("invalid_credentials", "Apple token was rejected", 401);
+    throw new AppError("invalid_credentials", "Invalid Apple identity token.", 401);
   });
   const sub = typeof payload.sub === "string" ? payload.sub : null;
-  const email = typeof payload.email === "string" ? payload.email : `${createHash("sha256").update(sub ?? "").digest("hex").slice(0, 16)}@apple.invalid`;
-  if (!sub) throw new AppError("invalid_credentials", "Apple token was rejected", 401);
+  if (!sub) throw new AppError("invalid_credentials", "Invalid Apple identity token.", 401);
+  const emailVerified =
+    payload.email_verified === true || String(payload.email_verified).toLowerCase() === "true";
+  const tokenEmail =
+    emailVerified && typeof payload.email === "string" ? payload.email.trim().toLowerCase() : "";
+  const fallbackEmail = `${createHash("sha256").update(sub).digest("hex").slice(0, 16)}@apple.invalid`;
+  const email = tokenEmail || fallbackEmail;
   if (await isLiveNeonSchema()) {
     const existing = await getPool().query<UserRow>(
       `${LIVE_AUTH_USER_SELECT} WHERE u.apple_sub = $1 LIMIT 1`,
@@ -747,20 +762,30 @@ async function appleNative(req: Request, res: Response): Promise<void> {
       await writeProductionLogin(res, existing.rows[0]);
       return;
     }
-    const username = `apple_${sub.slice(0, 8)}`;
+    if (!tokenEmail) {
+      throw new AppError(
+        "conflict",
+        "Apple did not provide an email for this new account. Remove Elix Star Live from Apple ID sign-in settings and try again.",
+        409,
+      );
+    }
+    const id = randomUUID();
+    const baseName =
+      suppliedName || tokenEmail.split("@")[0] || `apple_${createHash("sha256").update(sub).digest("hex").slice(0, 8)}`;
+    const username = `${baseName.replace(/[^a-zA-Z0-9_.]/g, "_").slice(0, 22)}_${id.slice(0, 6)}`;
+    const displayName = (suppliedName || username).slice(0, 48);
     const user = await withTransaction(async (client) => {
-      const id = randomUUID();
       await client.query(
         `INSERT INTO elix_auth_users
            (id, email, email_lower, username, display_name, apple_sub, email_confirmed_at, created_at)
-         VALUES ($1, $2, $3, $4, $4, $5, NOW(), NOW())`,
-        [id, email, normalizeEmail(email), username, sub],
+         VALUES ($1, $2, $3, $4, $5, $6, NOW(), NOW())`,
+        [id, email, normalizeEmail(email), username, displayName, sub],
       );
       await client.query(
         `INSERT INTO profiles (user_id, username, display_name, level, created_at, updated_at)
-         VALUES ($1, $2, $2, 0, NOW(), NOW())
+         VALUES ($1, $2, $3, 0, NOW(), NOW())
          ON CONFLICT (user_id) DO NOTHING`,
-        [id, username],
+        [id, username, displayName],
       );
       const loaded = await client.query<UserRow>(`${LIVE_AUTH_USER_SELECT} WHERE u.id = $1`, [id]);
       return loaded.rows[0];
@@ -777,13 +802,24 @@ async function appleNative(req: Request, res: Response): Promise<void> {
     await writeProductionLogin(res, existing.rows[0]);
     return;
   }
-  const username = `apple_${sub.slice(0, 8)}`;
+  if (!tokenEmail) {
+    throw new AppError(
+      "conflict",
+      "Apple did not provide an email for this new account. Remove Elix Star Live from Apple ID sign-in settings and try again.",
+      409,
+    );
+  }
+  const id = randomUUID();
+  const baseName =
+    suppliedName || tokenEmail.split("@")[0] || `apple_${createHash("sha256").update(sub).digest("hex").slice(0, 8)}`;
+  const username = `${baseName.replace(/[^a-zA-Z0-9_.]/g, "_").slice(0, 22)}_${id.slice(0, 6)}`;
+  const displayName = (suppliedName || username).slice(0, 48);
   const user = await withTransaction(async (client) => {
     const inserted = await client.query<UserRow>(
       `INSERT INTO users (email, email_normalized, username, username_normalized, display_name, apple_sub, email_confirmed_at)
-       VALUES ($1, $2, $3, $4, $3, $5, NOW())
+       VALUES ($1, $2, $3, $4, $5, $6, NOW())
        RETURNING id, email, username, display_name, avatar_url, bio, is_verified, is_admin, email_confirmed_at, created_at`,
-      [email, normalizeEmail(email), username, username.toLowerCase(), sub],
+      [email, normalizeEmail(email), username, username.toLowerCase(), displayName, sub],
     );
     const row = inserted.rows[0];
     await client.query(`INSERT INTO wallet_balances (user_id) VALUES ($1)`, [row.id]);

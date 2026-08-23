@@ -7,6 +7,7 @@ export const logger = pino({
       "password",
       "token",
       "authorization",
+      "idToken",
       "identityToken",
       "receipt",
       "secret",

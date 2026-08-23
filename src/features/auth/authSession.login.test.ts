@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { authGetMe, authLoginWithPassword, displayLoginError } from "./authSession";
+import { authAppleNative, authGetMe, authLoginWithPassword, displayLoginError } from "./authSession";
 
 vi.mock("@/lib/apiClient", () => ({
   apiRequest: vi.fn(),
@@ -189,5 +189,36 @@ describe("authGetMe", () => {
     });
     const result = await authGetMe();
     expect(result.ok).toBe(false);
+  });
+});
+
+describe("authAppleNative", () => {
+  beforeEach(() => {
+    apiRequestMock.mockReset();
+  });
+
+  it("posts the OLD production idToken body, never identityToken", async () => {
+    apiRequestMock.mockResolvedValue({
+      data: productionLoginBody,
+      error: null,
+    });
+    const result = await authAppleNative({
+      idToken: "apple-id-token-value-long-enough",
+      givenName: "Andrei",
+      familyName: "Berica",
+    });
+    expect(result.ok).toBe(true);
+    expect(apiRequestMock).toHaveBeenCalledWith("/api/auth/apple/native", {
+      method: "POST",
+      body: JSON.stringify({
+        idToken: "apple-id-token-value-long-enough",
+        givenName: "Andrei",
+        familyName: "Berica",
+      }),
+    });
+    const raw = String(apiRequestMock.mock.calls[0]?.[1]?.body ?? "");
+    expect(raw).toContain("idToken");
+    expect(raw).not.toContain("identityToken");
+    expect(raw).not.toContain("nonce");
   });
 });

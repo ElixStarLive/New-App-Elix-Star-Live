@@ -102,7 +102,7 @@ export const authSuccessSchema = z.object({
 
 export const productionLoginUserSchema = z.object({
   id: z.string().min(1),
-  email: z.string().min(1),
+  email: z.string(),
   user_metadata: z.object({
     username: z.string(),
     full_name: z.string(),
@@ -135,6 +135,11 @@ export const productionLoginSuccessSchema = z.object({
 
 export type ProductionLoginSuccess = z.infer<typeof productionLoginSuccessSchema>;
 
+function sessionEmailFromProduction(email: string, userId: string): string {
+  const trimmed = email.trim();
+  return sessionUserSchema.shape.email.safeParse(trimmed).success ? trimmed : `${userId}@users.invalid`;
+}
+
 export function sessionUserFromProductionLogin(data: ProductionLoginSuccess): SessionUser | null {
   const parsed = sessionUserSchema.safeParse({
     id: data.user.id,
@@ -145,7 +150,7 @@ export function sessionUserFromProductionLogin(data: ProductionLoginSuccess): Se
     isVerified: data.profile_meta.is_creator,
     followerCount: 0,
     followingCount: 0,
-    email: data.user.email,
+    email: sessionEmailFromProduction(data.user.email, data.user.id),
     isAdmin: data.profile_meta.is_admin,
     emailConfirmed: Boolean(data.user.email_confirmed_at),
   });
@@ -209,10 +214,11 @@ export const verifyEmailSuccessSchema = z.object({
   alreadyConfirmed: z.boolean(),
 });
 
+/** OLD production Apple native body. Owns the `idToken` field with optional name parts. */
 export const appleNativeBodySchema = z.object({
-  identityToken: z.string().min(10),
-  nonce: z.string().optional(),
-  totpCode: z.string().regex(/^\d{6}$/).optional(),
+  idToken: z.string().min(10),
+  givenName: z.string().trim().max(64).optional().nullable(),
+  familyName: z.string().trim().max(64).optional().nullable(),
 });
 
 export const deleteAccountBodySchema = z.object({

@@ -157,25 +157,32 @@ export const useAuthStore = create<AuthStore>()(
           await SocialLogin.initialize({
             apple: { clientId: "com.elixstarlive.app", redirectUrl: "", useProperTokenExchange: false },
           });
-          const res = await SocialLogin.login({
+          const state = globalThis.crypto.randomUUID();
+          const apple = await SocialLogin.login({
             provider: "apple",
-            options: { scopes: ["email", "name"] },
+            options: { scopes: ["email", "name"], state },
           });
-          const identityToken =
-            res.result && typeof res.result === "object" && "idToken" in res.result
-              ? String((res.result as { idToken?: unknown }).idToken ?? "")
-              : "";
-          if (!identityToken) return { error: "Apple sign-in did not return a token." };
-          const nonce =
-            res.result && typeof res.result === "object" && "nonce" in res.result
-              ? String((res.result as { nonce?: unknown }).nonce ?? "")
-              : undefined;
-          const parsed = await authAppleNative(identityToken, nonce || undefined);
+          const appleResult = apple.result;
+          if (!appleResult || typeof appleResult !== "object" || !("idToken" in appleResult) || !appleResult.idToken) {
+            return { error: "Apple did not return a valid identity token." };
+          }
+          const profile =
+            "profile" in appleResult && appleResult.profile && typeof appleResult.profile === "object"
+              ? (appleResult.profile as { givenName?: string | null; familyName?: string | null })
+              : {};
+          const parsed = await authAppleNative({
+            idToken: String(appleResult.idToken),
+            givenName: profile.givenName,
+            familyName: profile.familyName,
+          });
           if (!parsed.ok) return { error: parsed.error };
           isolateWalletAccount();
           set(applySession(parsed.token, parsed.user));
           return { error: null };
         } catch (err) {
+          const code =
+            err && typeof err === "object" && "code" in err ? String((err as { code?: unknown }).code ?? "") : "";
+          if (code === "USER_CANCELLED") return { error: "Apple sign-in cancelled." };
           return { error: err instanceof Error ? err.message : "Apple sign-in failed." };
         }
       },

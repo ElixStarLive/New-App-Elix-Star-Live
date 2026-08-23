@@ -215,13 +215,18 @@ export async function authResetPassword(
   return { ok: true };
 }
 
-export async function authAppleNative(
-  identityToken: string,
-  nonce?: string,
-): Promise<AuthLoginResult> {
+export async function authAppleNative(body: {
+  idToken: string;
+  givenName?: string | null;
+  familyName?: string | null;
+}): Promise<AuthLoginResult> {
   const { data, error } = await apiRequest<unknown>("/api/auth/apple/native", {
     method: "POST",
-    body: JSON.stringify({ identityToken, nonce }),
+    body: JSON.stringify({
+      idToken: body.idToken,
+      givenName: body.givenName,
+      familyName: body.familyName,
+    }),
   });
   if (error) return { ok: false, error: error.message || "Apple sign-in failed." };
   const parsed = parseProductionLogin(data);

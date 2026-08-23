@@ -33,6 +33,13 @@ describe("PAGE-001 Login ownership", () => {
     expect(router).toMatch(/writeProductionSession/);
     expect(router).toMatch(/access_token/);
     expect(router).toMatch(/Invalid login credentials\./);
+    expect(session).toMatch(/idToken/);
+    expect(session).not.toMatch(/identityToken,\s*nonce/);
+    expect(session).not.toMatch(/JSON\.stringify\(\{\s*identityToken/);
+    expect(contract).toMatch(/idToken/);
+    expect(contract).not.toMatch(/identityToken/);
+    expect(router).toMatch(/body\.idToken/);
+    expect(router).not.toMatch(/body\.identityToken/);
     expect(features).toMatch(/VITE_EMAIL_CONFIGURED/);
     expect(features).toMatch(/VITE_APPLE_SIGN_IN_ENABLED/);
   });

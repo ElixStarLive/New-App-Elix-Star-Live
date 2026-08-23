@@ -20,6 +20,7 @@ import {
   twoFactorStatusSchema,
   deviceTokenRegisterBodySchema,
   deviceTokenDeleteBodySchema,
+  appleNativeBodySchema,
 } from "./index.js";
 
 describe("contracts", () => {
@@ -337,6 +338,19 @@ describe("contracts", () => {
     expect(loginBodySchema.safeParse({ email: "andrei", password: "secret-password", totpCode: "123456" }).success).toBe(
       true,
     );
+    expect(
+      appleNativeBodySchema.safeParse({
+        idToken: "apple-id-token-value-long-enough",
+        givenName: "Andrei",
+        familyName: "Berica",
+      }).success,
+    ).toBe(true);
+    expect(
+      appleNativeBodySchema.safeParse({
+        identityToken: "apple-id-token-value-long-enough",
+      }).success,
+    ).toBe(false);
+    expect(appleNativeBodySchema.safeParse({ idToken: "short" }).success).toBe(false);
   });
 
   it("accepts only real device-token platforms and rejects empty tokens", () => {
