@@ -5,14 +5,8 @@ import { useAuthStore } from "@/store/useAuthStore";
 import { isAppleSignInEnabled, isPasswordResetEnabled } from "@/lib/authFeatures";
 import { useIsMountedRef } from "@/hooks/useIsMountedRef";
 import { AuthPasswordField } from "@/components/AuthPasswordField";
+import { isAbortLike } from "@/features/auth/abortLike";
 
-function isAbortLike(err: unknown): boolean {
-  if (err instanceof DOMException && err.name === "AbortError") return true;
-  if (!err || typeof err !== "object") return false;
-  const rec = err as { name?: unknown; message?: unknown };
-  if (rec.name === "AbortError") return true;
-  return typeof rec.message === "string" && rec.message.toLowerCase().includes("aborted");
-}
 const REMEMBER_EMAIL_KEY = "login_saved_email";
 const REMEMBER_FLAG_KEY = "login_save_details";
 const LEGACY_PASSWORD_KEY = "login_saved_password";

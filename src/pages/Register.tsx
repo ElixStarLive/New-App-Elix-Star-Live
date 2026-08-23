@@ -5,6 +5,7 @@ import { useAuthStore } from "@/store/useAuthStore";
 import { useIsMountedRef } from "@/hooks/useIsMountedRef";
 import { AuthPasswordField } from "@/components/AuthPasswordField";
 import { authSaveConsent } from "@/features/auth/authSession";
+import { isAbortLike } from "@/features/auth/abortLike";
 import { showToast } from "@/lib/toast";
 import { containerReturnState } from "@/lib/settingsNav";
 import { REGISTER_WELCOME_STARTER } from "@shared/contracts";
@@ -96,8 +97,7 @@ export default function Register() {
       navigate(from, { replace: true });
     } catch (err) {
       if (!isMounted.current) return;
-      const message = err instanceof Error ? err.message : "";
-      if (err instanceof Error && (err.name === "AbortError" || message.toLowerCase().includes("aborted"))) {
+      if (isAbortLike(err)) {
         submitLock.current = false;
         setIsSubmitting(false);
         return;
