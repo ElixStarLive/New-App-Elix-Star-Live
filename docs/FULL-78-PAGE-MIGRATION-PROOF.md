@@ -153,7 +153,7 @@ All 78 rows below are **NOT VERIFIED** until a page completes the full gate with
 
 - **Fixed:** restored ChatThread session/merge/links owners (locked UI preserved from approved NEW tree).
 - **Tests:** page033Ownership + chatThread session/merge/links ? **13 passed**
-- **Commit:** *(pending)*
+- **Commit:** `84c1aab`
 
 ## PAGE-030 Inbox
 
