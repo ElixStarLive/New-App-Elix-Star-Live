@@ -1,0 +1,51 @@
+import { readFileSync } from "node:fs";
+import { resolve } from "node:path";
+import { describe, expect, it } from "vitest";
+
+const walletApi = readFileSync(resolve(process.cwd(), "src/features/wallet/walletApi.ts"), "utf8");
+const testApi = readFileSync(resolve(process.cwd(), "src/features/wallet/testCoinsApi.ts"), "utf8");
+const store = readFileSync(resolve(process.cwd(), "src/store/useWalletStore.ts"), "utf8");
+const testStore = readFileSync(resolve(process.cwd(), "src/store/useTestCoinsStore.ts"), "utf8");
+const walletRouter = readFileSync(resolve(process.cwd(), "server/modules/wallet/router.ts"), "utf8");
+const ledger = readFileSync(resolve(process.cwd(), "server/modules/wallet/ledger.ts"), "utf8");
+const iapCredit = readFileSync(resolve(process.cwd(), "server/modules/iap/credit.ts"), "utf8");
+const index = readFileSync(resolve(process.cwd(), "server/index.ts"), "utf8");
+const live = readFileSync(resolve(process.cwd(), "src/features/live/LiveRoomScreen.tsx"), "utf8");
+const hub = readFileSync(resolve(process.cwd(), "src/pages/engagement/EngagementHub.tsx"), "utf8");
+const iapApi = readFileSync(resolve(process.cwd(), "src/features/iap/iapApi.ts"), "utf8");
+const gifts = readFileSync(resolve(process.cwd(), "server/modules/gifts/router.ts"), "utf8");
+
+describe("PAGE-039 wallet ownership", () => {
+  it("owns one money wallet and a separate Valkey test-coin contract", () => {
+    expect(walletApi).toMatch(/\/api\/wallet/);
+    expect(walletApi).toMatch(/coin_balance/);
+    expect(walletApi).toMatch(/starter_balance/);
+    expect(walletApi).toMatch(/promotional_balance/);
+    expect(walletApi).not.toMatch(/\/api\/test-coins/);
+    expect(walletApi).not.toMatch(/paidCoins \+ starterCoins \+ promoCoins/);
+    expect(testApi).toMatch(/\/api\/test-coins\/balance/);
+    expect(store).not.toMatch(/testCoins/);
+    expect(store).toMatch(/status: "error"/);
+    expect(store).not.toMatch(/paidCoins: 0/);
+    expect(testStore).toMatch(/\/api\/test-coins|apiFetchTestCoinsBalance/);
+    expect(walletRouter).toMatch(/coin_balance|walletApiFromRow/);
+    expect(walletRouter).not.toMatch(/test-coins|testCoins|test_coins/);
+    expect(ledger).toMatch(/Test coins are not wallet money/);
+    expect(ledger).not.toMatch(/test_coins/);
+    expect(iapCredit).toMatch(/bucket: "paid"/);
+    expect(iapCredit).not.toMatch(/testCoins/);
+    expect(index).toMatch(/\/api\/test-coins/);
+    expect(index).not.toMatch(/WalletV2|walletFixed/);
+    expect(live).toMatch(/useWalletStore/);
+    expect(live).toMatch(/useTestCoinsStore/);
+    expect(hub).toMatch(/apiEngagementHub/);
+    expect(hub).not.toMatch(/useWalletStore|\/api\/wallet/);
+    expect(hub).not.toMatch(/paidCoins \+|starterCoins \+|promoCoins \+/);
+    expect(iapApi).toMatch(/fetchWallet/);
+    expect(iapApi).not.toMatch(/testCoins/);
+    expect(gifts).not.toMatch(/router\.get\("\/wallet"/);
+    expect(gifts).toMatch(/debitTestCoinBalance/);
+    expect(store).not.toMatch(/setTimeout\(|location\.reload|localStorage/);
+    expect(walletApi).not.toMatch(/setTimeout\(|location\.reload/);
+  });
+});

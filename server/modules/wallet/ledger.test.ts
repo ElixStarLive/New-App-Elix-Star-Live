@@ -19,7 +19,6 @@ function fakeClient(state: {
               paid_coins: String(state.paid),
               promo_coins: "0",
               starter_coins: "0",
-              test_coins: "0",
             },
           ],
         };
@@ -74,5 +73,18 @@ describe("wallet ledger", () => {
       idempotencyKey: "k2",
     });
     expect(result.balanceAfter).toBe(500);
+  });
+
+  it("refuses the test bucket so Valkey remains the only test-coin authority", async () => {
+    const client = fakeClient({ paid: 100, seen: new Set() });
+    await expect(
+      applyWalletDelta(client as never, {
+        userId: "u1",
+        bucket: "test",
+        delta: 25,
+        reason: "test_coin_mint",
+        idempotencyKey: "k-test",
+      }),
+    ).rejects.toMatchObject({ code: "validation_error" });
   });
 });

@@ -1,74 +1,127 @@
 import { create } from "zustand";
-import type { WalletBalance } from "@shared/contracts";
+import type { WalletMoneyBalances } from "@shared/contracts";
 import { apiFetchWallet } from "@/features/wallet/walletApi";
+import { useAuthStore } from "@/store/useAuthStore";
+
+export type WalletSurfaceStatus = "idle" | "loading" | "ready" | "error";
 
 type WalletState = {
-  paidCoins: number;
-  promoCoins: number;
-  starterCoins: number;
-  testCoins: number;
+  accountId: string | null;
+  paidCoins: number | null;
+  promoCoins: number | null;
+  starterCoins: number | null;
+  status: WalletSurfaceStatus;
   lastFetchedAt: number | null;
-  isLoading: boolean;
   lastError: string | null;
+  fetchGeneration: number;
   fetchWallet: () => Promise<{ ok: boolean; error: string | null }>;
-  applyServerBalances: (partial: Partial<WalletBalance>) => void;
-  setTestCoins: (amount: number) => void;
+  applyServerBalances: (partial: Partial<WalletMoneyBalances>) => void;
   clear: () => void;
 };
 
-function applyBalances(current: WalletState, partial: Partial<WalletBalance>): Pick<
-  WalletState,
-  "paidCoins" | "promoCoins" | "starterCoins" | "testCoins" | "lastFetchedAt"
-> {
+function emptyMoney(): Pick<WalletState, "paidCoins" | "promoCoins" | "starterCoins" | "lastFetchedAt" | "lastError"> {
   return {
-    paidCoins: partial.paidCoins ?? current.paidCoins,
-    promoCoins: partial.promoCoins ?? current.promoCoins,
-    starterCoins: partial.starterCoins ?? current.starterCoins,
-    testCoins: partial.testCoins ?? current.testCoins,
-    lastFetchedAt: Date.now(),
+    paidCoins: null,
+    promoCoins: null,
+    starterCoins: null,
+    lastFetchedAt: null,
+    lastError: null,
   };
 }
 
 export const useWalletStore = create<WalletState>((set, get) => ({
-  paidCoins: 0,
-  promoCoins: 0,
-  starterCoins: 0,
-  testCoins: 0,
+  accountId: null,
+  paidCoins: null,
+  promoCoins: null,
+  starterCoins: null,
+  status: "idle",
   lastFetchedAt: null,
-  isLoading: false,
   lastError: null,
+  fetchGeneration: 0,
 
   fetchWallet: async () => {
-    set({ isLoading: true, lastError: null });
-    const { balances, error } = await apiFetchWallet();
-    if (error || !balances) {
-      set({ isLoading: false, lastError: error || "Wallet fetch failed" });
-      return { ok: false, error: error || "Wallet fetch failed" };
+    const accountId = useAuthStore.getState().user?.id ?? null;
+    if (!accountId) {
+      set({
+        ...emptyMoney(),
+        accountId: null,
+        status: "idle",
+        fetchGeneration: get().fetchGeneration + 1,
+      });
+      return { ok: false, error: "Sign in required" };
+    }
+    const generation = get().fetchGeneration + 1;
+    set({
+      accountId,
+      status: "loading",
+      lastError: null,
+      fetchGeneration: generation,
+    });
+    const result = await apiFetchWallet();
+    if (get().fetchGeneration !== generation) {
+      return { ok: false, error: "stale" };
+    }
+    if (useAuthStore.getState().user?.id !== accountId) {
+      return { ok: false, error: "stale" };
+    }
+    if (result.status === 401) {
+      set({
+        ...emptyMoney(),
+        accountId: null,
+        status: "error",
+        lastError: result.error,
+      });
+      void useAuthStore.getState().checkUser();
+      return { ok: false, error: result.error };
+    }
+    if (result.error || !result.balances) {
+      set({
+        status: "error",
+        lastError: result.error || "Wallet fetch failed",
+      });
+      return { ok: false, error: result.error || "Wallet fetch failed" };
     }
     set({
-      ...applyBalances(get(), balances),
-      isLoading: false,
+      accountId,
+      paidCoins: result.balances.paidCoins,
+      promoCoins: result.balances.promoCoins,
+      starterCoins: result.balances.starterCoins,
+      status: "ready",
+      lastFetchedAt: Date.now(),
       lastError: null,
     });
     return { ok: true, error: null };
   },
 
   applyServerBalances: (partial) => {
-    set((s) => applyBalances(s, partial));
-  },
-
-  setTestCoins: (amount) => {
-    set({ testCoins: Math.max(0, Math.floor(amount)) });
+    const accountId = useAuthStore.getState().user?.id ?? null;
+    if (!accountId) return;
+    if (get().accountId && get().accountId !== accountId) return;
+    set((s) => ({
+      accountId,
+      paidCoins:
+        partial.paidCoins != null && Number.isFinite(partial.paidCoins)
+          ? Math.max(0, Math.trunc(partial.paidCoins))
+          : s.paidCoins,
+      promoCoins:
+        partial.promoCoins != null && Number.isFinite(partial.promoCoins)
+          ? Math.max(0, Math.trunc(partial.promoCoins))
+          : s.promoCoins,
+      starterCoins:
+        partial.starterCoins != null && Number.isFinite(partial.starterCoins)
+          ? Math.max(0, Math.trunc(partial.starterCoins))
+          : s.starterCoins,
+      status: "ready",
+      lastFetchedAt: Date.now(),
+      lastError: null,
+    }));
   },
 
   clear: () =>
     set({
-      paidCoins: 0,
-      promoCoins: 0,
-      starterCoins: 0,
-      testCoins: 0,
-      lastFetchedAt: null,
-      isLoading: false,
-      lastError: null,
+      ...emptyMoney(),
+      accountId: null,
+      status: "idle",
+      fetchGeneration: get().fetchGeneration + 1,
     }),
 }));

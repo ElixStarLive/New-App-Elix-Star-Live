@@ -1,32 +1,43 @@
-import { walletBalanceSchema, type WalletBalance } from "@shared/contracts";
+import { walletBalanceSchema, type WalletMoneyBalances } from "@shared/contracts";
 import { apiRequest } from "@/lib/apiClient";
 import { isRecord } from "@/lib/isRecord";
 
-export async function apiFetchWallet(): Promise<{
-  balances: WalletBalance | null;
-  error: string | null;
-}> {
-  const { data, error } = await apiRequest<unknown>("/api/wallet");
-  if (error) return { balances: null, error: error.message || "Wallet fetch failed" };
-  const direct = walletBalanceSchema.safeParse(data);
-  if (direct.success) return { balances: direct.data, error: null };
-  if (!isRecord(data)) return { balances: null, error: "Wallet response missing paid balance" };
-  const nested = walletBalanceSchema.safeParse(data.balances ?? data.wallet);
-  if (!nested.success) return { balances: null, error: "Wallet response missing paid balance" };
-  return { balances: nested.data, error: null };
+export type WalletFetchResult =
+  | { balances: WalletMoneyBalances; error: null; status: number }
+  | { balances: null; error: string; status: number };
+
+function sameInt(a: number, b: number): boolean {
+  return a === b;
 }
 
-export async function apiIssueTestCoins(password: string, amount: number): Promise<{
-  testCoins: number | null;
-  error: string | null;
-}> {
-  const { data, error } = await apiRequest<unknown>("/api/wallet/test-coins", {
-    method: "POST",
-    body: JSON.stringify({ password, amount }),
-  });
-  if (error) return { testCoins: null, error: error.message };
-  if (!isRecord(data) || typeof data.testCoins !== "number") {
-    return { testCoins: null, error: "Test coins were not issued" };
+/** Single GET /api/wallet normalizer. Missing paid/starter/promo is an error, never 0. */
+export function parseWalletResponse(data: unknown): WalletMoneyBalances | null {
+  const parsed = walletBalanceSchema.safeParse(data);
+  if (!parsed.success) return null;
+  if (!sameInt(parsed.data.starter_balance, parsed.data.starter_coins)) return null;
+  if (!sameInt(parsed.data.promotional_balance, parsed.data.promotional_coins)) return null;
+  if (isRecord(data) && (data.testCoins != null || data.test_coins != null || data.test_balance != null)) {
+    return null;
   }
-  return { testCoins: data.testCoins, error: null };
+  return {
+    paidCoins: parsed.data.coin_balance,
+    starterCoins: parsed.data.starter_balance,
+    promoCoins: parsed.data.promotional_balance,
+  };
+}
+
+export async function apiFetchWallet(): Promise<WalletFetchResult> {
+  const { data, error } = await apiRequest<unknown>("/api/wallet");
+  if (error) {
+    return {
+      balances: null,
+      error: error.message || "Wallet fetch failed",
+      status: error.status,
+    };
+  }
+  const balances = parseWalletResponse(data);
+  if (!balances) {
+    return { balances: null, error: "Invalid wallet response", status: 200 };
+  }
+  return { balances, error: null, status: 200 };
 }
