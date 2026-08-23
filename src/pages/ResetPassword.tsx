@@ -100,7 +100,7 @@ export default function ResetPassword() {
                 placeholder="••••••••"
                 autoComplete="new-password"
                 required
-                minLength={8}
+                minLength={6}
               />
             </div>
           </div>
@@ -117,7 +117,7 @@ export default function ResetPassword() {
                 placeholder="••••••••"
                 autoComplete="new-password"
                 required
-                minLength={8}
+                minLength={6}
               />
             </div>
           </div>

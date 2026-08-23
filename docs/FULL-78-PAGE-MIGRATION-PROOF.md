@@ -10,7 +10,7 @@
 | PAGE-002 | YES | YES | YES | PASS | PASS | PASS | `d636117` |
 | PAGE-003 | YES | YES | YES | PASS | PASS | PASS | `5be73da` |
 | PAGE-004 | YES | YES | YES | PASS | PASS | PASS | `85014e1` |
-| PAGE-005 | NO | NO | NO | — | — | — | — |
+| PAGE-005 | YES | YES | YES | PASS | PASS | PASS | pending |
 | PAGE-006 | NO | NO | NO | — | — | — | — |
 | PAGE-007 | NO | NO | NO | — | — | — | — |
 | PAGE-008 | NO | NO | NO | — | — | — | — |
@@ -84,6 +84,13 @@
 | PAGE-076 | NO | NO | NO | — | — | — | — |
 | PAGE-077 | NO | NO | NO | — | — | — | — |
 | PAGE-078 | NO | NO | NO | — | — | — | — |
+
+## PAGE-005 evidence
+
+- **OLD inspected:** `Elix Star Live/src/pages/ResetPassword.tsx`, `handleResetPassword`.
+- **NEW inspected:** `src/pages/ResetPassword.tsx`, `applyPasswordReset` + `POST /api/auth/reset-password`.
+- **Gaps fixed:** remove invented `elix-page-glass` / `min-h-[100dvh]`; HTML `minLength={6}` matches OLD (JS still enforces ≥8).
+- **Aligned:** token required; match confirm; success → login after 3s; server deletes sessions + disconnect sockets; `{ success: true }`.
 
 ## PAGE-004 evidence
 
