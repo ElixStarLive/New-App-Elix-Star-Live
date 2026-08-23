@@ -9,6 +9,7 @@ import { valkeyTrySetNx } from "../../infra/valkey.js";
 import { viewerCount } from "../../websocket/presence.js";
 import { isSeatedCohost } from "../cohost/runtime.js";
 import { publishRoom } from "../battle/runtime.js";
+import { queryLiveStatus } from "./status.js";
 
 const router = Router();
 
@@ -50,6 +51,18 @@ router.get("/streams", async (req: AuthedRequest, res) => {
         startedAt: row.started_at.toISOString(),
       })),
     ),
+  });
+});
+
+/** Authoritative live status for For You inline preview (must be before /:streamId). */
+router.get("/status", requireAuth, async (req: AuthedRequest, res) => {
+  res.setHeader("Cache-Control", "private, no-store");
+  const room = typeof req.query.room === "string" ? req.query.room : "";
+  const status = await queryLiveStatus(req.userId as string, room);
+  res.json({
+    room: status.room,
+    active: status.active,
+    host_user_id: status.hostUserId,
   });
 });
 

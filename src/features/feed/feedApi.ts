@@ -438,13 +438,35 @@ export async function apiLiveToken(
 ): Promise<{
   token: LiveTokenResponse | null;
   error: string | null;
+  status?: number;
 }> {
   const qs = `?roomId=${encodeURIComponent(roomId)}&role=${encodeURIComponent(role)}`;
   const { data, error } = await apiRequest<unknown>(`/api/live/token${qs}`);
-  if (error) return { token: null, error: error.message };
+  if (error) return { token: null, error: error.message, status: error.status };
   const parsed = liveTokenResponseSchema.safeParse(data);
   if (!parsed.success) return { token: null, error: "Invalid live token" };
   return { token: parsed.data, error: null };
+}
+
+export type LiveStatus = {
+  room: string;
+  active: boolean;
+  hostUserId?: string;
+};
+
+/** GET /api/live/status?room= — authoritative active flag for For You live cards. */
+export async function apiLiveStatus(room: string): Promise<{
+  status: LiveStatus | null;
+  error: string | null;
+}> {
+  const qs = `room=${encodeURIComponent(room)}`;
+  const { data, error } = await apiRequest<unknown>(`/api/live/status?${qs}`);
+  if (error) return { status: null, error: error.message };
+  if (!isRecord(data)) return { status: null, error: "Invalid live status" };
+  const resolvedRoom = typeof data.room === "string" ? data.room : room;
+  const active = Boolean(data.active);
+  const hostUserId = typeof data.host_user_id === "string" ? data.host_user_id : undefined;
+  return { status: { room: resolvedRoom, active, hostUserId }, error: null };
 }
 
 export async function apiLiveEnd(streamId: string): Promise<{ ok: true } | { ok: false; error: string }> {
