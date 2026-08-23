@@ -1,0 +1,63 @@
+import { readFileSync } from "node:fs";
+import { resolve } from "node:path";
+import { describe, expect, it } from "vitest";
+
+const app = readFileSync(resolve(process.cwd(), "src/App.tsx"), "utf8");
+const page = readFileSync(resolve(process.cwd(), "src/pages/VideoCall.tsx"), "utf8");
+const session = readFileSync(resolve(process.cwd(), "src/features/calls/videoCallSession.ts"), "utf8");
+const token = readFileSync(resolve(process.cwd(), "src/features/calls/callToken.ts"), "utf8");
+const signaling = readFileSync(resolve(process.cwd(), "server/modules/calls/signaling.ts"), "utf8");
+const callToken = readFileSync(resolve(process.cwd(), "server/modules/calls/token.ts"), "utf8");
+const routes = readFileSync(resolve(process.cwd(), "server/modules/app/clientRoutes.ts"), "utf8");
+const ws = readFileSync(resolve(process.cwd(), "server/websocket/index.ts"), "utf8");
+const clientWs = readFileSync(resolve(process.cwd(), "src/lib/wsClient.ts"), "utf8");
+const thread = readFileSync(resolve(process.cwd(), "src/pages/ChatThread.tsx"), "utf8");
+const modal = readFileSync(resolve(process.cwd(), "src/components/IncomingCallModal.tsx"), "utf8");
+const liveToken = readFileSync(resolve(process.cwd(), "server/modules/live/token.ts"), "utf8");
+
+describe("PAGE-034 Video Call ownership", () => {
+  it("owns /call with one WS + LiveKit session and no REST start", () => {
+    expect(app.match(/path="\/call"/g)?.length).toBe(1);
+    expect(app).toMatch(/path="\/call" element=\{<VideoCall \/>\}/);
+    expect(app).toMatch(/bindVideoCallSignals/);
+    expect(app).toMatch(/endActiveCall/);
+    expect(app).not.toMatch(/\/live\/broadcast" \|\| path === "\/call"/);
+    expect(page).toMatch(/acceptIncomingCall/);
+    expect(page).toMatch(/endActiveCall/);
+    expect(page).toMatch(/apiFetchCallToken/);
+    expect(page).toMatch(/LiveKitSession/);
+    expect(page).toMatch(/absolute top-20 right-4 w-28 h-40 rounded-2xl/);
+    expect(page).toMatch(/bg-\[#EF4444\]/);
+    expect(page).toMatch(/bg-\[#22C55E\]/);
+    expect(page).toMatch(/status === "incoming"/);
+    expect(page).not.toMatch(/new WebSocket|VideoCallOld|VideoCallNew|VideoCallV2|VideoCallFixed|location\.reload|threadId \|\||roomId \|\||userId \|\|/);
+    expect(page).not.toMatch(/\/api\/calls\/start/);
+    expect(session).toMatch(/wsClient\.send\("call_invite"/);
+    expect(session).toMatch(/wsClient\.send\("call_accepted"/);
+    expect(session).toMatch(/wsClient\.send\("call_rejected"/);
+    expect(session).toMatch(/wsClient\.send\("call_ended"/);
+    expect(session).not.toMatch(/new WebSocket|setTimeout|location\.reload|\/api\/calls\/start/);
+    expect(token).not.toMatch(/\/api\/calls\/start/);
+    expect(token).toMatch(/\/api\/calls\/\$\{encodeURIComponent\(callId\)\}\/token/);
+    expect(signaling).toMatch(/handleCallSignal/);
+    expect(signaling).toMatch(/reason: "blocked"/);
+    expect(signaling).toMatch(/room_name/);
+    expect(signaling).not.toMatch(/new Map\(|globalThis|INSERT INTO live_streams/);
+    expect(callToken).toMatch(/canPublish: true/);
+    expect(callToken).toMatch(/ttl: "1h"/);
+    expect(routes).toMatch(/issueCallToken/);
+    expect(routes).not.toMatch(/callsRouter\.post\("\/start"/);
+    expect(ws).toMatch(/handleCallSignal/);
+    expect(ws).toMatch(/export async function sendToUserGlobal/);
+    expect(clientWs).toMatch(/export const wsClient = new WsClient/);
+    expect(thread).toMatch(/startOutgoingCall/);
+    expect(thread).not.toMatch(/apiStartCall/);
+    expect(liveToken).not.toMatch(/call_/);
+  });
+
+  it("does not implement PAGE-035 Incoming Call Modal", () => {
+    expect(page).not.toMatch(/IncomingCallModal/);
+    expect(session).not.toMatch(/IncomingCallModal/);
+    expect(modal).toMatch(/Incoming video call/);
+  });
+});
