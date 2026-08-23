@@ -153,6 +153,30 @@ describe("PAGE-001 Login", () => {
     expect(page.textContent).toContain("root-destination");
   });
 
+  it("persists remembered email even if login unmounts after success", async () => {
+    signInWithPassword.mockImplementation(async () => {
+      act(() => {
+        root?.unmount();
+      });
+      return { error: null };
+    });
+    const mounted = renderLogin();
+    root = mounted.root;
+    container = mounted.container;
+    const page = mounted.container;
+    fillCredentials(page, "keep-after-unmount", "secret-password");
+    const remember = page.querySelector('input[type="checkbox"]') as HTMLInputElement;
+    act(() => {
+      remember.click();
+    });
+    await act(async () => {
+      submitForm(page);
+    });
+    expect(window.localStorage.getItem("login_saved_email")).toBe("keep-after-unmount");
+    expect(window.localStorage.getItem("login_save_details")).toBe("true");
+    expect(window.localStorage.getItem("login_saved_password")).toBeNull();
+  });
+
   it("stores only email when remember is checked after success", async () => {
     signInWithPassword.mockResolvedValue({ error: null });
     const mounted = renderLogin();

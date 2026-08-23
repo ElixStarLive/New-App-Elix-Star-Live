@@ -70,6 +70,9 @@ export default function Login() {
     setIsSubmitting(true);
     try {
       const res = await signInWithPassword(email.trim(), password);
+      if (!res.error) {
+        persistRememberedEmail(saveDetails, email.trim());
+      }
       if (!isMounted.current) return;
       if (res.error) {
         submitLock.current = false;
@@ -94,6 +97,9 @@ export default function Login() {
     setIsSubmitting(true);
     try {
       const { error: err } = await signInWithApple();
+      if (!err) {
+        persistRememberedEmail(saveDetails, email.trim());
+      }
       if (!isMounted.current) return;
       if (err) {
         submitLock.current = false;
