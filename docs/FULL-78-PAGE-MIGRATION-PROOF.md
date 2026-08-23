@@ -46,7 +46,7 @@ All 78 rows below are **NOT VERIFIED** until a page completes the full gate with
 | PAGE-029 | YES | YES | YES | PASS | PASS | PASS | `64a2aa5` |
 | PAGE-030 | YES | YES | YES | PASS | PASS | PASS | `02ac3c8` |
 | PAGE-031 | YES | YES | YES | PASS | PASS | PASS | `14c2473` |
-| PAGE-032 | NOT VERIFIED | NOT VERIFIED | NOT VERIFIED | NOT VERIFIED | NOT VERIFIED | NOT VERIFIED | — |
+| PAGE-032 | YES | YES | YES | PASS | PASS | PASS | `8542edb` |
 | PAGE-033 | NOT VERIFIED | NOT VERIFIED | NOT VERIFIED | NOT VERIFIED | NOT VERIFIED | NOT VERIFIED | — |
 | PAGE-034 | NOT VERIFIED | NOT VERIFIED | NOT VERIFIED | NOT VERIFIED | NOT VERIFIED | NOT VERIFIED | — |
 | PAGE-035 | NOT VERIFIED | NOT VERIFIED | NOT VERIFIED | NOT VERIFIED | NOT VERIFIED | NOT VERIFIED | — |
@@ -186,8 +186,15 @@ All 78 rows below are **NOT VERIFIED** until a page completes the full gate with
 - **Runtime activity API:** **BLOCKED** — local API DOWN
 - **Commit:** `14c2473`
 
+## PAGE-032 Alerts
+
+- **Fixed:** `alertsSession.load` clears prior viewer rows on account switch; Alerts page shows spinner for idle/loading instead of blank.
+- **Tests:** `src/pages/alerts/` + `src/features/alerts/` → **14 passed / 0 failed**
+- **Runtime notifications API:** **BLOCKED** — local API DOWN
+- **Commit:** `8542edb`
+
 ## Release blockers (remaining)
 
-1. PAGE-007→026 and PAGE-032→078 not completed under this gate.
+1. PAGE-007→026 and PAGE-033→078 not completed under this gate.
 2. Live HTTP E2E blocked while local API is down.
 3. Full production build / device gates still open for later pages.
