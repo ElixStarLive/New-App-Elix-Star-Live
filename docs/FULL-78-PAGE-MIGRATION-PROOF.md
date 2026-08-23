@@ -1,4 +1,4 @@
-# FULL 78-PAGE MIGRATION PROOF
+﻿# FULL 78-PAGE MIGRATION PROOF
 
 **Authority:** Owner orders 2026-08-23.  
 **Verdict status:** **NOT READY FOR RELEASE**  
@@ -19,7 +19,7 @@ All 78 rows below are **NOT VERIFIED** until a page completes the full gate with
 | PAGE-002 | YES | YES | YES | PASS | PASS | PASS | `79ec0ee` |
 | PAGE-003 | YES | YES | YES | PASS | PASS | PASS | `39d04b9` |
 | PAGE-004 | YES | YES | YES | PASS | PASS | PASS | `0e7aaf3` |
-| PAGE-005 | NOT VERIFIED | NOT VERIFIED | NOT VERIFIED | NOT VERIFIED | NOT VERIFIED | NOT VERIFIED | — |
+| PAGE-005 | YES | YES | YES | PASS | PASS | PASS | — |
 | PAGE-006 | NOT VERIFIED | NOT VERIFIED | NOT VERIFIED | NOT VERIFIED | NOT VERIFIED | NOT VERIFIED | — |
 | PAGE-007 | NOT VERIFIED | NOT VERIFIED | NOT VERIFIED | NOT VERIFIED | NOT VERIFIED | NOT VERIFIED | — |
 | PAGE-008 | NOT VERIFIED | NOT VERIFIED | NOT VERIFIED | NOT VERIFIED | NOT VERIFIED | NOT VERIFIED | — |
@@ -41,7 +41,7 @@ All 78 rows below are **NOT VERIFIED** until a page completes the full gate with
 | PAGE-024 | NOT VERIFIED | NOT VERIFIED | NOT VERIFIED | NOT VERIFIED | NOT VERIFIED | NOT VERIFIED | — |
 | PAGE-025 | NOT VERIFIED | NOT VERIFIED | NOT VERIFIED | NOT VERIFIED | NOT VERIFIED | NOT VERIFIED | — |
 | PAGE-026 | NOT VERIFIED | NOT VERIFIED | NOT VERIFIED | NOT VERIFIED | NOT VERIFIED | NOT VERIFIED | — |
-| PAGE-027 | NOT VERIFIED | NOT VERIFIED | NOT VERIFIED | NOT VERIFIED | NOT VERIFIED | NOT VERIFIED | — |
+| PAGE-027 | YES | YES | YES | PASS | PASS | PASS | `e56fcf7` |
 | PAGE-028 | NOT VERIFIED | NOT VERIFIED | NOT VERIFIED | NOT VERIFIED | NOT VERIFIED | NOT VERIFIED | — |
 | PAGE-029 | NOT VERIFIED | NOT VERIFIED | NOT VERIFIED | NOT VERIFIED | NOT VERIFIED | NOT VERIFIED | — |
 | PAGE-030 | NOT VERIFIED | NOT VERIFIED | NOT VERIFIED | NOT VERIFIED | NOT VERIFIED | NOT VERIFIED | — |
@@ -137,8 +137,22 @@ All 78 rows below are **NOT VERIFIED** until a page completes the full gate with
 - **Runtime forgot:** **BLOCKED** — local API DOWN
 - **Commit:** `0e7aaf3`
 
+## PAGE-005 ResetPassword
+
+- **Fixed:** AbortError via shared `isAbortLike`.
+- **Tests:** ResetPassword + authSession.reset → **10/10 PASS**
+- **Runtime reset:** **BLOCKED** — local API DOWN
+- **Commit:** (this commit)
+
+## PAGE-027 Followers
+
+- **Fixed:** loading/idle always shows spinner (match OLD; no blank first paint / no stale rows under load); session clears rows when owner id changes so A→B failure cannot show A; follow failure toast uses stable `Could not update follow`.
+- **Tests:** `npx vitest run src/pages/Followers.test.tsx src/features/profile/followersSession.test.ts src/features/profile/followersApi.test.ts src/features/profile/page027Ownership.test.ts` → **16 passed / 0 failed**
+- **Runtime GET followers:** **BLOCKED** — local API DOWN (not re-checked this page)
+- **Commit:** `e56fcf7`
+
 ## Release blockers (remaining)
 
-1. PAGE-002→078 not completed under this gate.
-2. Live HTTP login E2E blocked while local API is down.
+1. PAGE-006→026 and PAGE-028→078 not completed under this gate.
+2. Live HTTP E2E blocked while local API is down.
 3. Full production build / device gates still open for later pages.
