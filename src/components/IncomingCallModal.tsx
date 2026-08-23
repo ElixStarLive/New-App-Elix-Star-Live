@@ -1,13 +1,13 @@
 import { useCallback, useEffect } from "react";
-import { useNavigate } from "react-router-dom";
+import { useLocation, useNavigate } from "react-router-dom";
 import { Phone, PhoneOff } from "lucide-react";
+import { AvatarRing } from "@/components/AvatarRing";
+import { acceptIncomingCall, rejectIncomingCall } from "@/features/calls/videoCallSession";
 import { useCallStore } from "@/store/useCallStore";
-import { apiCallAction } from "@/features/calls/callApi";
-import { AvatarRing } from "./AvatarRing";
-import { showToast } from "@/lib/toast";
 
 export function IncomingCallModal() {
   const navigate = useNavigate();
+  const location = useLocation();
   const { callId, status, remoteUser } = useCallStore();
 
   const goCall = useCallback(() => navigate("/call"), [navigate]);
@@ -16,22 +16,17 @@ export function IncomingCallModal() {
     if (status === "connecting" && callId) goCall();
   }, [status, callId, goCall]);
 
+  // Hide overlay once the call screen owns the session (logic only; locked chrome unchanged).
+  if (location.pathname === "/call") return null;
   if (status !== "incoming" || !callId || !remoteUser) return null;
 
-  const handleAccept = async () => {
-    const result = await apiCallAction(callId, "accept");
-    if (!result.ok) {
-      showToast(result.error);
-      return;
-    }
-    useCallStore.getState().setConnecting();
-    goCall();
+  const handleAccept = () => {
+    const result = acceptIncomingCall(callId);
+    if (result.ok) goCall();
   };
 
-  const handleReject = async () => {
-    const result = await apiCallAction(callId, "reject");
-    if (!result.ok) showToast(result.error);
-    useCallStore.getState().reset();
+  const handleDecline = () => {
+    rejectIncomingCall(callId);
   };
 
   return (
@@ -43,7 +38,7 @@ export function IncomingCallModal() {
         <div className="flex items-center justify-center gap-12">
           <button
             type="button"
-            onClick={() => void handleReject()}
+            onClick={handleDecline}
             title="Decline call"
             aria-label="Decline call"
             className="elix-solid-red w-16 h-16 rounded-full bg-[#EF4444] flex items-center justify-center shadow-lg active:scale-95 transition-transform"
@@ -52,7 +47,7 @@ export function IncomingCallModal() {
           </button>
           <button
             type="button"
-            onClick={() => void handleAccept()}
+            onClick={handleAccept}
             title="Accept call"
             aria-label="Accept call"
             className="w-16 h-16 rounded-full bg-[#22C55E] flex items-center justify-center shadow-lg active:scale-95 transition-transform animate-pulse"
