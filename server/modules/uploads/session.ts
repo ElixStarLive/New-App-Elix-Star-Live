@@ -242,8 +242,8 @@ async function insertVideo(
       const inserted = await client.query<{ id: string }>(
         `INSERT INTO videos (
            id, user_id, url, description, hashtags, privacy, duration,
-           username, display_name, avatar, thumbnail
-         ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11)
+           username, display_name, avatar, thumbnail, music
+         ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12)
          RETURNING id`,
         [
           session.id,
@@ -257,6 +257,7 @@ async function insertVideo(
           row.display_name,
           row.avatar_url,
           null,
+          meta.soundId,
         ],
       );
       return inserted.rows[0].id;

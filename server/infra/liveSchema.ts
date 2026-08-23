@@ -127,7 +127,7 @@ export function liveFeedSelectSql(viewerParam: number | null = null): string {
            WHERE ls.user_id = v.user_id AND ls.is_live = TRUE AND ls.ended_at IS NULL
          ) AS is_live,
          v.created_at, COALESCE(v.privacy, 'public') AS privacy,
-         NULL::text AS sound_id, v.hashtags,
+         NULLIF(v.music, '') AS sound_id, v.hashtags,
          ${liveViewerFlagsSql(viewerParam)}
     FROM videos v
     LEFT JOIN profiles p ON p.user_id = v.user_id
