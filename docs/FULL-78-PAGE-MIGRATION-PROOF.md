@@ -42,7 +42,7 @@ All 78 rows below are **NOT VERIFIED** until a page completes the full gate with
 | PAGE-025 | NOT VERIFIED | NOT VERIFIED | NOT VERIFIED | NOT VERIFIED | NOT VERIFIED | NOT VERIFIED | — |
 | PAGE-026 | NOT VERIFIED | NOT VERIFIED | NOT VERIFIED | NOT VERIFIED | NOT VERIFIED | NOT VERIFIED | — |
 | PAGE-027 | YES | YES | YES | PASS | PASS | PASS | `e56fcf7` |
-| PAGE-028 | NOT VERIFIED | NOT VERIFIED | NOT VERIFIED | NOT VERIFIED | NOT VERIFIED | NOT VERIFIED | — |
+| PAGE-028 | YES | YES | YES | PASS | PASS | PASS | `fae3406` |
 | PAGE-029 | NOT VERIFIED | NOT VERIFIED | NOT VERIFIED | NOT VERIFIED | NOT VERIFIED | NOT VERIFIED | — |
 | PAGE-030 | NOT VERIFIED | NOT VERIFIED | NOT VERIFIED | NOT VERIFIED | NOT VERIFIED | NOT VERIFIED | — |
 | PAGE-031 | NOT VERIFIED | NOT VERIFIED | NOT VERIFIED | NOT VERIFIED | NOT VERIFIED | NOT VERIFIED | — |
@@ -151,8 +151,15 @@ All 78 rows below are **NOT VERIFIED** until a page completes the full gate with
 - **Runtime GET followers:** **BLOCKED** — local API DOWN (not re-checked this page)
 - **Commit:** `e56fcf7`
 
+## PAGE-028 Following list
+
+- **Fixed:** same loading/owner-switch root cause as PAGE-027; unfollow keeps row until reload; stable follow toast; removed obsolete `FollowList.tsx` leftover (routes already owned by Followers + FollowingList).
+- **Tests:** `npx vitest run src/pages/FollowingList.test.tsx src/features/profile/followingSession.test.ts src/features/profile/followingApi.test.ts src/features/profile/page028Ownership.test.ts` → **17 passed / 0 failed**
+- **Runtime GET following:** **BLOCKED** — local API DOWN
+- **Commit:** `fae3406`
+
 ## Release blockers (remaining)
 
-1. PAGE-006→026 and PAGE-028→078 not completed under this gate.
+1. PAGE-006→026 and PAGE-029→078 not completed under this gate.
 2. Live HTTP E2E blocked while local API is down.
 3. Full production build / device gates still open for later pages.
