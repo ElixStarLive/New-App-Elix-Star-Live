@@ -182,7 +182,12 @@ export default function Register() {
             </div>
             <span className="text-fluid-xs text-white/70 leading-5 pt-0.5">
               I confirm I am at least 13 years old and agree to the{" "}
-              <Link to="/terms" className="text-[#F5F5F7] underline" onClick={(e) => e.stopPropagation()}>
+              <Link
+                to="/terms"
+                state={{ returnTo: "/register" }}
+                className="text-[#F5F5F7] underline"
+                onClick={(e) => e.stopPropagation()}
+              >
                 Terms of Service
               </Link>{" "}
               and{" "}

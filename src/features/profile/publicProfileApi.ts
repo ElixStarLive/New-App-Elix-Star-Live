@@ -4,10 +4,10 @@ import { userPublicSchema } from "@shared/contracts";
 import { apiRequest } from "@/lib/apiClient";
 import { isRecord } from "@/lib/isRecord";
 import {
-  apiFetchLikedFeed,
   apiFetchReposts,
-  apiFetchSavedFeed,
   apiFetchStories,
+  apiFetchUserLikedFeed,
+  apiFetchUserSavedFeed,
   apiFetchUserVideos,
   apiFollow,
   apiUnfollow,
@@ -97,8 +97,8 @@ export async function apiFetchPublicTabPage(
   cursor?: string | null,
 ): Promise<{ page: FeedVideoPage | null; error: string | null }> {
   if (tab === "videos") return apiFetchUserVideos(userId, "public", cursor);
-  if (tab === "saved") return apiFetchSavedFeed(cursor);
-  if (tab === "liked") return apiFetchLikedFeed(cursor);
+  if (tab === "saved") return apiFetchUserSavedFeed(userId, cursor);
+  if (tab === "liked") return apiFetchUserLikedFeed(userId, cursor);
   return apiFetchReposts(userId, cursor);
 }
 

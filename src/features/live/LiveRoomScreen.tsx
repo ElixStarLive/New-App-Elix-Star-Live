@@ -1,30 +1,41 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
+import { useLocation, useNavigate } from "react-router-dom";
 import {
+  AlertTriangle,
+  BarChart2,
+  ChevronLeft,
   Gift,
-  Heart,
   Mic,
   MicOff,
+  MoreVertical,
+  Share2,
+  SwitchCamera,
   Swords,
+  UserPlus,
   Users,
   Video,
   VideoOff,
   X,
 } from "lucide-react";
-import type { RemoteParticipant, RemoteTrack } from "livekit-client";
-import { Track } from "livekit-client";
 import type { BattleState, CohostSeat, GiftCatalogItem, GiftGoal } from "@shared/contracts";
 import { battleStateSchema, cohostLayoutSchema, giftGoalSchema } from "@shared/contracts";
-import { LiveKitSession } from "@/lib/livekitSession";
 import { wsClient } from "@/lib/wsClient";
-import { getSessionToken } from "@/lib/sessionToken";
 import { useAuthStore } from "@/store/useAuthStore";
+import { formatWalletCount } from "@/features/wallet/formatWalletCount";
+import { useTestCoinsStore } from "@/store/useTestCoinsStore";
 import { useWalletStore } from "@/store/useWalletStore";
-import { apiFollow, apiLiveEnd, apiLiveStart, apiLiveToken } from "@/features/feed/feedApi";
+import { apiFetchProfile, apiFollow, apiUnfollow } from "@/features/feed/feedApi";
 import { apiGiftCatalog, apiSendGift } from "@/features/gifts/giftApi";
-import { LiveHostProfileHeader } from "@/components/LiveMarkedTopUi";
+import { useLiveHostSession } from "@/features/live/useLiveHostSession";
+import { useSpectatorSession } from "@/features/live/useSpectatorSession";
+import { getPublicWebOrigin } from "@/lib/api";
+import { nativeShareUrl } from "@/lib/platform";
+import { watchLiveProfilePath } from "@/lib/liveProfileNav";
+import { namedExitForLocation } from "@/lib/settingsNav";
+import { LiveHostProfileHeader, LiveMarkedSubHeaderBar } from "@/components/LiveMarkedTopUi";
+import { formatCompactNumber } from "@/lib/formatCompactNumber";
 import { GiftOverlay } from "@/components/GiftOverlay";
-import GiftAnimationOverlay, { pushLocalGiftPill } from "@/components/GiftAnimationOverlay";
+import GiftAnimationOverlay from "@/components/GiftAnimationOverlay";
 import { LiveGiftFeedStack } from "@/components/LiveGiftFeedStack";
 import { AvatarRing } from "@/components/AvatarRing";
 import {
@@ -36,8 +47,18 @@ import {
   LIVE_BOTTOM_ACTION_PADDING,
   LIVE_MVP_PROFILE_RING_PX,
   LIVE_SOLO_CHAT_TOP_FROM_BOTTOM,
+  MVP_BADGE_CLASS,
+  MVP_GOLD,
+  MVP_RING_PHOTO_SOFT_CLASS,
 } from "@/lib/profileFrame";
 import { COHOST_SEAT_COUNT } from "@/features/live/cohostLayout";
+import { apiGetDailyHearts, apiSendDailyHeart } from "@/features/live/dailyHearts";
+import {
+  LIVE_SAFETY_TICK_MS,
+  LIVE_SAFETY_WARNING,
+  apiLiveSafetyCheck,
+  frameFromLiveVideo,
+} from "@/features/live/liveSafetyCheck";
 import { isRecord } from "@/lib/isRecord";
 import { showToast } from "@/lib/toast";
 
@@ -96,16 +117,20 @@ export function LiveRoomScreen({
   role: "host" | "spectator";
 }) {
   const navigate = useNavigate();
+  const location = useLocation();
   const user = useAuthStore((s) => s.user);
   const paidCoins = useWalletStore((s) => s.paidCoins);
   const promoCoins = useWalletStore((s) => s.promoCoins);
-  const testCoins = useWalletStore((s) => s.testCoins);
+  const walletStatus = useWalletStore((s) => s.status);
   const fetchWallet = useWalletStore((s) => s.fetchWallet);
+  const testCoins = useTestCoinsStore((s) => s.testCoins);
+  const testStatus = useTestCoinsStore((s) => s.status);
+  const fetchTestCoins = useTestCoinsStore((s) => s.fetchTestCoins);
+  const hostSession = useLiveHostSession(role === "host", user?.displayName || user?.username || "LIVE");
+  const spectatorSession = useSpectatorSession(role === "spectator", streamIdProp);
 
   const [streamId, setStreamId] = useState(streamIdProp);
   const [roomId, setRoomId] = useState(streamIdProp);
-  const [error, setError] = useState<string | null>(null);
-  const [connecting, setConnecting] = useState(true);
   const [viewerCount, setViewerCount] = useState(0);
   const [chat, setChat] = useState<ChatRow[]>([]);
   const [draft, setDraft] = useState("");
@@ -120,136 +145,78 @@ export function LiveRoomScreen({
   const [micOn, setMicOn] = useState(true);
   const [following, setFollowing] = useState(false);
   const [joinSent, setJoinSent] = useState(false);
+  const [likeCount, setLikeCount] = useState(0);
+  const [moreOpen, setMoreOpen] = useState(false);
+  const [pollOpen, setPollOpen] = useState(false);
+  const [pollDraft, setPollDraft] = useState("");
+  const [topGifters, setTopGifters] = useState<Array<{ id: string; name: string; avatar: string | null }>>([]);
+  const [safetyOpen, setSafetyOpen] = useState(false);
+  const [safetyMessage, setSafetyMessage] = useState(LIVE_SAFETY_WARNING);
   const [hostName, setHostName] = useState(user?.displayName || "LIVE");
   const [hostAvatar, setHostAvatar] = useState<string | null>(user?.avatarUrl ?? null);
   const [hostId, setHostId] = useState(user?.id ?? "");
   const [mvpHost] = useState<Array<{ id: string; name: string; avatar: string | null }>>([]);
   const [mvpOpp] = useState<Array<{ id: string; name: string; avatar: string | null }>>([]);
+  const followLock = useRef(false);
+  const joinLock = useRef(false);
+  const hostVideoRef = useRef<HTMLVideoElement | null>(null);
 
-  const sessionRef = useRef<LiveKitSession | null>(null);
-  const localVideoRef = useRef<HTMLVideoElement | null>(null);
-  const remoteEls = useRef<Map<string, HTMLVideoElement>>(new Map());
-  const tracks = useRef<Map<string, RemoteTrack>>(new Map());
-  const cohostPublished = useRef(false);
-
-  const attachRemote = useCallback((identity: string) => (el: HTMLVideoElement | null) => {
-    if (!el) {
-      remoteEls.current.delete(identity);
-      return;
-    }
-    remoteEls.current.set(identity, el);
-    const track = tracks.current.get(identity);
-    if (track) track.attach(el);
-  }, []);
+  const hostAttachRef = useRef(hostSession.attachLocal);
+  hostAttachRef.current = hostSession.attachLocal;
 
   const attachLocal = useCallback((el: HTMLVideoElement | null) => {
-    localVideoRef.current = el;
-    if (el) sessionRef.current?.attachLocalVideo(el);
-  }, []);
+    hostVideoRef.current = el;
+    if (role === "host") hostAttachRef.current(el);
+  }, [role]);
 
-  const connectRoom = useCallback(async () => {
-    const token = getSessionToken();
-    if (!token) {
-      setError("Sign in required");
-      setConnecting(false);
-      return;
-    }
-    setConnecting(true);
-    setError(null);
-    try {
-      let nextStreamId = streamIdProp;
-      let nextRoomId = streamIdProp;
-      let livekitUrl = "";
-      let livekitToken = "";
-      if (role === "host" && (streamIdProp === "broadcast" || streamIdProp === user?.id)) {
-        const started = await apiLiveStart("LIVE");
-        if (!started.session) throw new Error(started.error || "Could not start live");
-        nextStreamId = started.session.streamId;
-        nextRoomId = started.session.roomId;
-        livekitUrl = started.session.livekitUrl;
-        livekitToken = started.session.livekitToken;
-        setHostId(user?.id ?? "");
-        setHostName(user?.displayName || user?.username || "LIVE");
-        setHostAvatar(user?.avatarUrl ?? null);
-      } else {
-        const tok = await apiLiveToken(streamIdProp, role === "host" ? "host" : "spectator");
-        if (!tok.token) throw new Error(tok.error || "Could not join live");
-        nextRoomId = tok.token.roomId;
-        livekitUrl = tok.token.url;
-        livekitToken = tok.token.token;
-        nextStreamId = tok.token.streamId;
-        setHostId(tok.token.hostId);
-        setHostName(tok.token.displayName || tok.token.username);
-        setHostAvatar(tok.token.avatarUrl);
-        if (!tok.token.canPublish && role === "host") {
-          throw new Error("This live is not authorized to publish.");
-        }
-      }
-      setStreamId(nextStreamId);
-      setRoomId(nextRoomId);
-      const session = new LiveKitSession({
-        onTrackSubscribed: ({ track, participant }) => {
-          if (track.kind !== Track.Kind.Video) return;
-          tracks.current.set(participant.identity, track);
-          const el = remoteEls.current.get(participant.identity);
-          if (el) track.attach(el);
-        },
-        onTrackUnsubscribed: ({ participant }) => {
-          tracks.current.delete(participant.identity);
-        },
-        onParticipantDisconnected: (p: RemoteParticipant) => {
-          tracks.current.delete(p.identity);
-        },
-      });
-      sessionRef.current = session;
-      await session.connect(livekitUrl, livekitToken);
-      if (role === "host") {
-        await session.publishCamera({ audio: true, video: true });
-        if (localVideoRef.current) session.attachLocalVideo(localVideoRef.current);
-      }
-      wsClient.connect(nextRoomId, token, { persistent: role === "host", ownerId: `live-${role}` });
-      const catalog = await apiGiftCatalog();
+  useEffect(() => {
+    if (role !== "spectator" || !spectatorSession.creds) return;
+    setStreamId(spectatorSession.creds.streamId);
+    setRoomId(spectatorSession.creds.roomId);
+    setHostId(spectatorSession.creds.hostId);
+    setHostName(spectatorSession.creds.displayName || spectatorSession.creds.username);
+    setHostAvatar(spectatorSession.creds.avatarUrl);
+  }, [role, spectatorSession.creds]);
+
+  useEffect(() => {
+    if (role !== "host" || !user) return;
+    setHostId(user.id);
+    setHostName(user.displayName || user.username || "LIVE");
+    setHostAvatar(user.avatarUrl ?? null);
+  }, [role, user]);
+
+  useEffect(() => {
+    if (role !== "host" || !hostSession.streamId) return;
+    setStreamId(hostSession.streamId);
+    setRoomId(hostSession.roomId);
+  }, [hostSession.roomId, hostSession.streamId, role]);
+
+  useEffect(() => {
+    if (role !== "spectator" || !spectatorSession.creds?.roomId) return;
+    void apiGiftCatalog().then((catalog) => {
       if (catalog.error) showToast(catalog.error);
       else setGifts(catalog.gifts);
-      await fetchWallet();
-      setConnecting(false);
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Live connection failed");
-      setConnecting(false);
-    }
-  }, [fetchWallet, role, streamIdProp, user]);
+    });
+    void fetchWallet();
+    void fetchTestCoins();
+  }, [fetchTestCoins, fetchWallet, role, spectatorSession.creds?.roomId]);
 
   useEffect(() => {
-    void connectRoom();
-    return () => {
-      void sessionRef.current?.disconnect();
-      sessionRef.current = null;
-      wsClient.disconnect(`live-${role}`);
-    };
-  }, [connectRoom, role]);
+    if (role !== "spectator" || !spectatorSession.creds?.hostId || spectatorSession.creds.hostId === user?.id) return;
+    void apiFetchProfile(spectatorSession.creds.hostId).then((res) => {
+      if (res.profile?.isFollowing) setFollowing(true);
+    });
+  }, [role, spectatorSession.creds?.hostId, user?.id]);
 
   useEffect(() => {
-    if (role === "host" || cohostPublished.current || !user?.id || !roomId) return;
-    const seated = seats.some((seat) => seat?.userId === user.id);
-    if (!seated) return;
-    cohostPublished.current = true;
-    void (async () => {
-      const tok = await apiLiveToken(roomId, "cohost");
-      if (!tok.token) {
-        cohostPublished.current = false;
-        showToast(tok.error || "Could not publish as co-host");
-        return;
-      }
-      const session = sessionRef.current;
-      if (!session) {
-        cohostPublished.current = false;
-        return;
-      }
-      await session.connect(tok.token.url, tok.token.token);
-      await session.publishCamera({ audio: true, video: true });
-      if (localVideoRef.current) session.attachLocalVideo(localVideoRef.current);
-    })();
-  }, [role, roomId, seats, user?.id]);
+    if (role !== "host" || !hostSession.roomId) return;
+    void apiGiftCatalog().then((catalog) => {
+      if (catalog.error) showToast(catalog.error);
+      else setGifts(catalog.gifts);
+    });
+    void fetchWallet();
+    void fetchTestCoins();
+  }, [fetchTestCoins, fetchWallet, hostSession.roomId, role]);
 
   useEffect(() => {
     const onChat = (data: unknown) => {
@@ -292,14 +259,26 @@ export function LiveRoomScreen({
         showToast(`${data.displayName} requested to join`);
       }
     };
-    const onEnd = () => {
-      showToast("Live ended");
-      navigate("/feed", { replace: true });
-    };
     const onGift = (data: unknown) => {
       if (!isRecord(data)) return;
       const url = typeof data.animationUrl === "string" ? data.animationUrl : null;
       if (url) setGiftVideo(url);
+      const senderId = typeof data.senderId === "string" ? data.senderId : typeof data.userId === "string" ? data.userId : "";
+      const senderName = typeof data.displayName === "string" ? data.displayName : typeof data.username === "string" ? data.username : "User";
+      const senderAvatar = typeof data.avatarUrl === "string" ? data.avatarUrl : null;
+      if (senderId) {
+        setTopGifters((prev) => {
+          const next = [{ id: senderId, name: senderName, avatar: senderAvatar }, ...prev.filter((row) => row.id !== senderId)];
+          return next.slice(0, 3);
+        });
+      }
+    };
+    const onHeart = (data: unknown) => {
+      if (isRecord(data) && typeof data.count === "number") {
+        setLikeCount(data.count);
+        return;
+      }
+      setLikeCount((prev) => prev + 1);
     };
     const onGoal = (data: unknown) => {
       if (data == null) {
@@ -309,15 +288,24 @@ export function LiveRoomScreen({
       const parsed = giftGoalSchema.safeParse(data);
       if (parsed.success) setGiftGoal(parsed.data);
     };
+    const onSafety = (data: unknown) => {
+      const message =
+        isRecord(data) && typeof data.message === "string" && data.message
+          ? data.message
+          : LIVE_SAFETY_WARNING;
+      setSafetyMessage(message);
+      setSafetyOpen(true);
+    };
     wsClient.on("chat_message", onChat);
     wsClient.on("viewer_count", onViewers);
     wsClient.on("cohost_layout_sync", onCohost);
     wsClient.on("cohost_request", onCohostRequest);
     wsClient.on("battle_state_sync", onBattle);
     wsClient.on("battle_tick", onBattle);
-    wsClient.on("stream_ended", onEnd);
     wsClient.on("gift_sent", onGift);
+    wsClient.on("heart_sent", onHeart);
     wsClient.on("gift_goal_sync", onGoal);
+    wsClient.on("moderation_warning", onSafety);
     return () => {
       wsClient.off("chat_message", onChat);
       wsClient.off("viewer_count", onViewers);
@@ -325,11 +313,35 @@ export function LiveRoomScreen({
       wsClient.off("cohost_request", onCohostRequest);
       wsClient.off("battle_state_sync", onBattle);
       wsClient.off("battle_tick", onBattle);
-      wsClient.off("stream_ended", onEnd);
       wsClient.off("gift_sent", onGift);
+      wsClient.off("heart_sent", onHeart);
       wsClient.off("gift_goal_sync", onGoal);
+      wsClient.off("moderation_warning", onSafety);
     };
-  }, [navigate]);
+  }, []);
+
+  useEffect(() => {
+    if (!hostId) return;
+    void apiGetDailyHearts(hostId).then((result) => {
+      if (result.hasSent) setJoinSent(true);
+    });
+  }, [hostId]);
+
+  useEffect(() => {
+    if (role !== "host" || !streamId) return;
+    const tick = () => {
+      const frame = frameFromLiveVideo(hostVideoRef.current);
+      if (!frame) return;
+      void apiLiveSafetyCheck({ streamKey: streamId, imageBase64: frame }).then((result) => {
+        if (result.action === "warning") {
+          setSafetyMessage(result.message || LIVE_SAFETY_WARNING);
+          setSafetyOpen(true);
+        }
+      });
+    };
+    const timer = window.setInterval(tick, LIVE_SAFETY_TICK_MS);
+    return () => window.clearInterval(timer);
+  }, [role, streamId]);
 
   const sendChat = () => {
     const body = draft.trim();
@@ -347,17 +359,28 @@ export function LiveRoomScreen({
       showToast("Host is not ready");
       return;
     }
-    if (bucket === "test" && testCoins < gift.coinCost) {
-      showToast("Not enough test coins");
-      return;
-    }
-    if (bucket === "promo" && promoCoins < gift.coinCost) {
-      showToast("Not enough promo coins");
-      return;
-    }
-    if (bucket === "paid" && paidCoins < gift.coinCost) {
-      showToast("Not enough coins");
-      return;
+    if (bucket === "test") {
+      if (testStatus !== "ready" || testCoins == null) {
+        showToast(testStatus === "error" ? "Test coins unavailable" : "Test coins loading");
+        return;
+      }
+      if (testCoins < gift.coinCost) {
+        showToast("Not enough test coins");
+        return;
+      }
+    } else {
+      if (walletStatus !== "ready" || (bucket === "promo" ? promoCoins : paidCoins) == null) {
+        showToast(walletStatus === "error" ? "Wallet unavailable" : "Wallet loading");
+        return;
+      }
+      if (bucket === "promo" && (promoCoins ?? 0) < gift.coinCost) {
+        showToast("Not enough promo coins");
+        return;
+      }
+      if (bucket === "paid" && (paidCoins ?? 0) < gift.coinCost) {
+        showToast("Not enough coins");
+        return;
+      }
     }
     const result = await apiSendGift({
       giftId: gift.id,
@@ -370,25 +393,41 @@ export function LiveRoomScreen({
       showToast(result.error);
       return;
     }
-    await fetchWallet();
-    pushLocalGiftPill({
-      username: user?.displayName,
-      giftName: gift.name,
-      giftIcon: gift.animationUrl ?? undefined,
-      streamId,
-      creatorName: hostName,
-    });
-    if (gift.animationUrl) setGiftVideo(gift.animationUrl);
+    if (bucket === "test") await fetchTestCoins();
+    else await fetchWallet();
+    // Room WS gift_sent fanout drives GiftAnimationOverlay; do not also pushLocalGiftPill.
     setGiftOpen(false);
   };
 
   const closeLive = async () => {
     if (role === "host") {
-      const ended = await apiLiveEnd(streamId);
-      if (!ended.ok) showToast(ended.error);
+      await hostSession.endBroadcast();
+    } else {
+      await spectatorSession.leave();
     }
-    navigate("/feed", { replace: true });
+    navigate(namedExitForLocation(location.pathname, location.state), { replace: true });
   };
+
+  const shareLive = () => {
+    const liveRoom = roomId || (role === "host" ? hostSession.roomId : streamIdProp);
+    if (!liveRoom) {
+      showToast("Could not share");
+      return;
+    }
+    const url = `${getPublicWebOrigin()}/watch/${encodeURIComponent(liveRoom)}`;
+    void nativeShareUrl({
+      title: role === "host" ? "Watch my LIVE on Elix" : `Watch ${hostName} live on Elix`,
+      url,
+    }).then((ok) => {
+      if (!ok) showToast("Could not share");
+    });
+  };
+
+  const attachRemote = spectatorSession.attachRemote;
+  const liveKit = role === "host" ? hostSession.sessionRef : spectatorSession.sessionRef;
+  const bootConnecting = role === "host" ? hostSession.connecting : spectatorSession.phase === "connecting";
+  const spectatorGate = role === "spectator" && (spectatorSession.phase === "ended" || spectatorSession.phase === "failed");
+  const bootError = role === "host" ? hostSession.error : spectatorGate ? spectatorSession.error : null;
 
   const isBattle = mode === "battle" && battle.status !== "ENDED";
   const isCohost = mode === "cohost";
@@ -399,12 +438,18 @@ export function LiveRoomScreen({
     return ["host", "opponent"] as const;
   }, [battle.type]);
 
-  if (error) {
+  if (bootError) {
+    const ended = role === "spectator" && spectatorSession.phase === "ended";
     return (
       <div className="elix-live-room min-h-[100dvh] flex flex-col items-center justify-center text-white px-6">
-        <p className="text-sm text-rose-300 mb-4">{error}</p>
-        <button type="button" onClick={() => navigate("/feed", { replace: true })} className="border border-[#D8D9DD]/40 rounded-xl px-4 py-2">
-          Back
+        <h2 className="text-[#F5F5F7] font-bold text-xl tracking-tight mb-2">{ended ? "Live ended" : "Stream offline"}</h2>
+        <p className="text-sm text-white/70 mb-4 text-center">{bootError}</p>
+        <button
+          type="button"
+          onClick={() => navigate(namedExitForLocation(location.pathname, location.state), { replace: true })}
+          className="border border-[#D8D9DD]/40 rounded-xl px-4 py-2"
+        >
+          Back to For You
         </button>
       </div>
     );
@@ -412,53 +457,108 @@ export function LiveRoomScreen({
 
   return (
     <div className="elix-live-room relative h-[100dvh] overflow-hidden text-white">
-      {connecting ? (
-        <div className="absolute inset-0 z-50 flex items-center justify-center bg-[#080A0E]">
+      {bootConnecting ? (
+        <div className="absolute inset-0 z-50 flex flex-col items-center justify-center bg-[#080A0E] gap-4">
           <div className="w-10 h-10 border-2 border-[#E6E9EE]/25 border-t-[#E6E9EE] rounded-full animate-spin elix-loader" />
+          {role === "spectator" ? <p className="text-white/60 text-sm">Connecting to live…</p> : null}
         </div>
       ) : null}
 
-      <div className="absolute left-2 z-30" style={{ top: "calc(var(--safe-top) + 8px)" }}>
-        <LiveHostProfileHeader
-          name={hostName}
-          avatar={hostAvatar}
-          likes={viewerCount}
-          showFollow={role === "spectator"}
-          isFollowing={following}
-          joinSent={joinSent}
-          onAvatarClick={() => navigate(`/profile/${hostId}`)}
-          onFollow={(e) => {
-            e.stopPropagation();
-            if (!hostId) return;
-            void apiFollow(hostId).then((r) => {
-              if (!r.ok) showToast(r.error);
-              else setFollowing(true);
-            });
-          }}
-          onJoin={() => {
-            setJoinSent(true);
-            wsClient.send("cohost_request_send", { streamId });
-          }}
-        />
+      <div className={`absolute top-0 left-0 right-0 z-[110] pointer-events-none overflow-visible elix-live-top-chrome ${isBattle ? "elix-battle-top-fundal" : ""}`}>
+        <div className="px-3 pb-1.5" style={{ paddingTop: "max(2px, calc(var(--safe-top) + 6px))" }}>
+          <div className="flex items-start justify-between gap-2">
+            <div className="pointer-events-auto flex flex-col gap-2">
+              <LiveHostProfileHeader
+                name={hostName}
+                avatar={hostAvatar}
+                likes={likeCount}
+                showFollow={role === "spectator" && Boolean(hostId) && hostId !== user?.id}
+                isFollowing={following}
+                joinSent={joinSent}
+                onLikesClick={sendHeart}
+                onAvatarClick={() => {
+                  const path = watchLiveProfilePath(streamIdProp, hostId);
+                  if (!path) return;
+                  navigate(path);
+                }}
+                onFollow={(e) => {
+                  e.stopPropagation();
+                  if (!hostId || hostId === user?.id || followLock.current) return;
+                  followLock.current = true;
+                  const next = !following;
+                  setFollowing(next);
+                  void (next ? apiFollow(hostId) : apiUnfollow(hostId))
+                    .then((r) => {
+                      if (!r.ok) {
+                        setFollowing(!next);
+                        showToast(r.error);
+                      }
+                    })
+                    .finally(() => {
+                      followLock.current = false;
+                    });
+                }}
+                onJoin={() => {
+                  if (!hostId || joinLock.current) return;
+                  joinLock.current = true;
+                  void apiSendDailyHeart(hostId)
+                    .then((result) => {
+                      if (result.ok) setJoinSent(true);
+                      else showToast(result.error || "Could not send membership heart. Try again.");
+                    })
+                    .finally(() => {
+                      joinLock.current = false;
+                    });
+                }}
+              />
+            </div>
+            <div className="pointer-events-auto flex items-center gap-[0mm] mt-1">
+              {topGifters.length > 0 ? (
+                <div className="flex items-center gap-[0mm] flex-shrink-0" style={{ transform: "translateX(-2mm)" }}>
+                  {topGifters.slice(0, 3).map((viewer, i) => (
+                    <div key={viewer.id} className="relative" style={{ zIndex: 3 - i, marginLeft: i === 0 ? "0mm" : "-1.5mm" }}>
+                      <div className={i === 0 ? MVP_RING_PHOTO_SOFT_CLASS : "rounded-full"}>
+                        <AvatarRing src={viewer.avatar} alt={viewer.name} size={LIVE_MVP_PROFILE_RING_PX} ringColor={i === 0 ? MVP_GOLD : undefined} />
+                      </div>
+                      {i === 0 ? <span className={`absolute -bottom-1 left-1/2 -translate-x-1/2 z-[2] ${MVP_BADGE_CLASS}`}>MVP</span> : null}
+                    </div>
+                  ))}
+                </div>
+              ) : null}
+              <span className="text-white/50 text-[9px] font-bold tabular-nums" style={{ marginRight: "1mm" }}>
+                {formatCompactNumber(viewerCount)}
+              </span>
+              <button type="button" onClick={() => void closeLive()} className="p-1 active:scale-95" aria-label="Close">
+                <ChevronLeft size={18} className="text-[#E6E9EE]" strokeWidth={2.35} />
+              </button>
+            </div>
+          </div>
+          <LiveMarkedSubHeaderBar
+            rank={null}
+            giftLabel={giftGoal ? `${giftGoal.currentCount}/${giftGoal.targetCount}` : undefined}
+            onWeeklyRanking={() => navigate("/engagement")}
+            onDiamond={() => navigate("/engagement")}
+            onGiftGoal={() => setGiftOpen(true)}
+            onExplore={() => navigate("/live")}
+          />
+        </div>
       </div>
-      <button
-        type="button"
-        onClick={() => void closeLive()}
-        className="absolute right-3 z-30 royce-glow-disc"
-        style={{ top: "calc(var(--safe-top) + 10px)" }}
-        aria-label="Close"
-      >
-        <X size={16} className="text-white" />
-      </button>
 
       {!isBattle && !isCohost ? (
-        <VideoTile attach={role === "host" ? attachLocal : attachRemote(hostId || roomId)} className="absolute inset-0" />
+        <VideoTile attach={role === "host" ? attachLocal : attachRemote(hostId)} className="absolute inset-0" />
       ) : null}
 
       {isCohost ? (
-        <div className="absolute left-0 right-0 mx-auto max-w-[480px] flex" style={{ top: "calc(var(--safe-top) + 90px)", height: "36dvh" }}>
-          <VideoTile attach={role === "host" ? attachLocal : attachRemote(hostId)} className="w-1/2 h-full" label={hostName} />
-          <div className="w-1/2 h-full grid grid-cols-2 grid-rows-4 gap-[2px]">
+        <div
+          className="absolute left-0 right-0 mx-auto max-w-[480px] flex gap-[2px]"
+          style={{ top: "calc(var(--safe-top) + 90px + 9mm)", height: "calc(36dvh + 10mm)" }}
+        >
+          <VideoTile
+            attach={role === "host" ? attachLocal : attachRemote(hostId)}
+            className="elix-cohost-pill w-1/2 min-w-0 h-full"
+            label={hostName}
+          />
+          <div className="w-1/2 h-full grid grid-cols-2 grid-rows-4 gap-[2px] bg-transparent">
             {seats.map((seat, i) => (
               <div key={i} className="elix-cohost-pill relative">
                 {seat ? (
@@ -589,7 +689,7 @@ export function LiveRoomScreen({
       </div>
 
       <div
-        className="absolute left-0 right-0 mx-auto max-w-[480px] flex items-center gap-2 px-2 z-40"
+        className="elix-live-lower-fundal absolute left-0 right-0 mx-auto max-w-[480px] flex items-end gap-1.5 px-2 z-40"
         style={{ bottom: LIVE_BOTTOM_ACTION_PADDING }}
       >
         <input
@@ -599,31 +699,44 @@ export function LiveRoomScreen({
             if (e.key === "Enter") sendChat();
           }}
           placeholder="Say something..."
-          className="flex-1 bg-white/10 border border-white/10 rounded-full px-3 py-2 text-white"
+          className="flex-1 bg-black/35 backdrop-blur-sm border border-[#2A2D33] rounded-full px-3 h-10 text-white text-xs placeholder:text-white/30"
         />
-        <button type="button" className="royce-glow-disc" onClick={sendHeart} aria-label="Like">
-          <Heart size={16} className="text-[#FF2D55]" />
-        </button>
-        <button type="button" className="royce-glow-disc" onClick={() => setGiftOpen(true)} aria-label="Gifts">
-          <Gift size={16} className="text-[#E6E9EE]" />
-        </button>
-        {role === "host" ? (
+        {role === "spectator" ? (
           <>
-            <button
-              type="button"
-              className="royce-glow-disc"
-              title="Co-Host"
-              onClick={() => {
-                setMode("cohost");
-                wsClient.send("cohost_layout_sync", { streamId, bigScreenUserId: user?.id ?? null, seats: seats.filter(Boolean) });
-              }}
+            <LiveDockButton label="Poll" onClick={() => setPollOpen(true)}>
+              <BarChart2 size={18} className="text-[#F5F5F7]" strokeWidth={2.25} />
+            </LiveDockButton>
+            <LiveDockButton
+              label="Co-Host"
+              onClick={() => wsClient.send("cohost_request_send", { streamId })}
             >
-              <Users size={16} />
-            </button>
-            <button
-              type="button"
-              className="royce-glow-disc"
-              title="Battle"
+              <UserPlus size={18} className="text-[#F5F5F7]" strokeWidth={2.25} />
+            </LiveDockButton>
+            <LiveDockButton label="Gift" onClick={() => setGiftOpen(true)}>
+              <Gift size={18} className="text-[#E6E9EE]" strokeWidth={2.25} />
+            </LiveDockButton>
+            <LiveDockButton label="Share" onClick={shareLive}>
+              <Share2 size={18} className="text-[#F5F5F7]" strokeWidth={2.25} />
+            </LiveDockButton>
+            <LiveDockButton label="More" onClick={() => setMoreOpen(true)}>
+              <MoreVertical size={18} className="text-[#F5F5F7]" strokeWidth={2.25} />
+            </LiveDockButton>
+          </>
+        ) : (
+          <>
+            {!isBattle ? (
+              <LiveDockButton
+                label="Co-Host"
+                onClick={() => {
+                  setMode("cohost");
+                  wsClient.send("cohost_layout_sync", { streamId, bigScreenUserId: user?.id ?? null, seats: seats.filter(Boolean) });
+                }}
+              >
+                <Users size={18} className="text-[#F5F5F7]" strokeWidth={2.25} />
+              </LiveDockButton>
+            ) : null}
+            <LiveDockButton
+              label="Battle"
               onClick={() => {
                 if (isBattle && battle.status === "ACTIVE") {
                   wsClient.send("battle_end", { streamId });
@@ -634,33 +747,105 @@ export function LiveRoomScreen({
                 setMode("battle");
               }}
             >
-              <Swords size={16} />
-            </button>
-            <button
-              type="button"
-              className="royce-glow-disc"
-              onClick={() => {
-                const next = !micOn;
-                setMicOn(next);
-                void sessionRef.current?.setMicrophoneEnabled(next);
-              }}
-            >
-              {micOn ? <Mic size={16} /> : <MicOff size={16} />}
-            </button>
-            <button
-              type="button"
-              className="royce-glow-disc"
-              onClick={() => {
-                const next = !camOn;
-                setCamOn(next);
-                void sessionRef.current?.setCameraEnabled(next);
-              }}
-            >
-              {camOn ? <Video size={16} /> : <VideoOff size={16} />}
-            </button>
+              <Swords size={18} className="text-[#F5F5F7]" strokeWidth={2.25} />
+            </LiveDockButton>
+            <LiveDockButton label="Poll" onClick={() => setPollOpen(true)}>
+              <BarChart2 size={18} className="text-[#F5F5F7]" strokeWidth={2.25} />
+            </LiveDockButton>
+            <LiveDockButton label="Share" onClick={shareLive}>
+              <Share2 size={18} className="text-[#F5F5F7]" strokeWidth={2.25} />
+            </LiveDockButton>
+            <LiveDockButton label="More" onClick={() => setMoreOpen(true)}>
+              <MoreVertical size={18} className="text-[#F5F5F7]" strokeWidth={2.25} />
+            </LiveDockButton>
           </>
-        ) : null}
+        )}
       </div>
+
+      {moreOpen ? (
+        <div className="absolute inset-x-0 bottom-0 z-50 mx-auto max-w-[480px] rounded-t-2xl border border-[#D8D9DD]/30 bg-black/80 p-3">
+          <div className="flex justify-between items-center mb-3">
+            <p className="text-sm font-bold">More</p>
+            <button type="button" onClick={() => setMoreOpen(false)} aria-label="Close more">
+              <X size={16} />
+            </button>
+          </div>
+          {role === "host" ? (
+            <div className="flex items-center justify-around pb-2">
+              <button
+                type="button"
+                className="flex flex-col items-center gap-1"
+                onClick={() => {
+                  const next = !micOn;
+                  setMicOn(next);
+                  void liveKit.current?.setMicrophoneEnabled(next);
+                }}
+              >
+                <span className="royce-glow-disc w-10 h-10">{micOn ? <Mic size={18} /> : <MicOff size={18} />}</span>
+                <span className="text-[10px] text-white/70">Mic</span>
+              </button>
+              <button
+                type="button"
+                className="flex flex-col items-center gap-1"
+                onClick={() => {
+                  const next = !camOn;
+                  setCamOn(next);
+                  void liveKit.current?.setCameraEnabled(next);
+                }}
+              >
+                <span className="royce-glow-disc w-10 h-10">{camOn ? <Video size={18} /> : <VideoOff size={18} />}</span>
+                <span className="text-[10px] text-white/70">Camera</span>
+              </button>
+              <button
+                type="button"
+                className="flex flex-col items-center gap-1"
+                onClick={() => {
+                  void liveKit.current?.switchCamera();
+                }}
+              >
+                <span className="royce-glow-disc w-10 h-10">
+                  <SwitchCamera size={18} />
+                </span>
+                <span className="text-[10px] text-white/70">Flip</span>
+              </button>
+            </div>
+          ) : (
+            <button type="button" className="w-full py-2 text-sm text-white/80" onClick={sendHeart}>
+              Send like
+            </button>
+          )}
+        </div>
+      ) : null}
+
+      {pollOpen ? (
+        <div className="absolute inset-x-0 bottom-0 z-50 mx-auto max-w-[480px] rounded-t-2xl border border-[#D8D9DD]/30 bg-black/80 p-3">
+          <div className="flex justify-between items-center mb-3">
+            <p className="text-sm font-bold">Poll</p>
+            <button type="button" onClick={() => setPollOpen(false)} aria-label="Close poll">
+              <X size={16} />
+            </button>
+          </div>
+          <input
+            value={pollDraft}
+            onChange={(e) => setPollDraft(e.target.value)}
+            placeholder="Ask the room..."
+            className="w-full bg-black/35 border border-[#2A2D33] rounded-full px-3 h-10 text-white text-xs mb-3"
+          />
+          <button
+            type="button"
+            className="w-full py-2.5 rounded-lg bg-[#E6E9EE] text-white font-semibold"
+            onClick={() => {
+              const question = pollDraft.trim();
+              if (!question) return;
+              wsClient.send("chat_message", { streamId, body: `Poll: ${question}` });
+              setPollDraft("");
+              setPollOpen(false);
+            }}
+          >
+            Post poll
+          </button>
+        </div>
+      ) : null}
 
       {giftOpen ? (
         <div className="absolute inset-x-0 bottom-0 z-50 mx-auto max-w-[480px] rounded-t-2xl border border-[#D8D9DD]/30 bg-black/80 p-3">
@@ -671,7 +856,7 @@ export function LiveRoomScreen({
             </button>
           </div>
           <p className="text-[11px] text-white/50 mb-2">
-            Paid coins {paidCoins} · Promo {promoCoins} · Test coins {testCoins} (battle score only)
+            Paid coins {formatWalletCount(paidCoins, walletStatus)} · Promo {formatWalletCount(promoCoins, walletStatus)} · Test coins {formatWalletCount(testCoins, testStatus)} (battle score only)
           </p>
           <div className="grid grid-cols-4 gap-2 max-h-[40vh] overflow-y-auto">
             {gifts.map((g) => (
@@ -691,7 +876,7 @@ export function LiveRoomScreen({
                 >
                   Test
                 </button>
-                {promoCoins > 0 ? (
+                {walletStatus === "ready" && (promoCoins ?? 0) > 0 ? (
                   <button
                     type="button"
                     className="text-[10px] text-white/50 mt-1"
@@ -720,10 +905,52 @@ export function LiveRoomScreen({
         </div>
       ) : null}
 
+      {safetyOpen ? (
+        <div
+          className="fixed inset-0 z-[99999] flex items-center justify-center p-4 bg-black/70"
+          onClick={() => setSafetyOpen(false)}
+        >
+          <div
+            className="bg-[rgba(0,0,0,0.35)] border border-[#2A2D33] rounded-xl p-6 max-w-sm w-full shadow-xl"
+            onClick={(event) => event.stopPropagation()}
+          >
+            <div className="flex items-center gap-2 mb-3">
+              <AlertTriangle className="w-6 h-6 text-amber-500 flex-shrink-0" />
+              <h3 className="font-semibold text-white">Safety reminder</h3>
+            </div>
+            <p className="text-white/80 text-sm mb-4">{safetyMessage}</p>
+            <button
+              type="button"
+              onClick={() => setSafetyOpen(false)}
+              className="w-full py-2.5 rounded-lg bg-[#E6E9EE] text-white font-semibold"
+            >
+              OK
+            </button>
+          </div>
+        </div>
+      ) : null}
+
       <GiftOverlay videoSrc={giftVideo} onEnded={() => setGiftVideo(null)} isBattleMode={isBattle} />
       <GiftAnimationOverlay streamId={streamId} isBattleMode={isBattle} />
       <LiveGiftFeedStack streamId={streamId} isBattleMode={isBattle} isCohostMode={isCohost} />
     </div>
+  );
+}
+
+function LiveDockButton({
+  label,
+  onClick,
+  children,
+}: {
+  label: string;
+  onClick: () => void;
+  children: ReactNode;
+}) {
+  return (
+    <button type="button" className="flex flex-col items-center gap-0.5 flex-shrink-0" onClick={onClick} title={label}>
+      <span className="royce-glow-disc w-10 h-10">{children}</span>
+      <span className="elix-silver-red-text text-[8px] font-medium">{label}</span>
+    </button>
   );
 }
 

@@ -481,22 +481,40 @@ export async function apiFetchSavedFeed(cursor?: string | null): Promise<{
   page: FeedVideoPage | null;
   error: string | null;
 }> {
-  const offset = cursor ? Number(cursor) : 0;
-  const safeOffset = Number.isFinite(offset) && offset >= 0 ? offset : 0;
+  const qs = cursor ? `?cursor=${encodeURIComponent(cursor)}` : "";
+  const { data, error } = await apiRequest<unknown>(`/api/videos/saved/feed${qs}`);
+  if (error) return { page: null, error: error.message };
+  const parsed = parseFeedVideoPage(data);
+  if (!parsed) return { page: null, error: "Invalid saved videos" };
+  return { page: parsed, error: null };
+}
+
+export async function apiFetchUserSavedFeed(
+  userId: string,
+  cursor?: string | null,
+): Promise<{ page: FeedVideoPage | null; error: string | null }> {
+  const qs = cursor ? `?cursor=${encodeURIComponent(cursor)}` : "";
   const { data, error } = await apiRequest<unknown>(
-    `/api/videos/saved/list?limit=50&offset=${safeOffset}`,
+    `/api/videos/user/${encodeURIComponent(userId)}/saved${qs}`,
   );
   if (error) return { page: null, error: error.message };
   const parsed = parseFeedVideoPage(data);
   if (!parsed) return { page: null, error: "Invalid saved videos" };
-  const hasMore = isRecord(data) && data.hasMore === true;
-  return {
-    page: {
-      videos: parsed.videos,
-      nextCursor: hasMore ? String(safeOffset + parsed.videos.length) : null,
-    },
-    error: null,
-  };
+  return { page: parsed, error: null };
+}
+
+export async function apiFetchUserLikedFeed(
+  userId: string,
+  cursor?: string | null,
+): Promise<{ page: FeedVideoPage | null; error: string | null }> {
+  const qs = cursor ? `?cursor=${encodeURIComponent(cursor)}` : "";
+  const { data, error } = await apiRequest<unknown>(
+    `/api/videos/user/${encodeURIComponent(userId)}/liked${qs}`,
+  );
+  if (error) return { page: null, error: error.message };
+  const parsed = parseFeedVideoPage(data);
+  if (!parsed) return { page: null, error: "Invalid liked feed" };
+  return { page: parsed, error: null };
 }
 
 export type HashtagVideoHit = {

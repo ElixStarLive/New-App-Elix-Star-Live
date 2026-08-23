@@ -76,10 +76,10 @@ describe("PAGE-015 saved videos API", () => {
     expect(apiRequestMock.mock.calls.some((call) => String(call[0]) === "/api/videos")).toBe(false);
   });
 
-  it("parses saved feed pages as nested FeedVideo rows", async () => {
-    apiRequestMock.mockResolvedValue({ data: { videos: [feedVideo], hasMore: false, limit: 50, offset: 0 }, error: null });
+  it("parses saved feed pages from GET /api/videos/saved/feed as nested FeedVideo rows", async () => {
+    apiRequestMock.mockResolvedValue({ data: { videos: [feedVideo], nextCursor: null }, error: null });
     const res = await apiFetchSavedFeed();
-    expect(apiRequestMock).toHaveBeenCalledWith("/api/videos/saved/list?limit=50&offset=0");
+    expect(apiRequestMock).toHaveBeenCalledWith("/api/videos/saved/feed");
     expect(res.page?.videos[0]?.id).toBe(feedVideo.id);
     expect(res.page?.videos[0]?.isSaved).toBe(true);
     expect(res.page?.nextCursor).toBeNull();

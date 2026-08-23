@@ -1,5 +1,6 @@
 import { Router } from "express";
 import { getPool } from "../../infra/postgres.js";
+import { isLiveNeonSchema } from "../../infra/liveSchema.js";
 import { requireAuth, type AuthedRequest } from "../../middleware/auth.js";
 import { AppError } from "../../middleware/errors.js";
 import { routeParam } from "../../http/param.js";
@@ -8,9 +9,22 @@ import { publicProfile } from "../profile/router.js";
 
 const router = Router();
 
+/**
+ * Live Neon stores reposts in `elix_reposts` (not rebuild `reposts`).
+ * Until column contract is proven against production Neon, GET stays empty
+ * and mutations fail closed — never invent writes against an unknown shape.
+ */
+async function liveRepostsUnavailable(): Promise<never> {
+  throw new AppError("unavailable", "REPOSTS_LIVE_SCHEMA_UNAVAILABLE", 503);
+}
+
 router.get("/list", async (req: AuthedRequest, res) => {
   const userId = typeof req.query.userId === "string" ? req.query.userId : req.userId;
   if (!userId) {
+    res.json({ videos: [], nextCursor: null });
+    return;
+  }
+  if (await isLiveNeonSchema()) {
     res.json({ videos: [], nextCursor: null });
     return;
   }
@@ -27,6 +41,9 @@ router.get("/list", async (req: AuthedRequest, res) => {
 });
 
 router.post("/toggle", requireAuth, async (req: AuthedRequest, res) => {
+  if (await isLiveNeonSchema()) {
+    await liveRepostsUnavailable();
+  }
   const targetType = req.body?.targetType === "live" ? "live" : "video";
   const targetId = typeof req.body?.targetId === "string" ? req.body.targetId : "";
   if (!targetId) throw new AppError("validation_error", "targetId required", 400);
@@ -53,6 +70,10 @@ router.post("/toggle", requireAuth, async (req: AuthedRequest, res) => {
 router.get("/:userId", async (req: AuthedRequest, res) => {
   const userId = routeParam(req, "userId");
   await publicProfile(userId, req.userId);
+  if (await isLiveNeonSchema()) {
+    res.json({ videos: [], nextCursor: null });
+    return;
+  }
   res.json(
     await queryVideoPage({
       extraWhere: `AND v.id::text IN (
