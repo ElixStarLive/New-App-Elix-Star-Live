@@ -45,6 +45,7 @@ function needsLiveEnrichment(stream: LiveStreamCard): boolean {
 }
 
 export function useForYouFeed() {
+  const viewerId = useAuthStore((state) => state.user?.id ?? null);
   const [lives, setLives] = useState<TrackedLive[]>([]);
   const [videos, setVideos] = useState<FeedVideo[]>([]);
   const [page, setPage] = useState(1);
@@ -58,6 +59,7 @@ export function useForYouFeed() {
   const seenVideoIds = useRef(new Set<string>());
   const endedAtRef = useRef(new Map<string, number>());
   const snapshotGate = useRef(createLiveSnapshotGate());
+  const viewerRef = useRef<string | null>(viewerId);
 
   const slides: ForYouSlide[] = useMemo(
     () => [
@@ -129,6 +131,22 @@ export function useForYouFeed() {
   useEffect(() => {
     void reload();
   }, [reload]);
+
+  useEffect(() => {
+    if (viewerRef.current === viewerId) return;
+    viewerRef.current = viewerId;
+    fetchGen.current += 1;
+    moreLock.current = false;
+    seenVideoIds.current = new Set();
+    endedAtRef.current = new Map();
+    setVideos([]);
+    setLives([]);
+    setActiveIndex(0);
+    setPage(1);
+    setHasMore(false);
+    setError(null);
+    void reload();
+  }, [viewerId, reload]);
 
   useEffect(() => {
     const onStarted = (data: unknown) => {

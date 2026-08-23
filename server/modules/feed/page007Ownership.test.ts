@@ -4,6 +4,7 @@ import { resolve } from "node:path";
 
 const lifecycle = readFileSync(resolve(process.cwd(), "server/modules/feed/foryouLifecycle.ts"), "utf8");
 const router = readFileSync(resolve(process.cwd(), "server/modules/feed/router.ts"), "utf8");
+const query = readFileSync(resolve(process.cwd(), "server/modules/feed/query.ts"), "utf8");
 const session = readFileSync(resolve(process.cwd(), "server/modules/uploads/session.ts"), "utf8");
 const jobs = readFileSync(resolve(process.cwd(), "server/infra/jobs.ts"), "utf8");
 const migration = readFileSync(
@@ -22,6 +23,14 @@ describe("PAGE-007 For You ownership", () => {
   it("bumps shares only on track-interaction share", () => {
     expect(router).toMatch(/type === "share"/);
     expect(router).toMatch(/UPDATE videos SET shares = COALESCE\(shares, 0\) \+ 1/);
+  });
+
+  it("keeps story clips and empty media out of For You snap pages", () => {
+    const start = query.indexOf("export async function queryForYouPage");
+    const end = query.indexOf("export async function queryStemRanked");
+    const body = query.slice(start, end === -1 ? undefined : end);
+    expect(body).toMatch(/bunny_path NOT ILIKE '%\/stories\/%'/);
+    expect(body).toMatch(/btrim\(COALESCE\(v\.bunny_path, ''\)\) <> ''/);
   });
 
   it("enrolls published videos and sweeps lifecycle", () => {

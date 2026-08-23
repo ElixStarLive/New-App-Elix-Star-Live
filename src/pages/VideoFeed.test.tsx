@@ -22,6 +22,7 @@ const feedApi = vi.hoisted(() => ({
   apiMusicPreview: vi.fn(),
   apiDownloadVoiceOnlyVideo: vi.fn(),
   apiFollowList: vi.fn(),
+  apiFetchProfiles: vi.fn(),
   apiLiveToken: vi.fn(),
   apiLiveStatus: vi.fn(),
 }));
@@ -147,6 +148,7 @@ describe("PAGE-007 For You", () => {
     ws.reconnectOnForeground.mockReset();
     feedApi.apiFetchStories.mockResolvedValue({ users: [], error: null });
     feedApi.apiFollowList.mockResolvedValue({ users: [], error: null });
+    feedApi.apiFetchProfiles.mockResolvedValue({ profiles: [], error: null });
     feedApi.apiLiveStreams.mockResolvedValue({ streams: [], error: null });
     feedApi.apiLiveToken.mockResolvedValue({ token: null, error: null });
     feedApi.apiLiveStatus.mockResolvedValue({ status: { active: true, roomId: null }, error: null });
@@ -183,6 +185,8 @@ describe("PAGE-007 For You", () => {
     await flush();
     expect(mounted.container.textContent).toContain("Creator");
     expect(feedApi.apiFetchForYouFeed).toHaveBeenCalledTimes(1);
+    expect(feedApi.apiFetchStories).toHaveBeenCalled();
+    expect(mounted.container.textContent).toMatch(/Add story|Your story/);
   });
 
   it("shows empty feed copy and refresh", async () => {
@@ -409,6 +413,19 @@ describe("PAGE-007 For You", () => {
     });
     expect(mounted.container.textContent).toContain("MUSIC DETAIL");
     expect(mounted.container.textContent).not.toContain("MUSIC CATALOG");
+  });
+
+  it("renders For You story rings under TopNav without a second feed chrome row", async () => {
+    feedApi.apiFetchForYouFeed.mockResolvedValue({ page: { videos: [videoItem], mutualUserIds: [], page: 1, limit: 20, hasMore: false, total: 1, source: "postgres" }, error: null });
+    feedApi.apiLiveStreams.mockResolvedValue({ streams: [], error: null });
+    const mounted = renderFeed();
+    root = mounted.root;
+    container = mounted.container;
+    await flush();
+    expect(feedApi.apiFetchStories).toHaveBeenCalled();
+    expect(mounted.container.textContent).toMatch(/Add story|Your story/);
+    expect(mounted.container.textContent).not.toContain("Following");
+    expect(mounted.container.querySelector("h1")).toBeNull();
   });
 
   it("does not open a generic Music page when soundId is missing or original", async () => {

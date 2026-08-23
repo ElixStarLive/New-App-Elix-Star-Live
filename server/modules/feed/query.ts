@@ -246,6 +246,8 @@ export async function queryForYouPage(params: {
      FROM videos v
      JOIN users u ON u.id = v.user_id
      WHERE v.deleted_at IS NULL AND u.deleted_at IS NULL AND v.privacy = 'public'
+       AND btrim(COALESCE(v.bunny_path, '')) <> ''
+       AND v.bunny_path NOT ILIKE '%/stories/%'
        AND (u.banned_until IS NULL OR u.banned_until < NOW())
        AND ($1::uuid IS NULL OR (
          v.user_id NOT IN (SELECT blocked_id FROM blocks WHERE blocker_id = $1)
