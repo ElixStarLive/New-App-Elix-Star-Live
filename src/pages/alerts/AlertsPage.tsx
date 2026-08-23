@@ -1,58 +1,116 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef } from "react";
 import { useNavigate } from "react-router-dom";
-import { Bell, X } from "lucide-react";
-import { apiListActivity } from "@/features/chat/chatApi";
-import { INBOX_HOME } from "@/lib/settingsNav";
+import { Bell } from "lucide-react";
+import { RoyceBackIcon } from "@/components/royce";
+import { StoryGoldRingAvatar } from "@/components/StoryGoldRingAvatar";
+import { liveEndedKeys } from "@/features/feed/livePresence";
+import { alertsTimeAgo } from "@/features/alerts/alertsTimeAgo";
+import { createAlertsSession } from "@/features/alerts/alertsSession";
+import { useAlertsSession } from "@/features/alerts/useAlertsSession";
+import { isRecord } from "@/lib/isRecord";
+import { INBOX_HOME, inboxReturnState } from "@/lib/settingsNav";
+import { showToast } from "@/lib/toast";
+import { wsClient } from "@/lib/wsClient";
+import { useAuthStore } from "@/store/useAuthStore";
 
-function timeAgo(iso: string): string {
-  const t = Date.parse(iso);
-  if (!Number.isFinite(t)) return "";
-  const sec = Math.max(0, Math.floor((Date.now() - t) / 1000));
-  if (sec < 60) return `${sec}s`;
-  const min = Math.floor(sec / 60);
-  if (min < 60) return `${min}m`;
-  const hr = Math.floor(min / 60);
-  if (hr < 24) return `${hr}h`;
-  return `${Math.floor(hr / 24)}d`;
+function liveInitial(title: string): string {
+  return title.replace(/\s+is live.*$/i, "").trim().charAt(0).toUpperCase() || "?";
+}
+
+function openablePath(actionUrl: string | null): string | null {
+  if (!actionUrl) return null;
+  const path = actionUrl.trim();
+  if (!path.startsWith("/") || path.startsWith("//")) return null;
+  return path;
 }
 
 export default function AlertsPage() {
   const navigate = useNavigate();
-  const [items, setItems] = useState<Array<{ id: string; title: string; body: string; createdAt: string }>>([]);
-  const [error, setError] = useState<string | null>(null);
+  const me = useAuthStore((s) => s.user);
+  const sessionRef = useRef(createAlertsSession());
+  const session = sessionRef.current;
+  const snap = useAlertsSession(session);
+  const viewerId = me?.id || "";
 
   useEffect(() => {
-    void apiListActivity().then((res) => {
-      if (res.error) setError(res.error);
-      else setItems(res.items);
+    if (!viewerId) return;
+    void session.load(viewerId).then(() => {
+      const after = session.getSnapshot();
+      if (after.error) showToast(after.error);
+      if (after.markError) showToast(after.markError);
     });
-  }, []);
+    return () => {
+      session.dispose();
+    };
+  }, [session, viewerId]);
+
+  useEffect(() => {
+    const onEnded = (data: unknown) => {
+      const hostId = isRecord(data) && typeof data.hostId === "string" ? data.hostId : "";
+      const keys = liveEndedKeys(data);
+      session.applyStreamEnded(hostId, keys[0] || "");
+    };
+    wsClient.on("stream_ended", onEnded);
+    return () => {
+      wsClient.off("stream_ended", onEnded);
+    };
+  }, [session]);
 
   return (
     <div className="page-above-bottom-nav bg-transparent">
       <div className="page-above-bottom-nav__inner bg-transparent flex flex-col min-h-0">
-        <div className="px-3 pb-1 flex items-center justify-between relative" style={{ paddingTop: "var(--page-header-top)" }}>
-          <div className="w-8" aria-hidden />
-          <h2 className="text-sm font-bold text-gold-metallic absolute left-1/2 -translate-x-1/2">Alerts</h2>
-          <button type="button" onClick={() => navigate(INBOX_HOME, { replace: true })} className="p-1 z-10" aria-label="Back to inbox">
-            <X size={18} />
-          </button>
-        </div>
-        {error ? <p className="px-4 text-rose-300 text-sm">{error}</p> : null}
-        <div className="px-4 py-2 space-y-0.5 pb-4">
-          {items.length === 0 && !error ? <p className="text-white/50 text-sm py-8 text-center">No alerts yet.</p> : null}
-          {items.map((notif) => (
-            <div key={notif.id} className="flex items-center gap-3 w-full text-left py-2 px-2">
-              <div className="w-12 h-12 rounded-full border border-[#D8D9DD]/40 flex items-center justify-center flex-shrink-0">
-                <Bell className="w-6 h-6 text-[#E6E9EE]" />
-              </div>
-              <div className="flex-1 min-w-0">
-                <h3 className="font-bold text-sm text-gold-metallic">{notif.title}</h3>
-                <p className="text-[#E6E9EE] text-xs truncate">{notif.body}</p>
-              </div>
-              <span className="text-[10px] text-[#C8CDD5]">{notif.createdAt ? timeAgo(notif.createdAt) : ""}</span>
-            </div>
-          ))}
+        <div className="flex-1 min-h-0 overflow-y-auto bg-transparent">
+          <div className="px-3 pt-page-header pb-1 flex items-center justify-between relative bg-transparent">
+            <div className="w-8" aria-hidden />
+            <h2 className="text-sm font-bold text-gold-bright absolute left-1/2 transform -translate-x-1/2">Alerts</h2>
+            <button
+              type="button"
+              onClick={() => navigate(INBOX_HOME, { replace: true })}
+              className="p-1 z-10"
+              title="Back to inbox"
+              aria-label="Back to inbox"
+            >
+              <RoyceBackIcon />
+            </button>
+          </div>
+
+          <div className="px-4 py-2 space-y-0.5 pb-4">
+            {snap.phase === "error" && snap.items.length === 0 ? (
+              <p className="text-rose-300 text-sm py-8 text-center">{snap.error || "Could not load alerts"}</p>
+            ) : snap.phase === "loading" && snap.items.length === 0 ? null : snap.items.length === 0 ? (
+              <p className="text-gold-bright/50 text-sm py-8 text-center">No alerts yet.</p>
+            ) : (
+              snap.items.map((notif) => {
+                const liveNotif = notif.kind === "live_started";
+                const path = openablePath(notif.actionUrl);
+                return (
+                  <button
+                    key={notif.id}
+                    type="button"
+                    onClick={() => {
+                      if (path) navigate(path, { state: inboxReturnState() });
+                    }}
+                    className="flex items-center gap-3 w-full text-left py-2 px-2 bg-transparent"
+                  >
+                    {liveNotif ? (
+                      <div className="flex-shrink-0">
+                        <StoryGoldRingAvatar size={48} src={notif.imageUrl || ""} alt={liveInitial(notif.title)} live />
+                      </div>
+                    ) : (
+                      <div className="w-12 h-12 rounded-full bg-transparent border border-[#D8D9DD]/40 flex items-center justify-center flex-shrink-0">
+                        <Bell className="w-6 h-6 royce-icon-gold" />
+                      </div>
+                    )}
+                    <div className="flex-1 min-w-0">
+                      <h3 className="font-bold text-sm text-gold-metallic">{notif.title}</h3>
+                      <p className="text-gold-bright text-xs truncate">{notif.body}</p>
+                    </div>
+                    <span className="text-[10px] text-gold-bright">{notif.createdAt ? alertsTimeAgo(notif.createdAt) : ""}</span>
+                  </button>
+                );
+              })
+            )}
+          </div>
         </div>
       </div>
     </div>

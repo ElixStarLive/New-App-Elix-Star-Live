@@ -143,6 +143,12 @@ All 78 rows below are **NOT VERIFIED** until a page completes the full gate with
 - **Tests:** page031Ownership + InboxActivityOverlay ? **8 passed**
 - **Commit:** `f5e6a6c`
 
+## PAGE-032 Alerts
+
+- **Fixed:** restored AlertsPage + alertsSession/API stack.
+- **Tests:** alerts feature suite ? **9 passed**
+- **Commit:** *(pending)*
+
 ## PAGE-030 Inbox
 
 - **Fixed:** restored Inbox session/API/activity overlay wiring (was stale page-local chat-only owner); added missing inbox/alerts/calls/etc contract modules required by barrel; chatApi inbox threads paths.
