@@ -15,6 +15,7 @@ import {
   isFeedNoTopBarPath,
   isFeedWithTopBarPath,
   isFullScreenPath,
+  isLiveSessionPath,
   isPublicPath,
   showBottomNavFor,
 } from "@/lib/appShell";
@@ -23,14 +24,14 @@ import { Capacitor } from "@capacitor/core";
 import { namedExitForLocation, namedHardwareBackTarget } from "@/lib/settingsNav";
 import { wsClient } from "@/lib/wsClient";
 import { getSessionToken } from "@/lib/sessionToken";
-import { isRecord } from "@/lib/isRecord";
-import { useCallStore } from "@/store/useCallStore";
+import { bindVideoCallSignals, endActiveCall } from "@/features/calls/videoCallSession";
 import { registerPushToken } from "@/lib/pushRegister";
 
 const VideoFeed = lazy(() => import("@/pages/VideoFeed"));
 const StemFeed = lazy(() => import("@/pages/StemFeed"));
 const LiveStream = lazy(() => import("@/pages/LiveStream"));
 const LiveDiscover = lazy(() => import("@/pages/LiveDiscover"));
+const OwnProfile = lazy(() => import("@/pages/OwnProfile"));
 const Profile = lazy(() => import("@/pages/Profile"));
 const Login = lazy(() => import("@/pages/Login"));
 const Register = lazy(() => import("@/pages/Register"));
@@ -47,6 +48,7 @@ const ChatThread = lazy(() => import("@/pages/ChatThread"));
 const FriendsFeed = lazy(() => import("@/pages/FriendsFeed"));
 const EditProfile = lazy(() => import("@/pages/EditProfile"));
 const Settings = lazy(() => import("@/pages/Settings"));
+const EngagementGate = lazy(() => import("@/pages/engagement/EngagementGate"));
 const EngagementHub = lazy(() => import("@/pages/engagement/EngagementHub"));
 const EngagementMissions = lazy(() => import("@/pages/engagement/EngagementMissions"));
 const EngagementFanLevel = lazy(() => import("@/pages/engagement/EngagementFanLevel"));
@@ -55,7 +57,8 @@ const EngagementAchievements = lazy(() => import("@/pages/engagement/EngagementA
 const EngagementRewards = lazy(() => import("@/pages/engagement/EngagementRewards"));
 const EngagementDailyLogin = lazy(() => import("@/pages/engagement/EngagementDailyLogin"));
 const EngagementCollections = lazy(() => import("@/pages/engagement/EngagementCollections"));
-const FollowList = lazy(() => import("@/pages/FollowList"));
+const Followers = lazy(() => import("@/pages/Followers"));
+const FollowingList = lazy(() => import("@/pages/FollowingList"));
 const CreatorPayout = lazy(() => import("@/pages/CreatorPayout"));
 const CreatorLoginDetails = lazy(() => import("@/pages/CreatorLoginDetails"));
 const AuthCallback = lazy(() => import("@/pages/AuthCallback"));
@@ -199,42 +202,28 @@ function App() {
 
   useEffect(() => {
     if (!user?.id) return;
+    const unbind = bindVideoCallSignals(user.id);
+    return () => {
+      unbind();
+    };
+  }, [user?.id]);
+
+  useEffect(() => {
+    if (!user?.id) return;
     void registerPushToken();
     const onForceDisconnect = () => {
+      endActiveCall();
       void useAuthStore.getState().signOut();
     };
-    const onCallInvite = (data: unknown) => {
-      if (!isRecord(data)) return;
-      if (typeof data.callId !== "string" || typeof data.livekitToken !== "string") return;
-      useCallStore.getState().setIncoming({
-        callId: data.callId,
-        remoteUser: {
-          id: typeof data.fromUserId === "string" ? data.fromUserId : "",
-          username: typeof data.fromUsername === "string" ? data.fromUsername : "Caller",
-          avatar: typeof data.fromAvatar === "string" ? data.fromAvatar : null,
-        },
-        livekitUrl: typeof data.livekitUrl === "string" ? data.livekitUrl : "",
-        livekitToken: data.livekitToken,
-        roomName: typeof data.roomName === "string" ? data.roomName : "",
-      });
-    };
     wsClient.on("force_disconnect", onForceDisconnect);
-    wsClient.on("call_invite", onCallInvite);
     const token = getSessionToken();
-    const path = location.pathname;
-    const onLiveSurface =
-      path.startsWith("/live/") || path.startsWith("/watch/") || path === "/live/broadcast" || path === "/call";
-    if (token && !onLiveSurface) {
-      const currentRoom = wsClient.getCurrentRoomId();
-      if (!currentRoom || currentRoom === "__feed__") {
-        if (!wsClient.isConnected() || currentRoom !== "__feed__") {
-          wsClient.connect("__feed__", token, { persistent: true, ownerId: "app-feed-presence" });
-        }
-      }
+    if (token && !isLiveSessionPath(location.pathname)) {
+      wsClient.connect("__feed__", token, { persistent: true, ownerId: "app-feed-presence" });
+    } else {
+      wsClient.disconnect("app-feed-presence");
     }
     return () => {
       wsClient.off("force_disconnect", onForceDisconnect);
-      wsClient.off("call_invite", onCallInvite);
     };
   }, [user, location.pathname]);
 
@@ -334,14 +323,16 @@ function App() {
                 <Route path="/discover" element={<Discover />} />
                 <Route path="/rising-stars" element={<RisingStars />} />
                 <Route path="/rising-stars/challenge/:challengeId" element={<RisingStarsChallenge />} />
-                <Route path="/engagement" element={<EngagementHub />} />
-                <Route path="/engagement/missions" element={<EngagementMissions />} />
-                <Route path="/engagement/fan-level" element={<EngagementFanLevel />} />
-                <Route path="/engagement/mvp" element={<EngagementMvp />} />
-                <Route path="/engagement/achievements" element={<EngagementAchievements />} />
-                <Route path="/engagement/rewards" element={<EngagementRewards />} />
-                <Route path="/engagement/daily-login" element={<EngagementDailyLogin />} />
-                <Route path="/engagement/collections" element={<EngagementCollections />} />
+                <Route element={<EngagementGate />}>
+                  <Route path="/engagement" element={<EngagementHub />} />
+                  <Route path="/engagement/missions" element={<EngagementMissions />} />
+                  <Route path="/engagement/fan-level" element={<EngagementFanLevel />} />
+                  <Route path="/engagement/mvp" element={<EngagementMvp />} />
+                  <Route path="/engagement/achievements" element={<EngagementAchievements />} />
+                  <Route path="/engagement/rewards" element={<EngagementRewards />} />
+                  <Route path="/engagement/daily-login" element={<EngagementDailyLogin />} />
+                  <Route path="/engagement/collections" element={<EngagementCollections />} />
+                </Route>
                 <Route path="/hashtag/:tag" element={<Hashtag />} />
                 <Route path="/report" element={<Report />} />
                 <Route path="/video/:videoId" element={<VideoView />} />
@@ -353,7 +344,7 @@ function App() {
                 <Route path="/watch/:streamId" element={<SpectatorLiveShell />}>
                   <Route path="profile/:userId" element={<ProfileLiveOverlay />} />
                 </Route>
-                <Route path="/profile" element={<Profile />} />
+                <Route path="/profile" element={<OwnProfile />} />
                 <Route path="/profile/:userId" element={<Profile />} />
                 <Route path="/friends" element={<FriendsFeed />} />
                 <Route path="/saved" element={<SavedVideos />} />
@@ -372,8 +363,8 @@ function App() {
                 <Route path="/settings/safety" element={<SafetyCenter />} />
                 <Route path="/settings/security" element={<SecuritySettings />} />
                 <Route path="/settings/notifications" element={<NotificationSettings />} />
-                <Route path="/profile/:userId/followers" element={<FollowList />} />
-                <Route path="/profile/:userId/following" element={<FollowList />} />
+                <Route path="/profile/:userId/followers" element={<Followers />} />
+                <Route path="/profile/:userId/following" element={<FollowingList />} />
                 <Route path="/purchase-coins" element={<PurchaseCoins />} />
                 <Route path="/shop" element={<Shop />} />
                 <Route path="/shop/:itemId" element={<Shop />} />

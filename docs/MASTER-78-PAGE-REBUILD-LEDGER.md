@@ -9,9 +9,9 @@
 | 001 | Login `/login` | CODE-CLOSED | PASS | FAIL / BLOCKED | `ee124a5` | HTTP IT env; iOS; Android |
 | 002 | Register `/register` | CODE-CLOSED | PASS | FAIL / BLOCKED | `2fd6c47` | HTTP IT env; iOS; Android |
 | 003 | Auth callback `/auth/callback` | CODE-CLOSED | PASS | FAIL / BLOCKED | `505bd4c` | HTTP IT env; iOS; Android |
-| 004 | Forgot password `/forgot-password` | CODE-CLOSED | PASS | FAIL / BLOCKED | *(pending)* | HTTP IT env; iOS; Android |
-| 005 | Reset password `/reset-password` | CODE-CLOSED | PASS | FAIL / BLOCKED | *(pending)* | HTTP IT env; iOS; Android |
-| 006 | App shell | QUEUED | — | — | — | — |
+| 004 | Forgot password `/forgot-password` | CODE-CLOSED | PASS | FAIL / BLOCKED | `5ff60b4` | HTTP IT env; iOS; Android |
+| 005 | Reset password `/reset-password` | CODE-CLOSED | PASS | FAIL / BLOCKED | `5ff60b4` | HTTP IT env; iOS; Android |
+| 006 | App shell | ACTIVE | — | — | — | — |
 | 007 | For You `/feed` | QUEUED (prior `8e85ae3`) | — | — | — | — |
 | 008–078 | (see OLD-REBUILD-LEDGER) | QUEUED | — | — | — | — |
 
@@ -49,24 +49,5 @@ Client/Server typecheck: PASS · Lint: PASS · Tests: ForgotPassword suite PASS 
 Android/iOS: UNVERIFIED  
 
 **PAGE-004 CODE PARITY: PASS** · FULL VERIFIED: FAIL/BLOCKED  
-Commit: *(pending)*
-
----
-
-## PAGE-005 — Reset Password
-
-OLD inspected: YES · NEW inspected: YES  
-Copied OLD / patches / workarounds / shims / duplicates / dead: ZERO  
-
-UI parity: PASS · Navigation: PASS · Behaviour: PASS  
-REST: 1/1 PASS (`POST /api/auth/reset-password` → `{ success: true }`; session revoke; binding single-use)  
-WebSocket: disconnect on reset · LiveKit: N/A · DB: password + sessions · Valkey: N/A  
-
-Client/Server typecheck: PASS · Lint: PASS · Tests: ResetPassword suite PASS  
-Android/iOS: UNVERIFIED  
-
 **PAGE-005 CODE PARITY: PASS** · FULL VERIFIED: FAIL/BLOCKED  
-Commit: *(pending)*
-
-Remaining actual code defects: ZERO  
-Environment-only blockers: HTTP IT embedded Postgres; physical devices
+Commit: `5ff60b478b0d3c9fcdd6d8c233683fb3546fc974`

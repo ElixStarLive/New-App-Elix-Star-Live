@@ -14,7 +14,8 @@ export function isPublicPath(pathname: string): boolean {
     pathname === "/how-it-works" ||
     pathname === "/support" ||
     pathname === "/forgot-password" ||
-    pathname === "/reset-password"
+    pathname === "/reset-password" ||
+    pathname === "/creator/login-details"
   );
 }
 
@@ -22,7 +23,7 @@ export function bounceAuthenticatedAuthPath(pathname: string): boolean {
   return pathname === "/login" || pathname === "/register";
 }
 
-/** OLD hide matrix plus public auth pages that must never inherit tab chrome. */
+/** Routes that never show the home tab bar. */
 export function isShellNavHiddenPath(pathname: string): boolean {
   if (
     pathname === "/auth/callback" ||
@@ -43,7 +44,9 @@ export function isShellNavHiddenPath(pathname: string): boolean {
     pathname === "/register" ||
     /^\/inbox\/[^/]+$/.test(pathname) ||
     pathname === "/call" ||
-    pathname.startsWith("/call/")
+    pathname.startsWith("/call/") ||
+    pathname === "/admin" ||
+    pathname.startsWith("/admin/")
   );
 }
 
@@ -76,5 +79,16 @@ export function isLiveNotifySurfacePath(pathname: string): boolean {
     pathname.startsWith("/live") ||
     pathname.startsWith("/watch") ||
     pathname.startsWith("/create")
+  );
+}
+
+/** Host/spectator/call rooms own the singleton WS. Discover `/live` stays on feed presence. */
+export function isLiveSessionPath(pathname: string): boolean {
+  if (pathname === "/live") return false;
+  return (
+    pathname.startsWith("/live/") ||
+    pathname.startsWith("/watch/") ||
+    pathname === "/call" ||
+    pathname.startsWith("/call/")
   );
 }
