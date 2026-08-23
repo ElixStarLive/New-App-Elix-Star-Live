@@ -1,12 +1,16 @@
 export const SETTINGS_HOME = "/settings";
 export const SETTINGS_EXIT_TO = "/profile";
+export const LEGAL_HOME = "/legal";
 export const ENGAGEMENT_HOME = "/engagement";
 export const PROFILE_EXIT_TO = "/feed";
 export const FEED_HOME = "/feed";
 export const EDIT_PROFILE_EXIT_TO = SETTINGS_HOME;
 export const DISCOVER_HOME = "/discover";
 export const SEARCH_EXIT_TO = FEED_HOME;
+export const SHOP_HOME = "/shop";
 export const SHOP_EXIT_TO = FEED_HOME;
+export const PURCHASE_COINS_HOME = "/purchase-coins";
+export const PURCHASE_COINS_EXIT_TO = FEED_HOME;
 export const VIDEO_EXIT_TO = FEED_HOME;
 export const RISING_STARS_EXIT_TO = FEED_HOME;
 export const RISING_STARS_HOME = "/rising-stars";
@@ -14,6 +18,8 @@ export const AI_STUDIO_EXIT_TO = FEED_HOME;
 export const FOLLOW_LIST_EXIT_TO = SETTINGS_EXIT_TO;
 export const SAVED_HOME = "/saved";
 export const INBOX_HOME = "/inbox";
+export const CREATOR_LOGIN_HOME = "/creator/login-details";
+export const CREATOR_LOGIN_EXIT_TO = SETTINGS_HOME;
 
 function hasUnsafePathCharacters(path: string): boolean {
   return Array.from(path).some((character) => {
@@ -78,13 +84,17 @@ function namedExitForPath(pathname: string): string {
   }
   const followListMatch = path.match(/^\/profile\/([^/]+)\/(followers|following)$/);
   if (followListMatch) return `/profile/${followListMatch[1]}`;
-  if (path.startsWith("/profile/") || path === "/edit-profile") return PROFILE_EXIT_TO;
+  if (path === CREATOR_LOGIN_HOME) return CREATOR_LOGIN_EXIT_TO;
+  if (path === "/edit-profile") return EDIT_PROFILE_EXIT_TO;
+  if (path.startsWith("/profile/")) return PROFILE_EXIT_TO;
   if (/^\/watch\/[^/]+\/profile/.test(path)) {
     const streamId = path.match(/^\/watch\/([^/]+)/)?.[1];
     return streamId ? `/watch/${streamId}` : VIDEO_EXIT_TO;
   }
   if (path === SAVED_HOME || path.startsWith(`${SAVED_HOME}/`)) return SETTINGS_HOME;
-  if (path.startsWith("/shop")) return SHOP_EXIT_TO;
+  if (path === SHOP_HOME) return SHOP_EXIT_TO;
+  if (path.startsWith(`${SHOP_HOME}/`)) return SHOP_HOME;
+  if (path === PURCHASE_COINS_HOME) return PURCHASE_COINS_EXIT_TO;
   if (path.startsWith("/video/") || path.startsWith("/watch/")) return VIDEO_EXIT_TO;
   if (path.startsWith("/rising-stars")) {
     if (path === RISING_STARS_HOME) return RISING_STARS_EXIT_TO;
@@ -93,17 +103,25 @@ function namedExitForPath(pathname: string): string {
   if (path.startsWith("/ai-studio")) return AI_STUDIO_EXIT_TO;
   if (path.startsWith("/search")) return SEARCH_EXIT_TO;
   if (path.startsWith("/discover")) return FEED_HOME;
+  if (path === "/music" || path.startsWith("/music/")) return FEED_HOME;
   if (path.startsWith("/hashtag/")) return DISCOVER_HOME;
   if (path.startsWith("/inbox/") || path.startsWith("/chat/") || path === "/alerts") return INBOX_HOME;
-  if (path.startsWith("/live/") || path.startsWith("/go-live")) return FEED_HOME;
+  if (path === "/live" || path.startsWith("/live/") || path.startsWith("/go-live")) return FEED_HOME;
   if (path.startsWith("/create") || path.startsWith("/upload")) return FEED_HOME;
+  if (path === "/report") return FEED_HOME;
+  if (path === "/admin" || path.startsWith("/admin/")) {
+    if (path === "/admin") return SETTINGS_HOME;
+    return "/admin";
+  }
   if (
     path === "/support" ||
     path === "/how-it-works" ||
     path === "/terms" ||
     path === "/privacy" ||
     path === "/guidelines" ||
-    path === "/copyright"
+    path === "/copyright" ||
+    path === LEGAL_HOME ||
+    path.startsWith(`${LEGAL_HOME}/`)
   ) {
     return SETTINGS_HOME;
   }
