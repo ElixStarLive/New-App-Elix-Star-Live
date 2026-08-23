@@ -149,6 +149,12 @@ All 78 rows below are **NOT VERIFIED** until a page completes the full gate with
 - **Tests:** alerts feature suite ? **9 passed**
 - **Commit:** `0c08ab0`
 
+## PAGE-033 Chat thread
+
+- **Fixed:** restored ChatThread session/merge/links owners (locked UI preserved from approved NEW tree).
+- **Tests:** page033Ownership + chatThread session/merge/links ? **13 passed**
+- **Commit:** *(pending)*
+
 ## PAGE-030 Inbox
 
 - **Fixed:** restored Inbox session/API/activity overlay wiring (was stale page-local chat-only owner); added missing inbox/alerts/calls/etc contract modules required by barrel; chatApi inbox threads paths.
