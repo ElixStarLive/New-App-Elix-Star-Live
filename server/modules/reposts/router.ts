@@ -4,13 +4,14 @@ import { requireAuth, type AuthedRequest } from "../../middleware/auth.js";
 import { AppError } from "../../middleware/errors.js";
 import { routeParam } from "../../http/param.js";
 import { cursorFromQuery, queryVideoPage } from "../feed/query.js";
+import { publicProfile } from "../profile/router.js";
 
 const router = Router();
 
 router.get("/list", async (req: AuthedRequest, res) => {
   const userId = typeof req.query.userId === "string" ? req.query.userId : req.userId;
   if (!userId) {
-    res.json({ items: [], nextCursor: null });
+    res.json({ videos: [], nextCursor: null });
     return;
   }
   res.json(
@@ -49,13 +50,15 @@ router.post("/toggle", requireAuth, async (req: AuthedRequest, res) => {
   res.json({ reposted: true });
 });
 
-router.get("/:userId", async (req, res) => {
+router.get("/:userId", async (req: AuthedRequest, res) => {
+  const userId = routeParam(req, "userId");
+  await publicProfile(userId, req.userId);
   res.json(
     await queryVideoPage({
       extraWhere: `AND v.id::text IN (
         SELECT target_id FROM reposts WHERE user_id = $1 AND target_type = 'video'
       )`,
-      extraParams: [routeParam(req, "userId")],
+      extraParams: [userId],
       cursor: cursorFromQuery(req.query),
       privacy: "public",
     }),

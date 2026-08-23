@@ -1,4 +1,5 @@
-import type { FeedItem, FeedPage, UserPublic } from "@shared/contracts";
+import type { FeedVideo, UserPublic } from "@shared/contracts";
+import type { FeedVideoPage } from "@/features/feed/feedApi";
 import { userPublicSchema } from "@shared/contracts";
 import { apiRequest, apiUploadForm } from "@/lib/apiClient";
 import { isRecord } from "@/lib/isRecord";
@@ -48,7 +49,7 @@ export async function apiFetchOwnTabPage(
   tab: Exclude<OwnProfileTab, "shop">,
   userId: string,
   cursor?: string | null,
-): Promise<{ page: FeedPage | null; error: string | null }> {
+): Promise<{ page: FeedVideoPage | null; error: string | null }> {
   if (tab === "videos") return apiFetchUserVideos(userId, "public", cursor);
   if (tab === "private") return apiFetchUserVideos(userId, "private", cursor);
   if (tab === "saved") return apiFetchSavedFeed(cursor);
@@ -66,4 +67,4 @@ export async function apiOwnHasActiveStory(userId: string): Promise<boolean> {
   return res.users.some((row) => row.userId === userId && row.stories.length > 0);
 }
 
-export type { FeedItem, ShopItem };
+export type { FeedVideo, ShopItem };

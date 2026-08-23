@@ -1,29 +1,22 @@
 import { describe, expect, it } from "vitest";
-import type { FeedItem } from "@shared/contracts";
-import { isStemExtraCaption, rankStemItems } from "./stemRank";
+import { isStemExtraCaption, isIndecentExploreCaption, rankStemItems } from "@shared/stemEligibility";
 
-function video(partial: Partial<FeedItem> & { id: string }): FeedItem {
+function video(partial: { id: string; url?: string; viewCount?: number; description?: string; hashtags?: string[] }) {
   return {
-    kind: "video",
-    userId: "u1",
-    username: "u",
-    displayName: "U",
-    avatarUrl: null,
-    mediaUrl: "https://cdn.example.com/v.mp4",
-    likeCount: 0,
-    commentCount: 0,
-    saveCount: 0,
-    viewCount: 0,
-    ...partial,
+    id: partial.id,
+    mediaUrl: partial.url ?? "https://cdn.example.com/v.mp4",
+    viewCount: partial.viewCount ?? 0,
+    caption: partial.description ?? "",
+    hashtags: partial.hashtags ?? [],
   };
 }
 
 describe("PAGE-008 STEM rank", () => {
   it("puts highest views first and drops rows without media", () => {
     const ranked = rankStemItems([
-      video({ id: "a", viewCount: 2, mediaUrl: "https://cdn.example.com/a.mp4" }),
-      video({ id: "b", viewCount: 9, mediaUrl: "https://cdn.example.com/b.mp4" }),
-      video({ id: "c", viewCount: 5, mediaUrl: "" }),
+      video({ id: "a", viewCount: 2, url: "https://cdn.example.com/a.mp4" }),
+      video({ id: "b", viewCount: 9, url: "https://cdn.example.com/b.mp4" }),
+      video({ id: "c", viewCount: 5, url: "" }),
     ]);
     expect(ranked.map((item) => item.id)).toEqual(["b", "a"]);
   });
@@ -33,13 +26,19 @@ describe("PAGE-008 STEM rank", () => {
       video({
         id: `v${i}`,
         viewCount: 41 - i,
-        mediaUrl: `https://cdn.example.com/${i}.mp4`,
-        caption: i === 40 ? "beach day" : "hello",
+        url: `https://cdn.example.com/${i}.mp4`,
+        description: i === 40 ? "beach day" : "hello",
       }),
     );
     const ranked = rankStemItems(many);
     expect(ranked).toHaveLength(41);
     expect(ranked[40]?.id).toBe("v40");
     expect(isStemExtraCaption("beach day")).toBe(true);
+  });
+
+  it("Discover trending uses indecent captions only, not STEM beach extras", () => {
+    expect(isIndecentExploreCaption("nsfw night")).toBe(true);
+    expect(isIndecentExploreCaption("beach day")).toBe(false);
+    expect(isIndecentExploreCaption("hello", ["18+"])).toBe(true);
   });
 });

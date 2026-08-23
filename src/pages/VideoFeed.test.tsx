@@ -1,6 +1,6 @@
 import { act } from "react";
 import { createRoot, type Root } from "react-dom/client";
-import { MemoryRouter } from "react-router-dom";
+import { MemoryRouter, Route, Routes } from "react-router-dom";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import VideoFeed from "./VideoFeed";
 
@@ -20,6 +20,9 @@ const feedApi = vi.hoisted(() => ({
   apiFetchVideoComments: vi.fn(),
   apiPostVideoComment: vi.fn(),
   apiMusicPreview: vi.fn(),
+  apiDownloadVoiceOnlyVideo: vi.fn(),
+  apiFollowList: vi.fn(),
+  apiLiveToken: vi.fn(),
 }));
 
 const ws = vi.hoisted(() => ({
@@ -30,10 +33,18 @@ const ws = vi.hoisted(() => ({
 vi.mock("@/features/feed/feedApi", () => feedApi);
 vi.mock("@/lib/wsClient", () => ({ wsClient: ws }));
 vi.mock("@/store/useAuthStore", () => ({
-  useAuthStore: (selector?: (state: { user: { id: string } }) => unknown) => {
-    const state = { user: { id: "11111111-1111-1111-1111-111111111111" } };
-    return selector ? selector(state) : state;
-  },
+  useAuthStore: Object.assign(
+    (selector?: (state: { user: { id: string } }) => unknown) => {
+      const state = { user: { id: "11111111-1111-1111-1111-111111111111" } };
+      return selector ? selector(state) : state;
+    },
+    {
+      getState: () => ({
+        user: { id: "11111111-1111-1111-1111-111111111111" },
+        checkUser: async () => undefined,
+      }),
+    },
+  ),
 }));
 vi.mock("@/store/useSettingsStore", () => ({
   useSettingsStore: (selector?: (state: { muteAllSounds: boolean }) => unknown) => {
@@ -43,29 +54,42 @@ vi.mock("@/store/useSettingsStore", () => ({
 }));
 vi.mock("@/lib/platform", async () => {
   const actual = await vi.importActual<typeof import("@/lib/platform")>("@/lib/platform");
-  return { ...actual, nativeShareUrl: vi.fn(async () => true), platform: { ...actual.platform, isNative: true } };
+  return { ...actual, nativeShareUrl: vi.fn(async () => true), nativeShareMedia: vi.fn(async () => "shared"), platform: { ...actual.platform, isNative: true } };
 });
+vi.mock("@capacitor/app", () => ({
+  App: {
+    addListener: vi.fn(async () => ({ remove: vi.fn() })),
+  },
+}));
 
 const videoItem = {
   id: "22222222-2222-4222-8222-222222222222",
-  kind: "video" as const,
-  userId: "33333333-3333-4333-8333-333333333333",
-  username: "creator",
-  displayName: "Creator",
-  avatarUrl: null,
-  caption: "hello #tag",
-  mediaUrl: "https://cdn.example/video.mp4",
-  thumbnailUrl: null,
-  likeCount: 2,
-  commentCount: 1,
-  saveCount: 0,
-  viewCount: 4,
-  liked: false,
-  saved: false,
-  isFollowing: false,
-  isLive: false,
+  url: "https://cdn.example/video.mp4",
+  thumbnail: "",
+  duration: "0:15",
+  user: {
+    id: "33333333-3333-4333-8333-333333333333",
+    username: "creator",
+    name: "Creator",
+    avatar: "",
+    level: 1,
+    isVerified: false,
+    followers: 0,
+    following: 0,
+  },
+  description: "hello #tag",
   hashtags: ["tag"],
-  createdAt: "2026-08-20T00:00:00.000Z",
+  music: null,
+  stats: { views: 4, likes: 2, comments: 1, shares: 0, saves: 0 },
+  createdAt: null,
+  location: "For You",
+  isLiked: false,
+  isSaved: false,
+  isFollowing: false,
+  comments: [],
+  quality: "auto",
+  privacy: "public",
+  engagementScore: 0,
 };
 
 function renderFeed(): { container: HTMLDivElement; root: Root } {
@@ -74,10 +98,19 @@ function renderFeed(): { container: HTMLDivElement; root: Root } {
   const root = createRoot(container);
   act(() => {
     root.render(
-      <MemoryRouter>
-        <div style={{ height: "800px" }}>
-          <VideoFeed />
-        </div>
+      <MemoryRouter initialEntries={["/feed"]}>
+        <Routes>
+          <Route
+            path="/feed"
+            element={
+              <div style={{ height: "800px" }}>
+                <VideoFeed />
+              </div>
+            }
+          />
+          <Route path="/music/:songId" element={<div>MUSIC DETAIL</div>} />
+          <Route path="/music" element={<div>MUSIC CATALOG</div>} />
+        </Routes>
       </MemoryRouter>,
     );
   });
@@ -100,6 +133,9 @@ describe("PAGE-007 For You", () => {
     ws.on.mockReset();
     ws.off.mockReset();
     feedApi.apiFetchStories.mockResolvedValue({ users: [], error: null });
+    feedApi.apiFollowList.mockResolvedValue({ users: [], error: null });
+    feedApi.apiLiveStreams.mockResolvedValue({ streams: [], error: null });
+    feedApi.apiLiveToken.mockResolvedValue({ token: null, error: null });
     feedApi.apiMusicPreview.mockResolvedValue({ url: null, error: "none" });
     feedApi.apiFetchVideoComments.mockResolvedValue({ comments: [], error: null });
     feedApi.apiLikeVideo.mockResolvedValue({ ok: true });
@@ -125,7 +161,7 @@ describe("PAGE-007 For You", () => {
   });
 
   it("loads valid feed results once", async () => {
-    feedApi.apiFetchForYouFeed.mockResolvedValue({ page: { items: [videoItem], nextCursor: null }, error: null });
+    feedApi.apiFetchForYouFeed.mockResolvedValue({ page: { videos: [videoItem], mutualUserIds: [], page: 1, limit: 20, hasMore: false, total: 1, source: "postgres" }, error: null });
     feedApi.apiLiveStreams.mockResolvedValue({ streams: [], error: null });
     const mounted = renderFeed();
     root = mounted.root;
@@ -133,18 +169,16 @@ describe("PAGE-007 For You", () => {
     await flush();
     expect(mounted.container.textContent).toContain("Creator");
     expect(feedApi.apiFetchForYouFeed).toHaveBeenCalledTimes(1);
-    expect(feedApi.apiFetchStories).not.toHaveBeenCalled();
   });
 
   it("shows empty feed copy and refresh", async () => {
-    feedApi.apiFetchForYouFeed.mockResolvedValue({ page: { items: [], nextCursor: null }, error: null });
+    feedApi.apiFetchForYouFeed.mockResolvedValue({ page: { videos: [], mutualUserIds: [], page: 1, limit: 20, hasMore: false, total: 0, source: "postgres" }, error: null });
     feedApi.apiLiveStreams.mockResolvedValue({ streams: [], error: null });
     const mounted = renderFeed();
     root = mounted.root;
     container = mounted.container;
     await flush();
     expect(mounted.container.textContent).toContain("Nothing here yet");
-    expect(mounted.container.textContent).not.toContain("Add story");
     const refresh = [...mounted.container.querySelectorAll("button")].find((el) => el.textContent === "Refresh");
     expect(refresh).toBeTruthy();
     await act(async () => {
@@ -163,7 +197,7 @@ describe("PAGE-007 For You", () => {
     await flush();
     expect(mounted.container.textContent).toContain("Network error");
     const retry = [...mounted.container.querySelectorAll("button")].find((el) => el.textContent === "Retry");
-    feedApi.apiFetchForYouFeed.mockResolvedValue({ page: { items: [videoItem], nextCursor: null }, error: null });
+    feedApi.apiFetchForYouFeed.mockResolvedValue({ page: { videos: [videoItem], mutualUserIds: [], page: 1, limit: 20, hasMore: false, total: 1, source: "postgres" }, error: null });
     await act(async () => {
       retry?.click();
       await Promise.resolve();
@@ -173,7 +207,7 @@ describe("PAGE-007 For You", () => {
   });
 
   it("opens comments for the active video id", async () => {
-    feedApi.apiFetchForYouFeed.mockResolvedValue({ page: { items: [videoItem], nextCursor: null }, error: null });
+    feedApi.apiFetchForYouFeed.mockResolvedValue({ page: { videos: [videoItem], mutualUserIds: [], page: 1, limit: 20, hasMore: false, total: 1, source: "postgres" }, error: null });
     feedApi.apiLiveStreams.mockResolvedValue({ streams: [], error: null });
     const mounted = renderFeed();
     root = mounted.root;
@@ -192,7 +226,7 @@ describe("PAGE-007 For You", () => {
   });
 
   it("likes through the real API and rolls back on failure", async () => {
-    feedApi.apiFetchForYouFeed.mockResolvedValue({ page: { items: [videoItem], nextCursor: null }, error: null });
+    feedApi.apiFetchForYouFeed.mockResolvedValue({ page: { videos: [videoItem], mutualUserIds: [], page: 1, limit: 20, hasMore: false, total: 1, source: "postgres" }, error: null });
     feedApi.apiLiveStreams.mockResolvedValue({ streams: [], error: null });
     feedApi.apiLikeVideo.mockResolvedValue({ ok: false, error: "Could not like" });
     const mounted = renderFeed();
@@ -220,7 +254,7 @@ describe("PAGE-007 For You", () => {
       viewerCount: 3,
       startedAt: "2026-08-20T00:00:00.000Z",
     };
-    feedApi.apiFetchForYouFeed.mockResolvedValue({ page: { items: [], nextCursor: null }, error: null });
+    feedApi.apiFetchForYouFeed.mockResolvedValue({ page: { videos: [], mutualUserIds: [], page: 1, limit: 20, hasMore: false, total: 0, source: "postgres" }, error: null });
     feedApi.apiLiveStreams.mockResolvedValue({ streams: [stream], error: null });
     const mounted = renderFeed();
     root = mounted.root;
@@ -232,14 +266,14 @@ describe("PAGE-007 For You", () => {
     expect(live).toBeTruthy();
     const ended = ws.on.mock.calls.find((call) => call[0] === "stream_ended")?.[1] as (data: unknown) => void;
     await act(async () => {
-      ended?.({ stream_key: stream.roomId, room_id: stream.roomId, streamId: stream.streamId });
+      ended?.({ streamId: stream.streamId });
       await Promise.resolve();
     });
     expect(mounted.container.textContent).not.toContain("Live Creator");
   });
 
   it("subscribes to feed presence on the existing wsClient and cleans up", async () => {
-    feedApi.apiFetchForYouFeed.mockResolvedValue({ page: { items: [], nextCursor: null }, error: null });
+    feedApi.apiFetchForYouFeed.mockResolvedValue({ page: { videos: [], mutualUserIds: [], page: 1, limit: 20, hasMore: false, total: 0, source: "postgres" }, error: null });
     feedApi.apiLiveStreams.mockResolvedValue({ streams: [], error: null });
     const mounted = renderFeed();
     root = mounted.root;
@@ -252,5 +286,134 @@ describe("PAGE-007 For You", () => {
     expect(ws.off).toHaveBeenCalledWith("stream_started", expect.any(Function));
     expect(ws.off).toHaveBeenCalledWith("stream_ended", expect.any(Function));
     root = undefined;
+  });
+
+  it("hands live cards to /watch using the room id", async () => {
+    const stream = {
+      streamId: "44444444-4444-4444-8444-444444444444",
+      roomId: "33333333-3333-4333-8333-333333333333",
+      hostId: "33333333-3333-4333-8333-333333333333",
+      displayName: "Live Creator",
+      username: "livec",
+      avatarUrl: null,
+      title: "Now",
+      viewerCount: 3,
+      startedAt: "2026-08-20T00:00:00.000Z",
+    };
+    feedApi.apiFetchForYouFeed.mockResolvedValue({ page: { videos: [], mutualUserIds: [], page: 1, limit: 20, hasMore: false, total: 0, source: "postgres" }, error: null });
+    feedApi.apiLiveStreams.mockResolvedValue({ streams: [stream], error: null });
+    const mounted = renderFeed();
+    root = mounted.root;
+    container = mounted.container;
+    await flush();
+    const live = mounted.container.querySelector('button[data-elix-watch-id]') as HTMLButtonElement;
+    expect(live?.getAttribute("data-elix-watch-id")).toBe(stream.roomId);
+    expect(mounted.container.textContent).toContain("Tap to join live");
+  });
+
+  it("opens the more grid and pauses playback while a panel is open", async () => {
+    feedApi.apiFetchForYouFeed.mockResolvedValue({ page: { videos: [videoItem], mutualUserIds: [], page: 1, limit: 20, hasMore: false, total: 1, source: "postgres" }, error: null });
+    feedApi.apiLiveStreams.mockResolvedValue({ streams: [], error: null });
+    const pause = vi.fn();
+    HTMLMediaElement.prototype.pause = pause;
+    const mounted = renderFeed();
+    root = mounted.root;
+    container = mounted.container;
+    await flush();
+    const more = mounted.container.querySelector('button[aria-label="More options"]') as HTMLButtonElement;
+    await act(async () => {
+      more.click();
+      await Promise.resolve();
+    });
+    expect(mounted.container.textContent).toContain("Copy Link");
+    expect(mounted.container.textContent).toContain("Download");
+    expect(mounted.container.textContent).toContain("Promote");
+    expect(mounted.container.textContent).toContain("QR Code");
+    expect(mounted.container.querySelector(".elix-more-options-sheet.bottom-sheet-above-nav")).toBeTruthy();
+    expect(pause).toHaveBeenCalled();
+    feedApi.apiDownloadVoiceOnlyVideo.mockResolvedValue({
+      ok: true,
+      blob: new Blob([new Uint8Array([1, 2, 3])], { type: "video/mp4" }),
+      filename: "elix_clip.mp4",
+    });
+    const objectUrl = vi.fn(() => "blob:elix-voice");
+    const revoke = vi.fn();
+    vi.stubGlobal("URL", { ...URL, createObjectURL: objectUrl, revokeObjectURL: revoke });
+    const download = Array.from(mounted.container.querySelectorAll("button")).find((el) =>
+      (el.textContent || "").includes("Download"),
+    ) as HTMLButtonElement;
+    await act(async () => {
+      download.click();
+      await Promise.resolve();
+    });
+    expect(feedApi.apiDownloadVoiceOnlyVideo).toHaveBeenCalledWith(videoItem.id);
+    await act(async () => {
+      more.click();
+      await Promise.resolve();
+    });
+    const promote = Array.from(mounted.container.querySelectorAll("button")).find((el) =>
+      (el.textContent || "").includes("Promote"),
+    ) as HTMLButtonElement;
+    await act(async () => {
+      promote.click();
+      await Promise.resolve();
+    });
+    expect(mounted.container.querySelector("[data-elix-promote-video]")?.getAttribute("data-elix-promote-video")).toBe(
+      videoItem.id,
+    );
+  });
+
+  it("requests the next For You page once near the end", async () => {
+    const second = { ...videoItem, id: "55555555-5555-4555-8555-555555555555", user: { ...videoItem.user, username: "two", name: "Second" } };
+    feedApi.apiFetchForYouFeed
+      .mockResolvedValueOnce({ page: { videos: [videoItem], mutualUserIds: [], page: 1, limit: 20, hasMore: true, total: 1, source: "postgres" }, error: null })
+      .mockResolvedValueOnce({ page: { videos: [second], mutualUserIds: [], page: 2, limit: 20, hasMore: false, total: 2, source: "postgres" }, error: null });
+    feedApi.apiLiveStreams.mockResolvedValue({ streams: [], error: null });
+    const mounted = renderFeed();
+    root = mounted.root;
+    container = mounted.container;
+    await flush();
+    await flush();
+    expect(feedApi.apiFetchForYouFeed).toHaveBeenCalledTimes(2);
+    expect(feedApi.apiFetchForYouFeed.mock.calls[1]?.[0]).toBe(2);
+  });
+
+  it("opens Music only when a valid soundId exists", async () => {
+    feedApi.apiFetchForYouFeed.mockResolvedValue({
+      page: { videos: [{ ...videoItem, music: { id: "epidemic-track-1", title: "Track", artist: "A", duration: "0:30" } }], mutualUserIds: [], page: 1, limit: 20, hasMore: false, total: 1, source: "postgres" },
+      error: null,
+    });
+    feedApi.apiLiveStreams.mockResolvedValue({ streams: [], error: null });
+    const mounted = renderFeed();
+    root = mounted.root;
+    container = mounted.container;
+    await flush();
+    const music = mounted.container.querySelector('button[title="Original Sound"]') as HTMLButtonElement;
+    await act(async () => {
+      music.click();
+      await Promise.resolve();
+    });
+    expect(mounted.container.textContent).toContain("MUSIC DETAIL");
+    expect(mounted.container.textContent).not.toContain("MUSIC CATALOG");
+  });
+
+  it("does not open a generic Music page when soundId is missing or original", async () => {
+    feedApi.apiFetchForYouFeed.mockResolvedValue({
+      page: { videos: [{ ...videoItem, music: { id: "original", title: "Original", artist: "Creator", duration: "0:15" } }], mutualUserIds: [], page: 1, limit: 20, hasMore: false, total: 1, source: "postgres" },
+      error: null,
+    });
+    feedApi.apiLiveStreams.mockResolvedValue({ streams: [], error: null });
+    const mounted = renderFeed();
+    root = mounted.root;
+    container = mounted.container;
+    await flush();
+    const music = mounted.container.querySelector('button[title="Original Sound"]') as HTMLButtonElement;
+    await act(async () => {
+      music.click();
+      await Promise.resolve();
+    });
+    expect(mounted.container.textContent).not.toContain("MUSIC DETAIL");
+    expect(mounted.container.textContent).not.toContain("MUSIC CATALOG");
+    expect(mounted.container.textContent).toContain("Creator");
   });
 });

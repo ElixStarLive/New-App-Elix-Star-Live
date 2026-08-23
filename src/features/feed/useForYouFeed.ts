@@ -1,10 +1,17 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import type { FeedItem, LiveStreamCard } from "@shared/contracts";
-import { apiFetchForYouFeed, apiFetchProfile, apiLiveStreams, mapLiveStreamCard } from "@/features/feed/feedApi";
-import { createLiveSnapshotGate, pruneEndedBefore, reconcileLiveSnapshot } from "@/features/feed/livePresence";
+import type { FeedVideo, LiveStreamCard } from "@shared/contracts";
+import { apiFetchForYouFeed, apiFetchProfile, apiLiveStreams } from "@/features/feed/feedApi";
+import {
+  createLiveSnapshotGate,
+  liveEndedKeys,
+  liveKey,
+  parseLiveStartedCard,
+  pruneEndedBefore,
+  reconcileLiveSnapshot,
+} from "@/features/feed/livePresence";
 import { wsClient } from "@/lib/wsClient";
-import { isRecord } from "@/lib/isRecord";
 import { showToast } from "@/lib/toast";
+import { useAuthStore } from "@/store/useAuthStore";
 
 export type ForYouLiveSlide = {
   kind: "live";
@@ -15,37 +22,21 @@ export type ForYouLiveSlide = {
 export type ForYouVideoSlide = {
   kind: "video";
   key: string;
-  item: FeedItem;
+  item: FeedVideo;
 };
 
 export type ForYouSlide = ForYouLiveSlide | ForYouVideoSlide;
 
 type TrackedLive = LiveStreamCard & { discoveredAt: number };
 
-export function liveKey(stream: LiveStreamCard): string {
-  return stream.roomId || stream.streamId;
-}
+export { liveKey } from "@/features/feed/livePresence";
 
 function parseLiveFromWs(data: unknown, discoveredAt: number): TrackedLive | null {
-  const card = mapLiveStreamCard(data);
-  if (!card) return null;
-  return {
-    ...card,
-    startedAt: card.startedAt || new Date(discoveredAt).toISOString(),
-    discoveredAt,
-  };
+  return parseLiveStartedCard(data, discoveredAt);
 }
 
 function endedKeys(data: unknown): string[] {
-  if (!isRecord(data)) return [];
-  return [
-    typeof data.stream_key === "string" ? data.stream_key : "",
-    typeof data.streamKey === "string" ? data.streamKey : "",
-    typeof data.room_id === "string" ? data.room_id : "",
-    typeof data.streamId === "string" ? data.streamId : "",
-    typeof data.stream_id === "string" ? data.stream_id : "",
-    typeof data.id === "string" ? data.id : "",
-  ].filter(Boolean);
+  return liveEndedKeys(data);
 }
 
 function needsLiveEnrichment(stream: LiveStreamCard): boolean {
@@ -55,8 +46,9 @@ function needsLiveEnrichment(stream: LiveStreamCard): boolean {
 
 export function useForYouFeed() {
   const [lives, setLives] = useState<TrackedLive[]>([]);
-  const [videos, setVideos] = useState<FeedItem[]>([]);
-  const [cursor, setCursor] = useState<string | null>(null);
+  const [videos, setVideos] = useState<FeedVideo[]>([]);
+  const [page, setPage] = useState(1);
+  const [hasMore, setHasMore] = useState(false);
   const [loading, setLoading] = useState(true);
   const [loadingMore, setLoadingMore] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -75,16 +67,19 @@ export function useForYouFeed() {
     [lives, videos],
   );
 
-  const loadVideos = useCallback(async (nextCursor: string | null, append: boolean) => {
+  const loadVideos = useCallback(async (nextPage: number, append: boolean) => {
     const gen = ++fetchGen.current;
-    const res = await apiFetchForYouFeed(nextCursor);
+    const res = await apiFetchForYouFeed(nextPage);
     if (gen !== fetchGen.current) return false;
     if (res.error || !res.page) {
+      if (res.status === 401) void useAuthStore.getState().checkUser();
       if (!append) setError(res.error || "Could not load feed");
       else showToast(res.error || "Could not load more");
       return false;
     }
-    const incoming = res.page.items.filter((item) => item.kind === "video" && !seenVideoIds.current.has(item.id));
+    const incoming = res.page.videos.filter(
+      (item) => Boolean(item.url?.trim()) && !seenVideoIds.current.has(item.id),
+    );
     if (!append) {
       seenVideoIds.current = new Set(incoming.map((item) => item.id));
       setVideos(incoming);
@@ -92,7 +87,8 @@ export function useForYouFeed() {
       for (const item of incoming) seenVideoIds.current.add(item.id);
       setVideos((prev) => [...prev, ...incoming]);
     }
-    setCursor(res.page.nextCursor);
+    setPage(res.page.page);
+    setHasMore(res.page.hasMore);
     setError(null);
     return true;
   }, []);
@@ -105,7 +101,9 @@ export function useForYouFeed() {
     if (res.error) return;
     setLives((prev) =>
       reconcileLiveSnapshot({
-        snapshot: res.streams.map((stream) => ({ ...stream, discoveredAt: requestedAt })),
+        snapshot: res.streams
+          .filter((stream) => liveKey(stream))
+          .map((stream) => ({ ...stream, discoveredAt: requestedAt })),
         previous: prev,
         keyOf: liveKey,
         discoveredAtOf: (row) => row.discoveredAt,
@@ -122,7 +120,9 @@ export function useForYouFeed() {
     setLoading(true);
     setError(null);
     setActiveIndex(0);
-    await Promise.all([loadLives(), loadVideos(null, false)]);
+    setPage(1);
+    setHasMore(false);
+    await Promise.all([loadLives(), loadVideos(1, false)]);
     setLoading(false);
   }, [loadLives, loadVideos]);
 
@@ -145,7 +145,6 @@ export function useForYouFeed() {
         if (prev.some((row) => liveKey(row) === liveKey(card) || row.streamId === card.streamId)) return prev;
         return [card, ...prev];
       });
-      setVideos((prev) => prev.map((item) => (item.userId === card.hostId ? { ...item, isLive: true } : item)));
       if (needsLiveEnrichment(card)) {
         void apiFetchProfile(card.hostId).then((res) => {
           if (!res.profile) return;
@@ -172,20 +171,9 @@ export function useForYouFeed() {
       }
       const now = Date.now();
       for (const key of keys) endedAtRef.current.set(key, now);
-      setLives((prev) => {
-        const removedHosts = new Set<string>();
-        const next = prev.filter((row) => {
-          const drop = keys.includes(liveKey(row)) || keys.includes(row.streamId) || keys.includes(row.hostId);
-          if (drop) removedHosts.add(row.hostId);
-          return !drop;
-        });
-        if (removedHosts.size > 0) {
-          setVideos((videosPrev) =>
-            videosPrev.map((item) => (removedHosts.has(item.userId) ? { ...item, isLive: false } : item)),
-          );
-        }
-        return next;
-      });
+      setLives((prev) =>
+        prev.filter((row) => !keys.includes(liveKey(row)) && !keys.includes(row.streamId) && !keys.includes(row.hostId)),
+      );
     };
     wsClient.on("stream_started", onStarted);
     wsClient.on("stream_ended", onEnded);
@@ -208,19 +196,37 @@ export function useForYouFeed() {
   }, [loadLives]);
 
   const loadMore = useCallback(async () => {
-    if (!cursor || moreLock.current || loadingMore) return;
+    if (!hasMore || moreLock.current || loadingMore) return;
     moreLock.current = true;
     setLoadingMore(true);
-    await loadVideos(cursor, true);
+    await loadVideos(page + 1, true);
     setLoadingMore(false);
     moreLock.current = false;
-  }, [cursor, loadingMore, loadVideos]);
+  }, [hasMore, loadingMore, loadVideos, page]);
 
-  const updateVideo = useCallback((videoId: string, patch: Partial<FeedItem>) => {
-    setVideos((prev) => prev.map((item) => (item.id === videoId ? { ...item, ...patch } : item)));
+  const updateVideo = useCallback((videoId: string, patch: Partial<FeedVideo>) => {
+    setVideos((prev) =>
+      prev.map((item) => {
+        if (item.id !== videoId) return item;
+        return {
+          ...item,
+          ...patch,
+          user: patch.user ? { ...item.user, ...patch.user } : item.user,
+          stats: patch.stats ? { ...item.stats, ...patch.stats } : item.stats,
+        };
+      }),
+    );
   }, []);
 
   const liveHostIds = useMemo(() => new Set(lives.map((row) => row.hostId)), [lives]);
+  const liveByHost = useMemo(() => {
+    const next = new Map<string, string>();
+    for (const stream of lives) {
+      const roomId = stream.roomId || stream.streamId;
+      if (stream.hostId && roomId) next.set(stream.hostId, roomId);
+    }
+    return next;
+  }, [lives]);
 
   return {
     slides,
@@ -229,10 +235,11 @@ export function useForYouFeed() {
     loading,
     loadingMore,
     error,
-    hasMore: Boolean(cursor),
+    hasMore,
     reload,
     loadMore,
     updateVideo,
     liveHostIds,
+    liveByHost,
   };
 }

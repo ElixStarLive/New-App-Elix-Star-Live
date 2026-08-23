@@ -1,17 +1,19 @@
 import {
-  feedItemSchema,
-  feedPageSchema,
+  feedVideoSchema,
+  forYouFeedResponseSchema,
   followListResponseSchema,
   liveStartResponseSchema,
   liveStreamCardSchema,
   liveStreamsResponseSchema,
   liveTokenResponseSchema,
+  relationFeedResponseSchema,
   userPublicSchema,
-  type FeedItem,
-  type FeedPage,
+  type FeedVideo,
+  type ForYouFeedResponse,
   type LiveStartResponse,
   type LiveStreamCard,
   type LiveTokenResponse,
+  type RelationFeedResponse,
   type UserPublic,
 } from "@shared/contracts";
 import { Capacitor } from "@capacitor/core";
@@ -21,21 +23,52 @@ import { getSessionToken } from "@/lib/sessionToken";
 import { isRecord } from "@/lib/isRecord";
 import { normalizeHashtag } from "@shared/hashtag";
 
-export function parseForYouPage(data: unknown): FeedPage | null {
-  const parsed = feedPageSchema.safeParse(data);
+export function parseForYouPage(data: unknown): ForYouFeedResponse | null {
+  const parsed = forYouFeedResponseSchema.safeParse(data);
   return parsed.success ? parsed.data : null;
 }
 
-function feedCursorQuery(cursor?: string | null): string {
+export type FeedVideoPage = {
+  videos: FeedVideo[];
+  nextCursor: string | null;
+};
+
+export function parseFeedVideos(rawList: unknown): FeedVideo[] {
+  if (!Array.isArray(rawList)) return [];
+  const videos: FeedVideo[] = [];
+  for (const raw of rawList) {
+    const parsed = feedVideoSchema.safeParse(raw);
+    if (parsed.success) videos.push(parsed.data);
+  }
+  return videos;
+}
+
+export function parseFeedVideoPage(data: unknown): FeedVideoPage | null {
+  if (!isRecord(data) || !Array.isArray(data.videos)) return null;
+  const nextCursor =
+    typeof data.nextCursor === "string" ? data.nextCursor : data.nextCursor === null ? null : null;
+  return { videos: parseFeedVideos(data.videos), nextCursor };
+}
+
+export function parseRelationFeed(data: unknown): RelationFeedResponse | null {
+  const parsed = relationFeedResponseSchema.safeParse(data);
+  return parsed.success ? parsed.data : null;
+}
+
+function stemFeedCursorQuery(cursor?: string | null): string {
   return cursor ? `?cursor=${encodeURIComponent(cursor)}` : "";
 }
 
-export async function apiFetchForYouFeed(cursor?: string | null): Promise<{
-  page: FeedPage | null;
+export async function apiFetchForYouFeed(
+  page = 1,
+  limit = 20,
+): Promise<{
+  page: ForYouFeedResponse | null;
   error: string | null;
   status?: number;
 }> {
-  const { data, error } = await apiRequest<unknown>(`/api/feed/foryou${feedCursorQuery(cursor)}`);
+  const qs = `?page=${encodeURIComponent(String(page))}&limit=${encodeURIComponent(String(limit))}`;
+  const { data, error } = await apiRequest<unknown>(`/api/feed/foryou${qs}`);
   if (error) return { page: null, error: error.message, status: error.status };
   const parsed = parseForYouPage(data);
   if (!parsed) return { page: null, error: "Invalid feed response" };
@@ -171,80 +204,60 @@ export async function apiPostVideoComment(
   return { ok: true, id: isRecord(data) && typeof data.id === "string" ? data.id : undefined };
 }
 
-export async function apiFetchFollowingFeed(cursor?: string | null): Promise<{
-  page: FeedPage | null;
+export async function apiFetchFollowingFeed(): Promise<{
+  feed: RelationFeedResponse | null;
   error: string | null;
   status?: number;
 }> {
-  const qs = feedCursorQuery(cursor);
-  const { data, error } = await apiRequest<unknown>(`/api/feed/following${qs}`);
-  if (error) return { page: null, error: error.message, status: error.status };
-  const parsed = parseForYouPage(data);
-  if (!parsed) return { page: null, error: "Invalid feed response" };
-  return {
-    page: {
-      items: parsed.items.filter((item) => item.kind === "video"),
-      nextCursor: parsed.nextCursor,
-    },
-    error: null,
-  };
+  const { data, error } = await apiRequest<unknown>("/api/feed/following");
+  if (error) return { feed: null, error: error.message, status: error.status };
+  const parsed = parseRelationFeed(data);
+  if (!parsed) return { feed: null, error: "Invalid feed response" };
+  return { feed: parsed, error: null };
 }
 
-export async function apiFetchFriendsFeed(cursor?: string | null): Promise<{
-  page: FeedPage | null;
+export async function apiFetchFriendsFeed(): Promise<{
+  feed: RelationFeedResponse | null;
   error: string | null;
   status?: number;
 }> {
-  const qs = feedCursorQuery(cursor);
-  const { data, error } = await apiRequest<unknown>(`/api/feed/friends${qs}`);
-  if (error) return { page: null, error: error.message, status: error.status };
-  const parsed = parseForYouPage(data);
-  if (!parsed) return { page: null, error: "Invalid feed response" };
-  return {
-    page: {
-      items: parsed.items.filter((item) => item.kind === "video"),
-      nextCursor: parsed.nextCursor,
-    },
-    error: null,
-  };
+  const { data, error } = await apiRequest<unknown>("/api/feed/friends");
+  if (error) return { feed: null, error: error.message, status: error.status };
+  const parsed = parseRelationFeed(data);
+  if (!parsed) return { feed: null, error: "Invalid feed response" };
+  return { feed: parsed, error: null };
 }
 
 export async function apiFetchStemFeed(cursor?: string | null): Promise<{
-  page: FeedPage | null;
+  page: FeedVideoPage | null;
   error: string | null;
   status?: number;
 }> {
-  const qs = feedCursorQuery(cursor);
+  const qs = stemFeedCursorQuery(cursor);
   const { data, error } = await apiRequest<unknown>(`/api/feed/stem${qs}`);
   if (error) return { page: null, error: error.message, status: error.status };
-  const parsed = parseForYouPage(data);
+  const parsed = parseFeedVideoPage(data);
   if (!parsed) return { page: null, error: "Invalid feed response" };
-  return {
-    page: {
-      items: parsed.items.filter((item) => item.kind === "video"),
-      nextCursor: parsed.nextCursor,
-    },
-    error: null,
-  };
+  return { page: parsed, error: null };
 }
 
 export async function apiFetchVideoById(videoId: string): Promise<{
-  item: FeedItem | null;
+  video: FeedVideo | null;
   error: string | null;
   status?: number;
 }> {
   const id = videoId.trim();
-  if (!id) return { item: null, error: "Video not found", status: 404 };
+  if (!id) return { video: null, error: "Video not found", status: 404 };
   const { data, error } = await apiRequest<unknown>(`/api/videos/${encodeURIComponent(id)}`);
-  if (error) return { item: null, error: error.message, status: error.status };
-  const parsed = feedItemSchema.safeParse(data);
-  if (!parsed.success || parsed.data.kind !== "video") {
-    return { item: null, error: "Invalid video", status: 502 };
+  if (error) return { video: null, error: error.message, status: error.status };
+  const parsed = feedVideoSchema.safeParse(data);
+  if (!parsed.success) {
+    return { video: null, error: "Invalid video", status: 502 };
   }
-  if (!parsed.data.mediaUrl?.trim()) {
-    return { item: null, error: "Video not found", status: 404 };
+  if (!parsed.data.url.trim()) {
+    return { video: null, error: "Video not found", status: 404 };
   }
-  return { item: parsed.data, error: null };
+  return { video: parsed.data, error: null };
 }
 
 export async function apiLikeVideo(videoId: string): Promise<{ ok: true } | { ok: false; error: string }> {
@@ -465,27 +478,22 @@ export async function apiFetchSavedVideos(
 }
 
 export async function apiFetchSavedFeed(cursor?: string | null): Promise<{
-  page: FeedPage | null;
+  page: FeedVideoPage | null;
   error: string | null;
 }> {
   const offset = cursor ? Number(cursor) : 0;
-  const res = await apiFetchSavedVideos(50, Number.isFinite(offset) && offset >= 0 ? offset : 0);
-  if (res.error) return { page: null, error: res.error };
+  const safeOffset = Number.isFinite(offset) && offset >= 0 ? offset : 0;
+  const { data, error } = await apiRequest<unknown>(
+    `/api/videos/saved/list?limit=50&offset=${safeOffset}`,
+  );
+  if (error) return { page: null, error: error.message };
+  const parsed = parseFeedVideoPage(data);
+  if (!parsed) return { page: null, error: "Invalid saved videos" };
+  const hasMore = isRecord(data) && data.hasMore === true;
   return {
     page: {
-      items: res.videos.map((hit) => ({
-        id: hit.id,
-        kind: "video" as const,
-        userId: hit.userId,
-        username: hit.username,
-        displayName: hit.displayName,
-        avatarUrl: null,
-        mediaUrl: hit.mediaUrl,
-        thumbnailUrl: hit.thumbnailUrl,
-        viewCount: hit.viewCount,
-        saved: true,
-      })),
-      nextCursor: res.hasMore ? String(res.offset + res.videos.length) : null,
+      videos: parsed.videos,
+      nextCursor: hasMore ? String(safeOffset + parsed.videos.length) : null,
     },
     error: null,
   };
@@ -531,40 +539,40 @@ export async function apiFetchUserVideos(
   userId: string,
   privacy: "public" | "private" = "public",
   cursor?: string | null,
-): Promise<{ page: FeedPage | null; error: string | null }> {
+): Promise<{ page: FeedVideoPage | null; error: string | null }> {
   const params = new URLSearchParams();
   if (cursor) params.set("cursor", cursor);
   if (privacy === "private") params.set("privacy", "private");
   const qs = params.toString() ? `?${params}` : "";
   const { data, error } = await apiRequest<unknown>(`/api/videos/user/${encodeURIComponent(userId)}${qs}`);
   if (error) return { page: null, error: error.message };
-  const parsed = feedPageSchema.safeParse(data);
-  if (!parsed.success) return { page: null, error: "Invalid user videos" };
-  return { page: parsed.data, error: null };
+  const parsed = parseFeedVideoPage(data);
+  if (!parsed) return { page: null, error: "Invalid user videos" };
+  return { page: parsed, error: null };
 }
 
 export async function apiFetchLikedFeed(cursor?: string | null): Promise<{
-  page: FeedPage | null;
+  page: FeedVideoPage | null;
   error: string | null;
 }> {
   const qs = cursor ? `?cursor=${encodeURIComponent(cursor)}` : "";
   const { data, error } = await apiRequest<unknown>(`/api/videos/liked/list${qs}`);
   if (error) return { page: null, error: error.message };
-  const parsed = feedPageSchema.safeParse(data);
-  if (!parsed.success) return { page: null, error: "Invalid liked feed" };
-  return { page: parsed.data, error: null };
+  const parsed = parseFeedVideoPage(data);
+  if (!parsed) return { page: null, error: "Invalid liked feed" };
+  return { page: parsed, error: null };
 }
 
 export async function apiFetchReposts(userId: string, cursor?: string | null): Promise<{
-  page: FeedPage | null;
+  page: FeedVideoPage | null;
   error: string | null;
 }> {
   const qs = cursor ? `?cursor=${encodeURIComponent(cursor)}` : "";
   const { data, error } = await apiRequest<unknown>(`/api/reposts/${encodeURIComponent(userId)}${qs}`);
   if (error) return { page: null, error: error.message };
-  const parsed = feedPageSchema.safeParse(data);
-  if (!parsed.success) return { page: null, error: "Invalid reposts" };
-  return { page: parsed.data, error: null };
+  const parsed = parseFeedVideoPage(data);
+  if (!parsed) return { page: null, error: "Invalid reposts" };
+  return { page: parsed, error: null };
 }
 
 export type DiscoverHashtag = { tag: string; useCount: number };
@@ -586,7 +594,7 @@ export type DiscoverSearchUser = {
 };
 
 export async function apiFetchDiscover(): Promise<{
-  trending: FeedItem[];
+  trending: FeedVideo[];
   hashtags: DiscoverHashtag[];
   rankings: DiscoverRanking[];
   error: string | null;
@@ -596,11 +604,7 @@ export async function apiFetchDiscover(): Promise<{
   if (!isRecord(data) || !Array.isArray(data.trending) || !Array.isArray(data.hashtags) || !Array.isArray(data.rankings)) {
     return { trending: [], hashtags: [], rankings: [], error: "Invalid discover response" };
   }
-  const trending: FeedItem[] = [];
-  for (const raw of data.trending) {
-    const parsed = feedItemSchema.safeParse(raw);
-    if (parsed.success && parsed.data.kind === "video") trending.push(parsed.data);
-  }
+  const trending = parseFeedVideos(data.trending);
   const hashtags: DiscoverHashtag[] = [];
   for (const raw of data.hashtags) {
     if (!isRecord(raw) || typeof raw.tag !== "string" || !raw.tag.trim()) continue;
@@ -623,7 +627,7 @@ export async function apiFetchDiscover(): Promise<{
 
 export async function apiDiscoverSearch(query: string): Promise<{
   users: DiscoverSearchUser[];
-  videos: FeedItem[];
+  videos: FeedVideo[];
   error: string | null;
 }> {
   const q = query.trim();
@@ -645,12 +649,7 @@ export async function apiDiscoverSearch(query: string): Promise<{
       isFollowing: Boolean(raw.isFollowing),
     });
   }
-  const videos: FeedItem[] = [];
-  for (const raw of data.videos) {
-    const parsed = feedItemSchema.safeParse(raw);
-    if (parsed.success && parsed.data.kind === "video") videos.push(parsed.data);
-  }
-  return { users, videos, error: null };
+  return { users, videos: parseFeedVideos(data.videos), error: null };
 }
 
 export type SearchUserHit = {
@@ -662,7 +661,7 @@ export type SearchUserHit = {
 
 export async function apiFetchSearch(opts: { q?: string; category?: string }): Promise<{
   users: SearchUserHit[];
-  videos: FeedItem[];
+  videos: FeedVideo[];
   error: string | null;
 }> {
   const q = (opts.q || "").trim();
@@ -685,10 +684,5 @@ export async function apiFetchSearch(opts: { q?: string; category?: string }): P
       avatarUrl: typeof raw.avatarUrl === "string" ? raw.avatarUrl : null,
     });
   }
-  const videos: FeedItem[] = [];
-  for (const raw of data.videos) {
-    const parsed = feedItemSchema.safeParse(raw);
-    if (parsed.success && parsed.data.kind === "video") videos.push(parsed.data);
-  }
-  return { users, videos, error: null };
+  return { users, videos: parseFeedVideos(data.videos), error: null };
 }

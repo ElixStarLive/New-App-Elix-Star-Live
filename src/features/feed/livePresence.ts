@@ -1,4 +1,31 @@
+import { liveStreamCardSchema, type LiveStreamCard } from "@shared/contracts";
+import { isRecord } from "@/lib/isRecord";
+
 export type LivePresenceCard<T> = T & { discoveredAt: number };
+
+/** Canonical LiveKit / watch identity. Never fall back to stream UUID or host id. */
+export function liveKey(stream: Pick<LiveStreamCard, "roomId">): string {
+  return stream.roomId.trim();
+}
+
+export function parseLiveStartedCard(data: unknown, discoveredAt: number): (LiveStreamCard & { discoveredAt: number }) | null {
+  const parsed = liveStreamCardSchema.safeParse(data);
+  if (!parsed.success || !liveKey(parsed.data)) return null;
+  const card = parsed.data;
+  return {
+    ...card,
+    startedAt: card.startedAt || new Date(discoveredAt).toISOString(),
+    discoveredAt,
+  };
+}
+
+export function liveEndedKeys(data: unknown): string[] {
+  if (!isRecord(data)) return [];
+  const keys = [data.streamId, data.roomId]
+    .filter((value): value is string => typeof value === "string" && Boolean(value.trim()))
+    .map((value) => value.trim());
+  return [...new Set(keys)];
+}
 
 export function createLiveSnapshotGate(): {
   begin: () => number;

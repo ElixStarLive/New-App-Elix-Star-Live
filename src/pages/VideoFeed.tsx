@@ -1,11 +1,11 @@
 import { useEffect, useRef, type CSSProperties } from "react";
-import { platform } from "@/lib/platform";
 import { useForYouFeed } from "@/features/feed/useForYouFeed";
 import { ForYouPlayer } from "@/components/ForYouPlayer";
 import { ForYouLiveCard } from "@/components/ForYouLiveCard";
+import { platform } from "@/lib/platform";
 
 export default function VideoFeed() {
-  const containerRef = useRef<HTMLDivElement>(null);
+  const containerRef = useRef<HTMLDivElement | null>(null);
   const {
     slides,
     activeIndex,
@@ -17,8 +17,8 @@ export default function VideoFeed() {
     reload,
     loadMore,
     updateVideo,
+    liveHostIds,
   } = useForYouFeed();
-  const nativeFeed = platform.isNative;
 
   useEffect(() => {
     const vodSlides = slides.filter((slide) => slide.kind === "video").length;
@@ -76,7 +76,7 @@ export default function VideoFeed() {
         className="flex-1 min-h-0 w-full overflow-y-scroll snap-y snap-mandatory relative"
         style={{
           scrollSnapType: "y mandatory",
-          ...(nativeFeed ? {} : { marginTop: "-4mm" }),
+          marginTop: platform.isNative ? undefined : "-4mm",
         }}
       >
         {slides.map((slide, index) => {
@@ -86,7 +86,7 @@ export default function VideoFeed() {
             scrollSnapStop: "always",
             boxSizing: "border-box",
             paddingTop: 0,
-            ...(nativeFeed ? {} : { paddingBottom: "3mm" }),
+            paddingBottom: platform.isNative ? undefined : "3mm",
           };
           return (
             <div
@@ -102,12 +102,13 @@ export default function VideoFeed() {
                   <ForYouPlayer
                     item={slide.item}
                     isActive={activeIndex === index}
+                    creatorLive={liveHostIds.has(slide.item.user.id)}
                     onPatch={(patch) => updateVideo(slide.item.id, patch)}
                   />
                 ) : (
                   <div className="w-full h-full bg-[#080A0E]">
-                    {slide.item.thumbnailUrl ? (
-                      <img src={slide.item.thumbnailUrl} alt="" className="w-full h-full object-cover" />
+                    {slide.item.thumbnail ? (
+                      <img src={slide.item.thumbnail} alt="" className="w-full h-full object-cover" />
                     ) : null}
                   </div>
                 )}

@@ -1,4 +1,5 @@
-import type { FeedItem, FeedPage, UserPublic } from "@shared/contracts";
+import type { FeedVideo, UserPublic } from "@shared/contracts";
+import type { FeedVideoPage } from "@/features/feed/feedApi";
 import { userPublicSchema } from "@shared/contracts";
 import { apiRequest } from "@/lib/apiClient";
 import { isRecord } from "@/lib/isRecord";
@@ -94,7 +95,7 @@ export async function apiFetchPublicTabPage(
   tab: Exclude<PublicProfileTab, "shop">,
   userId: string,
   cursor?: string | null,
-): Promise<{ page: FeedPage | null; error: string | null }> {
+): Promise<{ page: FeedVideoPage | null; error: string | null }> {
   if (tab === "videos") return apiFetchUserVideos(userId, "public", cursor);
   if (tab === "saved") return apiFetchSavedFeed(cursor);
   if (tab === "liked") return apiFetchLikedFeed(cursor);
@@ -115,4 +116,4 @@ export async function apiFetchPublicStories(userId: string): Promise<{
   return { stories: row?.stories ?? [], error: null };
 }
 
-export type { FeedItem, ShopItem };
+export type { FeedVideo, ShopItem };

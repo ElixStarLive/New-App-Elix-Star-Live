@@ -821,7 +821,18 @@ describe("http integration", () => {
     const blocked = await registerUser("b");
     token = "";
     const unauth = await json("/api/feed/foryou");
-    expect(unauth.status).toBe(401);
+    expect(unauth.status).toBe(200);
+    expect(Array.isArray(unauth.body.videos)).toBe(true);
+    expect(unauth.body).toEqual(
+      expect.objectContaining({
+        mutualUserIds: [],
+        page: 1,
+        hasMore: expect.any(Boolean),
+        source: expect.any(String),
+      }),
+    );
+    expect(unauth.body).not.toHaveProperty("items");
+    expect(unauth.body).not.toHaveProperty("nextCursor");
     token = viewer.token;
 
     const publicVideo = await getPool().query<{ id: string }>(
@@ -841,10 +852,10 @@ describe("http integration", () => {
 
     const foryou = await json("/api/feed/foryou");
     expect(foryou.status).toBe(200);
-    const items = (foryou.body.items as Array<{ id: string; userId: string }>) || [];
+    const items = (foryou.body.videos as Array<{ id: string; user: { id: string } }>) || [];
     expect(items.some((row) => row.id === videoId)).toBe(true);
     expect(items.some((row) => row.id === blockedVideo.rows[0].id)).toBe(false);
-    expect(items.every((row) => row.userId !== blocked.id)).toBe(true);
+    expect(items.every((row) => row.user.id !== blocked.id)).toBe(true);
 
     const tooShort = await json("/api/feed/track-view", {
       method: "POST",
@@ -876,34 +887,34 @@ describe("http integration", () => {
     expect(selfView.body.counted).toBe(false);
 
     token = viewer.token;
-    type FeedFlags = { id: string; liked?: boolean; saved?: boolean; isFollowing?: boolean };
+    type FeedFlags = { id: string; isLiked?: boolean; isSaved?: boolean; isFollowing?: boolean };
     function flagsFor(body: Record<string, unknown>): FeedFlags | undefined {
-      return ((body.items as FeedFlags[]) || []).find((row) => row.id === videoId);
+      return ((body.videos as FeedFlags[]) || []).find((row) => row.id === videoId);
     }
 
-    expect(flagsFor(foryou.body)?.liked).toBe(false);
-    expect(flagsFor(foryou.body)?.saved).toBe(false);
+    expect(flagsFor(foryou.body)?.isLiked).toBe(false);
+    expect(flagsFor(foryou.body)?.isSaved).toBe(false);
     expect(flagsFor(foryou.body)?.isFollowing).toBe(false);
 
     const like = await json(`/api/videos/${videoId}/like`, { method: "POST" });
     expect(like.status).toBe(200);
     const likedReload = await json("/api/feed/foryou");
-    expect(flagsFor(likedReload.body)?.liked).toBe(true);
+    expect(flagsFor(likedReload.body)?.isLiked).toBe(true);
 
     const unlike = await json(`/api/videos/${videoId}/unlike`, { method: "POST" });
     expect(unlike.status).toBe(200);
     const unlikedReload = await json("/api/feed/foryou");
-    expect(flagsFor(unlikedReload.body)?.liked).toBe(false);
+    expect(flagsFor(unlikedReload.body)?.isLiked).toBe(false);
 
     const save = await json(`/api/videos/${videoId}/save`, { method: "POST" });
     expect(save.status).toBe(200);
     const savedReload = await json("/api/feed/foryou");
-    expect(flagsFor(savedReload.body)?.saved).toBe(true);
+    expect(flagsFor(savedReload.body)?.isSaved).toBe(true);
 
     const unsave = await json(`/api/videos/${videoId}/unsave`, { method: "POST" });
     expect(unsave.status).toBe(200);
     const unsavedReload = await json("/api/feed/foryou");
-    expect(flagsFor(unsavedReload.body)?.saved).toBe(false);
+    expect(flagsFor(unsavedReload.body)?.isSaved).toBe(false);
 
     const follow = await json(`/api/profiles/${creator.id}/follow`, { method: "POST" });
     expect(follow.status).toBe(200);
@@ -942,12 +953,12 @@ describe("http integration", () => {
         [creator.id, `https://cdn.example/p7-${i}.mp4`, `page ${i}`, String(i)],
       );
     }
-    const page1 = await json("/api/feed/foryou");
-    const page1Items = (page1.body.items as Array<{ id: string }>) || [];
+    const page1 = await json("/api/feed/foryou?page=1&limit=20");
+    const page1Items = (page1.body.videos as Array<{ id: string }>) || [];
     expect(page1Items.length).toBe(20);
-    expect(page1.body.nextCursor).toBe("off:20");
-    const page2 = await json(`/api/feed/foryou?cursor=${encodeURIComponent(String(page1.body.nextCursor))}`);
-    const page2Items = (page2.body.items as Array<{ id: string }>) || [];
+    expect(page1.body.hasMore).toBe(true);
+    const page2 = await json("/api/feed/foryou?page=2&limit=20");
+    const page2Items = (page2.body.videos as Array<{ id: string }>) || [];
     const seen = new Set(page1Items.map((row) => row.id));
     for (const row of page2Items) {
       expect(seen.has(row.id)).toBe(false);
@@ -983,9 +994,8 @@ describe("http integration", () => {
     async function allStemItems() {
       const collected: Array<{
         id: string;
-        kind: string;
-        liked?: boolean;
-        saved?: boolean;
+        isLiked?: boolean;
+        isSaved?: boolean;
         isFollowing?: boolean;
         viewCount?: number;
       }> = [];
@@ -994,7 +1004,7 @@ describe("http integration", () => {
         const path = cursor ? `/api/feed/stem?cursor=${encodeURIComponent(cursor)}` : "/api/feed/stem";
         const page = await json(path);
         expect(page.status).toBe(200);
-        const rows = (page.body.items as typeof collected) || [];
+        const rows = (page.body.videos as typeof collected) || [];
         collected.push(...rows);
         cursor = typeof page.body.nextCursor === "string" ? page.body.nextCursor : null;
         if (!cursor) break;
@@ -1047,7 +1057,6 @@ describe("http integration", () => {
     }
 
     const items = await allStemItems();
-    expect(items.every((row) => row.kind === "video")).toBe(true);
     expect(items.some((row) => row.id === high.rows[0].id)).toBe(true);
     expect(items.some((row) => row.id === extra.rows[0].id)).toBe(true);
     expect(items.some((row) => row.id === priv.rows[0].id)).toBe(false);
@@ -1061,16 +1070,16 @@ describe("http integration", () => {
     const like = await json(`/api/videos/${high.rows[0].id}/like`, { method: "POST" });
     expect(like.status).toBe(200);
     const afterLike = await allStemItems();
-    expect(afterLike.find((row) => row.id === high.rows[0].id)?.liked).toBe(true);
+    expect(afterLike.find((row) => row.id === high.rows[0].id)?.isLiked).toBe(true);
     const unlike = await json(`/api/videos/${high.rows[0].id}/unlike`, { method: "POST" });
     expect(unlike.status).toBe(200);
-    expect((await allStemItems()).find((row) => row.id === high.rows[0].id)?.liked).toBe(false);
+    expect((await allStemItems()).find((row) => row.id === high.rows[0].id)?.isLiked).toBe(false);
     const likeAgain = await json(`/api/videos/${high.rows[0].id}/like`, { method: "POST" });
     expect(likeAgain.status).toBe(200);
     const save = await json(`/api/videos/${high.rows[0].id}/save`, { method: "POST" });
     expect(save.status).toBe(200);
     const afterSave = await allStemItems();
-    expect(afterSave.find((row) => row.id === high.rows[0].id)?.saved).toBe(true);
+    expect(afterSave.find((row) => row.id === high.rows[0].id)?.isSaved).toBe(true);
     const follow = await json(`/api/profiles/${creator.id}/follow`, { method: "POST" });
     expect(follow.status).toBe(200);
     expect((await allStemItems()).find((row) => row.id === high.rows[0].id)?.isFollowing).toBe(true);
@@ -1119,20 +1128,20 @@ describe("http integration", () => {
 
     const page1 = await json("/api/feed/stem");
     expect(page1.status).toBe(200);
-    expect(Array.isArray(page1.body.items)).toBe(true);
-    const page1Items = (page1.body.items as Array<{ id: string }>) || [];
+    expect(Array.isArray(page1.body.videos)).toBe(true);
+    const page1Items = (page1.body.videos as Array<{ id: string }>) || [];
     expect(page1.body.nextCursor).toBe("off:20");
     const page2 = await json(`/api/feed/stem?cursor=${encodeURIComponent(String(page1.body.nextCursor))}`);
     expect(page2.status).toBe(200);
     const seen = new Set(page1Items.map((row) => row.id));
-    for (const row of (page2.body.items as Array<{ id: string }>) || []) {
+    for (const row of (page2.body.videos as Array<{ id: string }>) || []) {
       expect(seen.has(row.id)).toBe(false);
     }
 
     await getPool().query(`TRUNCATE videos CASCADE`);
     const empty = await json("/api/feed/stem");
     expect(empty.status).toBe(200);
-    expect(empty.body).toEqual({ items: [], nextCursor: null });
+    expect(empty.body).toEqual({ videos: [], nextCursor: null });
   }, 60_000);
 
   it("PAGE-009 Following relation feed, newest first, blocks, and hydration", async ({ skip }) => {
@@ -1167,12 +1176,12 @@ describe("http integration", () => {
     token = "";
     const unauth = await json("/api/feed/following");
     expect(unauth.status).toBe(200);
-    expect(unauth.body).toEqual({ items: [], nextCursor: null });
+    expect(unauth.body).toEqual({ videos: [] });
 
     token = viewer.token;
     const empty = await json("/api/feed/following");
     expect(empty.status).toBe(200);
-    expect(empty.body).toEqual({ items: [], nextCursor: null });
+    expect(empty.body).toEqual({ videos: [] });
 
     const newer = await getPool().query<{ id: string }>(
       `INSERT INTO videos (user_id, bunny_path, caption, privacy, created_at)
@@ -1221,7 +1230,7 @@ describe("http integration", () => {
     );
 
     const beforeFollow = await json("/api/feed/following");
-    expect(((beforeFollow.body.items as Array<{ id: string }>) || []).map((row) => row.id)).toEqual([]);
+    expect(((beforeFollow.body.videos as Array<{ id: string }>) || []).map((row) => row.id)).toEqual([]);
 
     const follow = await json(`/api/profiles/${followed.id}/follow`, { method: "POST" });
     expect(follow.status).toBe(200);
@@ -1233,15 +1242,13 @@ describe("http integration", () => {
 
     const page = await json("/api/feed/following");
     expect(page.status).toBe(200);
-    const items = (page.body.items as Array<{
+    const items = (page.body.videos as Array<{
       id: string;
-      kind: string;
-      liked?: boolean;
-      saved?: boolean;
+      isLiked?: boolean;
+      isSaved?: boolean;
       isFollowing?: boolean;
     }>) || [];
     const ids = items.map((row) => row.id);
-    expect(items.every((row) => row.kind === "video")).toBe(true);
     expect(ids).toContain(newer.rows[0].id);
     expect(ids).toContain(older.rows[0].id);
     expect(ids.indexOf(newer.rows[0].id)).toBeLessThan(ids.indexOf(older.rows[0].id));
@@ -1259,9 +1266,9 @@ describe("http integration", () => {
     const save = await json(`/api/videos/${newer.rows[0].id}/save`, { method: "POST" });
     expect(save.status).toBe(200);
     const hydrated = await json("/api/feed/following");
-    const hydratedRow = ((hydrated.body.items as typeof items) || []).find((row) => row.id === newer.rows[0].id);
-    expect(hydratedRow?.liked).toBe(true);
-    expect(hydratedRow?.saved).toBe(true);
+    const hydratedRow = ((hydrated.body.videos as typeof items) || []).find((row) => row.id === newer.rows[0].id);
+    expect(hydratedRow?.isLiked).toBe(true);
+    expect(hydratedRow?.isSaved).toBe(true);
     expect(hydratedRow?.isFollowing).toBe(true);
 
     const bannedCreator = await registerUser("bn");
@@ -1272,7 +1279,7 @@ describe("http integration", () => {
       [bannedCreator.id],
     );
     await getPool().query(`UPDATE users SET banned_until = NOW() + interval '1 day' WHERE id = $1`, [bannedCreator.id]);
-    expect(((await json("/api/feed/following")).body.items as Array<{ id: string }>).some((row) => row.id === bannedVideo.rows[0].id)).toBe(
+    expect(((await json("/api/feed/following")).body.videos as Array<{ id: string }>).some((row) => row.id === bannedVideo.rows[0].id)).toBe(
       false,
     );
 
@@ -1285,20 +1292,14 @@ describe("http integration", () => {
     }
     const page1 = await json("/api/feed/following");
     expect(page1.status).toBe(200);
-    const page1Items = (page1.body.items as Array<{ id: string }>) || [];
+    const page1Items = (page1.body.videos as Array<{ id: string }>) || [];
     expect(page1Items.length).toBe(20);
-    expect(typeof page1.body.nextCursor).toBe("string");
-    const page2 = await json(`/api/feed/following?cursor=${encodeURIComponent(String(page1.body.nextCursor))}`);
-    expect(page2.status).toBe(200);
-    const seen = new Set(page1Items.map((row) => row.id));
-    for (const row of (page2.body.items as Array<{ id: string }>) || []) {
-      expect(seen.has(row.id)).toBe(false);
-    }
+    expect(page1.body.nextCursor).toBeUndefined();
 
     const unfollow = await json(`/api/profiles/${followed.id}/unfollow`, { method: "POST" });
     expect(unfollow.status).toBe(200);
     const afterUnfollow = await json("/api/feed/following");
-    expect(((afterUnfollow.body.items as Array<{ id: string }>) || []).some((row) => row.id === newer.rows[0].id)).toBe(false);
+    expect(((afterUnfollow.body.videos as Array<{ id: string }>) || []).some((row) => row.id === newer.rows[0].id)).toBe(false);
   }, 60_000);
 
   it("PAGE-010 Friends union feed is not mutual-only, newest first, with hydration", async ({ skip }) => {
@@ -1334,12 +1335,12 @@ describe("http integration", () => {
     token = "";
     const unauth = await json("/api/feed/friends");
     expect(unauth.status).toBe(200);
-    expect(unauth.body).toEqual({ items: [], nextCursor: null });
+    expect(unauth.body).toEqual({ videos: [] });
 
     token = viewer.token;
     const empty = await json("/api/feed/friends");
     expect(empty.status).toBe(200);
-    expect(empty.body).toEqual({ items: [], nextCursor: null });
+    expect(empty.body).toEqual({ videos: [] });
 
     const followeeNewer = await getPool().query<{ id: string }>(
       `INSERT INTO videos (user_id, bunny_path, caption, privacy, created_at)
@@ -1390,15 +1391,13 @@ describe("http integration", () => {
 
     const page = await json("/api/feed/friends");
     expect(page.status).toBe(200);
-    const items = (page.body.items as Array<{
+    const items = (page.body.videos as Array<{
       id: string;
-      kind: string;
-      liked?: boolean;
-      saved?: boolean;
+      isLiked?: boolean;
+      isSaved?: boolean;
       isFollowing?: boolean;
     }>) || [];
     const ids = items.map((row) => row.id);
-    expect(items.every((row) => row.kind === "video")).toBe(true);
     expect(ids).toContain(followeeNewer.rows[0].id);
     expect(ids).toContain(followeeOlder.rows[0].id);
     expect(ids).toContain(followerVideo.rows[0].id);
@@ -1415,14 +1414,14 @@ describe("http integration", () => {
     const save = await json(`/api/videos/${followeeNewer.rows[0].id}/save`, { method: "POST" });
     expect(save.status).toBe(200);
     const hydrated = await json("/api/feed/friends");
-    const hydratedRow = ((hydrated.body.items as typeof items) || []).find((row) => row.id === followeeNewer.rows[0].id);
-    expect(hydratedRow?.liked).toBe(true);
-    expect(hydratedRow?.saved).toBe(true);
+    const hydratedRow = ((hydrated.body.videos as typeof items) || []).find((row) => row.id === followeeNewer.rows[0].id);
+    expect(hydratedRow?.isLiked).toBe(true);
+    expect(hydratedRow?.isSaved).toBe(true);
 
     const unfollow = await json(`/api/profiles/${followee.id}/unfollow`, { method: "POST" });
     expect(unfollow.status).toBe(200);
     const afterUnfollow = await json("/api/feed/friends");
-    const afterIds = ((afterUnfollow.body.items as Array<{ id: string }>) || []).map((row) => row.id);
+    const afterIds = ((afterUnfollow.body.videos as Array<{ id: string }>) || []).map((row) => row.id);
     expect(afterIds).not.toContain(followeeNewer.rows[0].id);
     expect(afterIds).toContain(followerVideo.rows[0].id);
   }, 60_000);
@@ -2674,8 +2673,8 @@ describe("http integration", () => {
       headers: { Authorization: `Bearer ${owner.token}` },
     });
     expect(ownerPrivate.status).toBe(200);
-    const ownerPrivateBody = (await ownerPrivate.json()) as { items?: Array<{ id?: string }> };
-    expect((ownerPrivateBody.items ?? []).length).toBe(1);
+    const ownerPrivateBody = (await ownerPrivate.json()) as { videos?: Array<{ id?: string }> };
+    expect((ownerPrivateBody.videos ?? []).length).toBe(1);
 
     const strangerPrivate = await fetch(`${base}/api/videos/user/${owner.id}?privacy=private`, {
       headers: { Authorization: `Bearer ${other.token}` },
@@ -2685,9 +2684,9 @@ describe("http integration", () => {
     const ownerPublic = await fetch(`${base}/api/videos/user/${owner.id}`, {
       headers: { Authorization: `Bearer ${owner.token}` },
     });
-    const ownerPublicBody = (await ownerPublic.json()) as { items?: Array<{ id?: string }> };
-    expect((ownerPublicBody.items ?? []).every((item) => item.id)).toBe(true);
-    expect((ownerPublicBody.items ?? []).length).toBeGreaterThanOrEqual(1);
+    const ownerPublicBody = (await ownerPublic.json()) as { videos?: Array<{ id?: string }> };
+    expect((ownerPublicBody.videos ?? []).every((item) => item.id)).toBe(true);
+    expect((ownerPublicBody.videos ?? []).length).toBeGreaterThanOrEqual(1);
 
     const otherMe = await fetch(`${base}/api/profiles/me`, {
       headers: { Authorization: `Bearer ${other.token}` },
@@ -2745,9 +2744,9 @@ describe("http integration", () => {
       headers: { Authorization: `Bearer ${viewer.token}` },
     });
     expect(videos.status).toBe(200);
-    const videosBody = (await videos.json()) as { items?: Array<{ id?: string; caption?: string }> };
-    expect((videosBody.items ?? []).some((row) => row.caption === "secret")).toBe(false);
-    expect((videosBody.items ?? []).some((row) => row.caption === "pub")).toBe(true);
+    const videosBody = (await videos.json()) as { videos?: Array<{ id?: string; description?: string }> };
+    expect((videosBody.videos ?? []).some((row) => row.description === "secret")).toBe(false);
+    expect((videosBody.videos ?? []).some((row) => row.description === "pub")).toBe(true);
 
     const privateAttempt = await fetch(`${base}/api/videos/user/${target.id}?privacy=private`, {
       headers: { Authorization: `Bearer ${viewer.token}` },
@@ -4615,8 +4614,8 @@ describe("http integration", () => {
       [userB.id],
     );
     const feedBlocked = await authJson("/api/feed/foryou", userA.token);
-    const feedBlockedItems = (feedBlocked.body.items as Array<{ userId?: string }>) ?? [];
-    expect(feedBlockedItems.every((item) => item.userId !== userB.id)).toBe(true);
+    const feedBlockedItems = (feedBlocked.body.videos as Array<{ user?: { id?: string } }>) ?? [];
+    expect(feedBlockedItems.every((item) => item.user?.id !== userB.id)).toBe(true);
 
     const malformed = await authJson("/api/unblock-user", userA.token, {
       method: "POST",
@@ -4670,8 +4669,8 @@ describe("http integration", () => {
     expect([200, 201]).toContain(messageOpen.status);
 
     const feedOpen = await authJson("/api/feed/foryou", userA.token);
-    const feedOpenItems = (feedOpen.body.items as Array<{ userId?: string }>) ?? [];
-    expect(feedOpenItems.some((item) => item.userId === userB.id)).toBe(true);
+    const feedOpenItems = (feedOpen.body.videos as Array<{ user?: { id?: string } }>) ?? [];
+    expect(feedOpenItems.some((item) => item.user?.id === userB.id)).toBe(true);
 
     const { isBlockedEitherWay } = await import("./modules/blocks/service.js");
     expect(await isBlockedEitherWay(userA.id, userB.id)).toBe(false);
