@@ -12,7 +12,7 @@
 | PAGE-004 | YES | YES | YES | PASS | PASS | PASS | `85014e1` |
 | PAGE-005 | YES | YES | YES | PASS | PASS | PASS | `843d9f9` |
 | PAGE-006 | YES | YES | YES | PASS | PASS | PASS | `319c394` |
-| PAGE-007 | YES | YES | YES | PASS | PASS | PASS | live-card + `b7d0a2b` backend |
+| PAGE-007 | YES | YES | YES | PASS | PASS | PASS | `826d0dd` (+ `b7d0a2b` backend) |
 | PAGE-008 | YES | YES | YES | PASS | PASS | PASS | `f4d9a47` |
 | PAGE-009 | YES | YES | YES | PASS | PASS | PASS | `125205b` |
 | PAGE-010 | YES | YES | YES | PASS | PASS | PASS | `bd35b07` |
