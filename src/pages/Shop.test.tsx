@@ -178,6 +178,16 @@ describe("PAGE-037 Shop item deep link", () => {
     expect(container.textContent).not.toContain("Cap");
   });
 
+  it("shows catalog failure on deep link instead of empty-success chrome", async () => {
+    list.mockResolvedValue({ items: [], error: "Failed to load shop items" });
+    const view = renderShop(`/shop/${hat.id}`);
+    root = view.root;
+    container = view.container;
+    await flush();
+    expect(container.textContent).toContain("Failed to load shop items");
+    expect(container.textContent).not.toContain("No items for sale yet");
+  });
+
   it("keeps item B when the route changes from A to B", async () => {
     list.mockResolvedValue({ items: [hat, cap], error: null });
     const view = renderShop(`/shop/${hat.id}`);
