@@ -5,7 +5,8 @@ interface ImportMetaEnv {
   readonly VITE_WS_URL?: string;
   readonly VITE_LIVEKIT_URL?: string;
   readonly VITE_APPLE_SIGN_IN_ENABLED?: string;
-  readonly VITE_PASSWORD_RESET_ENABLED?: string;
+  readonly VITE_EMAIL_CONFIGURED?: string;
+  readonly VITE_ENGAGEMENT_HUB_ENABLED?: string;
   readonly VITE_DEV_PROXY_TARGET?: string;
 }
 
@@ -18,7 +19,8 @@ interface ElixRuntimeEnv {
   VITE_WS_URL?: string;
   VITE_LIVEKIT_URL?: string;
   VITE_APPLE_SIGN_IN_ENABLED?: string;
-  VITE_PASSWORD_RESET_ENABLED?: string;
+  VITE_EMAIL_CONFIGURED?: string;
+  VITE_ENGAGEMENT_HUB_ENABLED?: string;
 }
 
 interface Window {

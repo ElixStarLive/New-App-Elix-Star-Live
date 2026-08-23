@@ -86,10 +86,12 @@ describe("PAGE-001 Login", () => {
     container = mounted.container;
     expect(container.querySelector("h1")?.textContent).toBe("Login");
     expect(container.querySelector('img[alt="Elix Star Live"]')).toBeTruthy();
+    expect(container.firstElementChild?.className).not.toContain("elix-page-glass");
     expect(container.textContent).toContain("Remember email");
     expect(container.textContent).toContain("Sign up");
     expect(container.textContent).toContain("Sign in with Apple");
     expect(container.textContent).toContain("Forgot your password?");
+    expect(container.textContent).toContain("Created by Andrei Ionut Berica");
     expect(container.textContent).not.toContain("Authenticator code");
     expect(container.textContent).not.toContain("Guest");
     expect(container.textContent).not.toContain("Google");
@@ -125,15 +127,15 @@ describe("PAGE-001 Login", () => {
     expect(signInWithPassword).toHaveBeenCalledTimes(1);
     expect(page.textContent).toContain("Signing in...");
     await act(async () => {
-      resolveSignIn?.({ error: "Invalid login credentials." });
+      resolveSignIn?.({ error: "Incorrect email/username or password." });
     });
-    expect(page.textContent).toContain("Invalid login credentials.");
+    expect(page.textContent).toContain("Incorrect email/username or password.");
     expect(page.textContent).toContain("Sign in");
   });
 
   it("clears the previous error when retrying", async () => {
     signInWithPassword
-      .mockResolvedValueOnce({ error: "Invalid login credentials." })
+      .mockResolvedValueOnce({ error: "Incorrect email/username or password." })
       .mockResolvedValueOnce({ error: null });
     const mounted = renderLogin();
     root = mounted.root;
@@ -143,11 +145,11 @@ describe("PAGE-001 Login", () => {
     await act(async () => {
       submitForm(page);
     });
-    expect(page.textContent).toContain("Invalid login credentials.");
+    expect(page.textContent).toContain("Incorrect email/username or password.");
     await act(async () => {
       submitForm(page);
     });
-    expect(page.textContent).not.toContain("Invalid login credentials.");
+    expect(page.textContent).not.toContain("Incorrect email/username or password.");
     expect(page.textContent).toContain("root-destination");
   });
 
@@ -192,6 +194,52 @@ describe("PAGE-001 Login", () => {
       signUp?.click();
     });
     expect(container.textContent).toContain("register-destination");
+  });
+
+  it("does not store email when remember is off after success", async () => {
+    window.localStorage.setItem("login_saved_email", "old-user");
+    window.localStorage.setItem("login_save_details", "true");
+    signInWithPassword.mockResolvedValue({ error: null });
+    const mounted = renderLogin();
+    root = mounted.root;
+    container = mounted.container;
+    const page = mounted.container;
+    const remember = page.querySelector('input[type="checkbox"]') as HTMLInputElement;
+    if (remember.checked) {
+      act(() => {
+        remember.click();
+      });
+    }
+    fillCredentials(page, "forget-me", "secret-password");
+    await act(async () => {
+      submitForm(page);
+    });
+    expect(window.localStorage.getItem("login_saved_email")).toBeNull();
+    expect(window.localStorage.getItem("login_save_details")).toBe("false");
+    expect(window.localStorage.getItem("login_saved_password")).toBeNull();
+  });
+
+  it("toggles password visibility", () => {
+    const mounted = renderLogin();
+    root = mounted.root;
+    container = mounted.container;
+    const passwordInput = container.querySelector('input[autocomplete="current-password"]') as HTMLInputElement;
+    expect(passwordInput.type).toBe("password");
+    const toggle = passwordInput.parentElement?.querySelector("button");
+    act(() => {
+      toggle?.click();
+    });
+    expect(passwordInput.type).toBe("text");
+  });
+
+  it("requires email and password on the form fields", () => {
+    const mounted = renderLogin();
+    root = mounted.root;
+    container = mounted.container;
+    const emailInput = container.querySelector('input[autocomplete="email"]') as HTMLInputElement;
+    const passwordInput = container.querySelector('input[autocomplete="current-password"]') as HTMLInputElement;
+    expect(emailInput.required).toBe(true);
+    expect(passwordInput.required).toBe(true);
   });
 
   it("opens Forgot password when the reset flag is on", () => {

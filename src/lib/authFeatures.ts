@@ -1,20 +1,19 @@
+function runtimeFlag(key: "VITE_APPLE_SIGN_IN_ENABLED" | "VITE_EMAIL_CONFIGURED"): string | undefined {
+  if (typeof window === "undefined") return undefined;
+  const value = window.__ELIX_ENV?.[key];
+  return value == null ? undefined : String(value);
+}
+
 export function isAppleSignInEnabled(): boolean {
-  const fromVite = (import.meta.env.VITE_APPLE_SIGN_IN_ENABLED ?? "").toString().trim().toLowerCase();
-  const fromRuntime = (typeof window !== "undefined" ? window.__ELIX_ENV?.VITE_APPLE_SIGN_IN_ENABLED : "")
-    ?.toString()
-    .trim()
-    .toLowerCase();
-  return fromVite === "true" || fromVite === "1" || fromRuntime === "true" || fromRuntime === "1";
+  const runtime = runtimeFlag("VITE_APPLE_SIGN_IN_ENABLED");
+  if (runtime === "true") return true;
+  if (runtime === "false") return false;
+  return import.meta.env.VITE_APPLE_SIGN_IN_ENABLED === "true";
 }
 
 export function isPasswordResetEnabled(): boolean {
-  const raw = (
-    import.meta.env.VITE_PASSWORD_RESET_ENABLED ??
-    (typeof window !== "undefined" ? window.__ELIX_ENV?.VITE_PASSWORD_RESET_ENABLED : "") ??
-    "true"
-  )
-    .toString()
-    .trim()
-    .toLowerCase();
-  return raw !== "false" && raw !== "0";
+  const runtime = runtimeFlag("VITE_EMAIL_CONFIGURED");
+  if (runtime === "true") return true;
+  if (runtime === "false") return false;
+  return import.meta.env.VITE_EMAIL_CONFIGURED === "true";
 }

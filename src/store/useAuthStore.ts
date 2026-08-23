@@ -11,7 +11,11 @@ import {
   authLoginWithPassword,
   authLogout,
   authRegister,
+  displayLoginError,
 } from "@/features/auth/authSession";
+import { isolateVideoCallAccount } from "@/features/calls/videoCallSession";
+import { unregisterCurrentDeviceToken } from "@/features/notifications/deviceTokenSession";
+import { isolateWalletAccount } from "@/features/wallet/accountIsolation";
 
 type AuthSession = {
   token: string;
@@ -110,8 +114,9 @@ export const useAuthStore = create<AuthStore>()(
       signInWithPassword: async (emailOrUsername, password) => {
         const result = await authLoginWithPassword(emailOrUsername, password);
         if (!result.ok) {
-          return { error: result.error };
+          return { error: displayLoginError(result.error) };
         }
+        isolateWalletAccount();
         set(applySession(result.token, result.user));
         return { error: null };
       },
@@ -133,6 +138,7 @@ export const useAuthStore = create<AuthStore>()(
             welcomeMessage: result.welcomeMessage,
           };
         }
+        isolateWalletAccount();
         set(applySession(result.token, result.user));
         return {
           error: null,
@@ -166,6 +172,7 @@ export const useAuthStore = create<AuthStore>()(
               : undefined;
           const parsed = await authAppleNative(identityToken, nonce || undefined);
           if (!parsed.ok) return { error: parsed.error };
+          isolateWalletAccount();
           set(applySession(parsed.token, parsed.user));
           return { error: null };
         } catch (err) {
@@ -174,7 +181,10 @@ export const useAuthStore = create<AuthStore>()(
       },
 
       signOut: async () => {
+        await unregisterCurrentDeviceToken();
         const result = await authLogout();
+        isolateVideoCallAccount();
+        isolateWalletAccount();
         setSessionToken(null);
         set({
           user: null,
@@ -189,12 +199,14 @@ export const useAuthStore = create<AuthStore>()(
         const token = get().session?.token ?? null;
         setSessionToken(token);
         if (!token) {
+          isolateWalletAccount();
           set({ user: null, session: null, isAuthenticated: false, isLoading: false });
           return;
         }
         const me = await authGetMe();
         if (!me.ok) {
           if (me.isAuthFailure) {
+            isolateWalletAccount();
             setSessionToken(null);
             set({ user: null, session: null, isAuthenticated: false, isLoading: false, lastError: me.error });
             return;
@@ -203,6 +215,8 @@ export const useAuthStore = create<AuthStore>()(
           return;
         }
         const nextToken = me.token || token;
+        const currentUserId = get().user?.id;
+        if (currentUserId && currentUserId !== me.user.id) isolateWalletAccount();
         set(applySession(nextToken, me.user));
       },
 

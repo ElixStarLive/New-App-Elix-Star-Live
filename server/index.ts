@@ -19,7 +19,10 @@ import feedRouter from "./modules/feed/router.js";
 import liveRouter from "./modules/live/router.js";
 import giftsRouter from "./modules/gifts/router.js";
 import walletRouter from "./modules/wallet/router.js";
-import iapRouter from "./modules/iap/router.js";
+import testCoinsRouter from "./modules/testCoins/router.js";
+import iapRouter, { handleGetCoinPackages, handleVerifyPurchase } from "./modules/iap/router.js";
+import promoteRouter from "./modules/promote/router.js";
+import heartsRouter from "./modules/hearts/router.js";
 import videosRouter from "./modules/videos/router.js";
 import storiesRouter from "./modules/stories/router.js";
 import musicRouter from "./modules/music/router.js";
@@ -29,23 +32,23 @@ import engagementRouter from "./modules/engagement/router.js";
 import risingStarsRouter from "./modules/risingStars/router.js";
 import membershipRouter from "./modules/membership/router.js";
 import creatorRouter from "./modules/creator/router.js";
-import { handleAvatarUpload, handleStoryUpload, handleVideoUpload } from "./modules/media/upload.js";
+import { handleAvatarUpload } from "./modules/media/upload.js";
+import { cameraOptionsRouter } from "./modules/camera/options.js";
+import uploadsRouter, { handleUploadBytes } from "./modules/uploads/router.js";
 import {
   adminRouter,
-  chatRouter,
   moderationRouter,
   notifyRouter,
-  shopRouter,
 } from "./modules/misc/routers.js";
+import { shopRouter } from "./modules/shop/router.js";
+import deviceTokensRouter from "./modules/push/router.js";
+import blocksRouter from "./modules/blocks/router.js";
+import { handleShopImageUpload } from "./modules/shop/image.js";
 import {
   callsRouter,
   discoverRouter,
   extraAdminRouter,
-  handleReports,
   inboxRouter,
-  payoutsRouter,
-  safetyRouter,
-  shopCheckout,
 } from "./modules/app/clientRoutes.js";
 import {
   handleAppleNotification,
@@ -94,9 +97,9 @@ export async function createApp() {
   app.post("/api/webhooks/livekit", express.raw({ type: () => true }), (req, res, next) => {
     void handleLivekitWebhook(req, res).catch(next);
   });
-  app.post("/api/videos/upload", authedMultipart(handleVideoUpload));
-  app.post("/api/stories", authedMultipart(handleStoryUpload));
+  app.post("/api/uploads/sessions/:sessionId/bytes", authedMultipart(handleUploadBytes));
   app.post("/api/profiles/me/avatar", authedMultipart(handleAvatarUpload));
+  app.post("/api/shop/image", authedMultipart(handleShopImageUpload));
   app.use(express.json({ limit: "1mb" }));
   app.use((req, res, next) => {
     void attachSession(req, res, next).catch(next);
@@ -128,39 +131,55 @@ export async function createApp() {
   app.use("/api/live", liveRouter);
   app.use("/api/gifts", giftsRouter);
   app.use("/api/wallet", walletRouter);
+  app.use("/api/test-coins", testCoinsRouter);
   app.use("/api/iap", iapRouter);
+  app.get("/api/coin-packages", (req, res, next) => {
+    void handleGetCoinPackages(req, res).catch(next);
+  });
+  app.post("/api/verify-purchase", requireAuth, (req, res, next) => {
+    void handleVerifyPurchase(req, res).catch(next);
+  });
+  app.use("/api", promoteRouter);
+  app.use("/api/hearts", heartsRouter);
   app.post("/api/webhooks/apple-iap", (req, res, next) => {
     void handleAppleNotification(req, res).catch(next);
   });
   app.post("/api/webhooks/google-play", (req, res, next) => {
     void handleGoogleRtdn(req, res).catch(next);
   });
+  app.use("/api/uploads", uploadsRouter);
   app.use("/api/videos", videosRouter);
   app.use("/api/stories", storiesRouter);
   app.use("/api/music", musicRouter);
+  app.use("/api", cameraOptionsRouter);
   app.use("/api/hashtags", hashtagsRouter);
   app.use("/api/reposts", repostsRouter);
   app.use("/api/engagement", engagementRouter);
   app.use("/api/rising-stars", risingStarsRouter);
   app.use("/api/membership", membershipRouter);
   app.use("/api/creator", creatorRouter);
-  app.use("/api/chat", chatRouter);
   app.use("/api/inbox", inboxRouter);
   app.use("/api/shop", shopRouter);
-  app.post("/api/shop/checkout", requireAuth, (req, res, next) => {
-    void shopCheckout(req, res).catch(next);
-  });
   app.use("/api/notifications", notifyRouter);
+  app.use("/api/device-tokens", deviceTokensRouter);
   app.use("/api/admin", extraAdminRouter);
   app.use("/api/admin", adminRouter);
-  app.use("/api/safety", safetyRouter);
+  app.use("/api", blocksRouter);
   app.use("/api/calls", callsRouter);
-  app.use("/api/payouts", payoutsRouter);
   app.use("/api", discoverRouter);
-  app.post("/api/reports", requireAuth, (req, res, next) => {
-    void handleReports(req, res).catch(next);
-  });
   app.use("/api", moderationRouter);
+
+  app.get("/env.js", (_req, res) => {
+    const payload = {
+      VITE_APPLE_SIGN_IN_ENABLED: env().APPLE_SIGN_IN_ENABLED === "true" ? "true" : "false",
+      VITE_EMAIL_CONFIGURED: process.env.SMTP_URL?.trim() ? "true" : "false",
+    };
+    res.setHeader("Content-Type", "application/javascript; charset=utf-8");
+    res.setHeader("Cache-Control", "no-store");
+    res.send(
+      `window.__ELIX_ENV = Object.assign({}, window.__ELIX_ENV || {}, ${JSON.stringify(payload)});`,
+    );
+  });
 
   const dist = path.resolve(process.cwd(), "dist");
   if (fs.existsSync(dist)) {

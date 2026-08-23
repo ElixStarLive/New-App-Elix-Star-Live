@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { authLoginWithPassword } from "./authSession";
+import { authLoginWithPassword, displayLoginError } from "./authSession";
 
 vi.mock("@/lib/apiClient", () => ({
   apiRequest: vi.fn(),
@@ -9,6 +9,25 @@ import { apiRequest } from "@/lib/apiClient";
 
 const apiRequestMock = vi.mocked(apiRequest);
 
+const productionLoginBody = {
+  user: {
+    id: "00000000-0000-4000-8000-000000000001",
+    email: "andrei@example.com",
+    user_metadata: { username: "andrei", full_name: "Andrei", avatar_url: "" },
+    email_confirmed_at: "2026-08-01T00:00:00.000Z",
+    created_at: "2026-08-01T00:00:00.000Z",
+  },
+  session: { access_token: "prod-tok", accessToken: "prod-tok" },
+  profile_meta: {
+    is_admin: false,
+    is_creator: false,
+    banned_until: null,
+    starter_coin_balance: 50000,
+    total_xp: 0,
+    level: 0,
+  },
+};
+
 describe("authLoginWithPassword", () => {
   beforeEach(() => {
     apiRequestMock.mockReset();
@@ -16,26 +35,18 @@ describe("authLoginWithPassword", () => {
 
   it("sends email (username allowed) and password, never totp", async () => {
     apiRequestMock.mockResolvedValue({
-      data: {
-        token: "tok",
-        user: {
-          id: "00000000-0000-4000-8000-000000000001",
-          username: "andrei",
-          displayName: "Andrei",
-          avatarUrl: null,
-          bio: "",
-          isVerified: false,
-          followerCount: 0,
-          followingCount: 0,
-          email: "andrei@example.com",
-          isAdmin: false,
-          emailConfirmed: true,
-        },
-      },
+      data: productionLoginBody,
       error: null,
     });
     const result = await authLoginWithPassword("andrei", "secret-password");
     expect(result.ok).toBe(true);
+    if (result.ok) {
+      expect(result.token).toBe("prod-tok");
+      expect(result.user.username).toBe("andrei");
+      expect(result.user.displayName).toBe("Andrei");
+      expect(result.user.email).toBe("andrei@example.com");
+      expect(result.user.emailConfirmed).toBe(true);
+    }
     expect(apiRequestMock).toHaveBeenCalledWith("/api/auth/login", {
       method: "POST",
       body: JSON.stringify({ email: "andrei", password: "secret-password" }),
@@ -61,69 +72,43 @@ describe("authLoginWithPassword", () => {
     expect(apiRequestMock).not.toHaveBeenCalled();
   });
 
-  it("reads production login session.access_token and user_metadata", async () => {
+  it("accepts the production session.access_token body", async () => {
+    apiRequestMock.mockResolvedValue({
+      data: productionLoginBody,
+      error: null,
+    });
+    const result = await authLoginWithPassword("andrei@example.com", "secret-password");
+    expect(result.ok).toBe(true);
+    if (result.ok) {
+      expect(result.token).toBe("prod-tok");
+    }
+  });
+
+  it("rejects a { token, user } login body", async () => {
     apiRequestMock.mockResolvedValue({
       data: {
+        token: "tok",
         user: {
           id: "00000000-0000-4000-8000-000000000001",
+          username: "andrei",
+          displayName: "Andrei",
+          avatarUrl: null,
+          bio: "",
+          isVerified: false,
+          followerCount: 0,
+          followingCount: 0,
           email: "andrei@example.com",
-          user_metadata: { username: "andrei", full_name: "Andrei", avatar_url: "" },
-          email_confirmed_at: "2026-08-01T00:00:00.000Z",
-          created_at: "2026-08-01T00:00:00.000Z",
+          isAdmin: false,
+          emailConfirmed: true,
         },
-        session: { access_token: "prod-tok", accessToken: "prod-tok" },
       },
       error: null,
     });
     const result = await authLoginWithPassword("andrei@example.com", "secret-password");
-    expect(result.ok).toBe(true);
-    if (result.ok) {
-      expect(result.token).toBe("prod-tok");
-      expect(result.user.username).toBe("andrei");
-      expect(result.user.displayName).toBe("Andrei");
-      expect(result.user.emailConfirmed).toBe(true);
+    expect(result.ok).toBe(false);
+    if (!result.ok) {
+      expect(result.error).toBe("Invalid login response from server.");
     }
-  });
-
-  it("accepts production user ids that are not UUIDs", async () => {
-    apiRequestMock.mockResolvedValue({
-      data: {
-        user: {
-          id: "elix-user-1",
-          email: "andrei@example.com",
-          user_metadata: { username: "andrei", full_name: "Andrei", avatar_url: "" },
-          email_confirmed_at: "2026-08-01T00:00:00.000Z",
-          created_at: "2026-08-01T00:00:00.000Z",
-        },
-        session: { access_token: "prod-tok" },
-        profile_meta: { is_admin: false },
-      },
-      error: null,
-    });
-    const result = await authLoginWithPassword("andrei@example.com", "secret-password");
-    expect(result.ok).toBe(true);
-    if (result.ok) {
-      expect(result.user.id).toBe("elix-user-1");
-      expect(result.token).toBe("prod-tok");
-    }
-  });
-
-  it("parses a string JSON login body", async () => {
-    apiRequestMock.mockResolvedValue({
-      data: JSON.stringify({
-        user: {
-          id: "elix-user-1",
-          email: "andrei@example.com",
-          user_metadata: { username: "andrei", full_name: "Andrei", avatar_url: "" },
-          email_confirmed_at: "2026-08-01T00:00:00.000Z",
-        },
-        session: { access_token: "prod-tok" },
-      }),
-      error: null,
-    });
-    const result = await authLoginWithPassword("andrei@example.com", "secret-password");
-    expect(result.ok).toBe(true);
-    if (result.ok) expect(result.token).toBe("prod-tok");
   });
 
   it("does not treat a network failure as success", async () => {
@@ -136,5 +121,24 @@ describe("authLoginWithPassword", () => {
     if (!result.ok) {
       expect(result.error).toBe("Network error");
     }
+  });
+});
+
+describe("displayLoginError", () => {
+  it("maps invalid credentials to the login copy", () => {
+    expect(displayLoginError("Invalid login credentials.")).toBe(
+      "Incorrect email/username or password.",
+    );
+  });
+
+  it("maps confirm-email failures to the login copy", () => {
+    expect(
+      displayLoginError("Please confirm your email before logging in. Check your inbox or request a new confirmation email."),
+    ).toBe("Please verify your email address before logging in.");
+  });
+
+  it("passes through network and server failures", () => {
+    expect(displayLoginError("Network error")).toBe("Network error");
+    expect(displayLoginError("Account suspended.")).toBe("Account suspended.");
   });
 });

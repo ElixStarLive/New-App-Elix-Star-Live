@@ -90,13 +90,69 @@ export const loginBodySchema = z.object({
   password: z.string().min(1),
 });
 
-/** Login identifier: `email` may be a username (PAGE-001 / OLD contract). */
+/** Login identifier is posted as `email` and may be a username or an email address. */
 export function loginIdentifier(body: z.infer<typeof loginBodySchema>): string {
   return body.email.trim();
 }
 
 export const authSuccessSchema = z.object({
   token: z.string(),
+  user: sessionUserSchema,
+});
+
+export const productionLoginUserSchema = z.object({
+  id: z.string().min(1),
+  email: z.string().min(1),
+  user_metadata: z.object({
+    username: z.string(),
+    full_name: z.string(),
+    avatar_url: z.string(),
+  }),
+  email_confirmed_at: z.string(),
+  created_at: z.string(),
+});
+
+export const productionLoginSessionSchema = z.object({
+  access_token: z.string().min(1),
+  accessToken: z.string().min(1).optional(),
+});
+
+export const productionLoginProfileMetaSchema = z.object({
+  is_admin: z.boolean(),
+  is_creator: z.boolean(),
+  banned_until: z.string().nullable(),
+  starter_coin_balance: z.number(),
+  total_xp: z.number(),
+  level: z.number(),
+});
+
+/** Production login / Apple success body. `{ token, user }` is not this contract. */
+export const productionLoginSuccessSchema = z.object({
+  user: productionLoginUserSchema,
+  session: productionLoginSessionSchema,
+  profile_meta: productionLoginProfileMetaSchema,
+});
+
+export type ProductionLoginSuccess = z.infer<typeof productionLoginSuccessSchema>;
+
+export function sessionUserFromProductionLogin(data: ProductionLoginSuccess): SessionUser | null {
+  const parsed = sessionUserSchema.safeParse({
+    id: data.user.id,
+    username: data.user.user_metadata.username,
+    displayName: data.user.user_metadata.full_name,
+    avatarUrl: data.user.user_metadata.avatar_url || null,
+    bio: "",
+    isVerified: data.profile_meta.is_creator,
+    followerCount: 0,
+    followingCount: 0,
+    email: data.user.email,
+    isAdmin: data.profile_meta.is_admin,
+    emailConfirmed: Boolean(data.user.email_confirmed_at),
+  });
+  return parsed.success ? parsed.data : null;
+}
+
+export const meSuccessSchema = z.object({
   user: sessionUserSchema,
 });
 
@@ -134,4 +190,23 @@ export const appleNativeBodySchema = z.object({
 
 export const deleteAccountBodySchema = z.object({
   password: z.string().min(1).optional(),
+});
+
+export const twoFactorCodeBodySchema = z.object({
+  code: z.string().regex(/^\d{6}$/),
+});
+
+export const twoFactorStatusSchema = z.object({
+  enabled: z.boolean(),
+});
+
+export const twoFactorEnrollSchema = z.object({
+  secret: z.string().min(8),
+  otpauth: z.string().min(1).optional(),
+  otpauth_url: z.string().min(1).optional(),
+});
+
+export const twoFactorMutationSchema = z.object({
+  ok: z.literal(true),
+  enabled: z.boolean(),
 });

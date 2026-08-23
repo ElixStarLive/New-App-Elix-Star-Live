@@ -2,6 +2,8 @@ import { describe, expect, it } from "vitest";
 import {
   loginBodySchema,
   loginIdentifier,
+  productionLoginSuccessSchema,
+  sessionUserFromProductionLogin,
   registerBodySchema,
   resetPasswordBodySchema,
   wsEnvelopeSchema,
@@ -9,6 +11,13 @@ import {
   sendGiftBodySchema,
   liveTokenQuerySchema,
   cohostLayoutSchema,
+  inboxMessageEventSchema,
+  inboxThreadDetailSchema,
+  callInviteEventSchema,
+  twoFactorCodeBodySchema,
+  twoFactorStatusSchema,
+  deviceTokenRegisterBodySchema,
+  deviceTokenDeleteBodySchema,
 } from "./index.js";
 
 describe("contracts", () => {
@@ -69,6 +78,51 @@ describe("contracts", () => {
     if (result.success) {
       expect(result.data.username).toBe("Anya Emily");
     }
+  });
+
+  it("accepts the production login success body and rejects { token, user }", () => {
+    const production = productionLoginSuccessSchema.safeParse({
+      user: {
+        id: "00000000-0000-4000-8000-000000000001",
+        email: "andrei@example.com",
+        user_metadata: { username: "andrei", full_name: "Andrei", avatar_url: "" },
+        email_confirmed_at: "2026-08-01T00:00:00.000Z",
+        created_at: "2026-08-01T00:00:00.000Z",
+      },
+      session: { access_token: "prod-tok", accessToken: "prod-tok" },
+      profile_meta: {
+        is_admin: false,
+        is_creator: true,
+        banned_until: null,
+        starter_coin_balance: 50000,
+        total_xp: 0,
+        level: 1,
+      },
+    });
+    expect(production.success).toBe(true);
+    if (production.success) {
+      const user = sessionUserFromProductionLogin(production.data);
+      expect(user?.username).toBe("andrei");
+      expect(user?.isVerified).toBe(true);
+    }
+    expect(
+      productionLoginSuccessSchema.safeParse({
+        token: "tok",
+        user: {
+          id: "00000000-0000-4000-8000-000000000001",
+          username: "andrei",
+          displayName: "Andrei",
+          avatarUrl: null,
+          bio: "",
+          isVerified: false,
+          followerCount: 0,
+          followingCount: 0,
+          email: "andrei@example.com",
+          isAdmin: false,
+          emailConfirmed: true,
+        },
+      }).success,
+    ).toBe(false);
   });
 
   it("accepts login email or username in the email field", () => {
@@ -149,5 +203,79 @@ describe("contracts", () => {
     });
     expect(parsed.success).toBe(true);
     if (parsed.success) expect(parsed.data.token).toBe("fresh-reset-token-value");
+  });
+
+  it("accepts PAGE-033 inbox message and thread detail contracts", () => {
+    expect(
+      inboxMessageEventSchema.safeParse({
+        threadId: "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",
+        message: {
+          id: "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb",
+          threadId: "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",
+          senderId: "cccccccc-cccc-4ccc-8ccc-cccccccccccc",
+          body: "hello",
+          createdAt: "2026-08-21T00:00:00.000Z",
+        },
+      }).success,
+    ).toBe(true);
+    expect(
+      inboxThreadDetailSchema.safeParse({
+        id: "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",
+        otherUserId: "cccccccc-cccc-4ccc-8ccc-cccccccccccc",
+        otherUsername: "peer",
+        otherDisplayName: "Peer",
+        otherAvatarUrl: null,
+        otherLevel: 1,
+        blocked: false,
+        otherUnavailable: false,
+        canSend: true,
+      }).success,
+    ).toBe(true);
+    expect(
+      callInviteEventSchema.safeParse({
+        callId: "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb",
+        callerId: "11111111-1111-4111-8111-111111111111",
+        calleeId: "22222222-2222-4222-8222-222222222222",
+        callerUsername: "Maya",
+        callerAvatar: "",
+        threadId: "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",
+        roomName: "call_bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb",
+      }).success,
+    ).toBe(true);
+    expect(
+      callInviteEventSchema.safeParse({
+        callId: "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb",
+        callerId: "11111111-1111-4111-8111-111111111111",
+        calleeId: "22222222-2222-4222-8222-222222222222",
+        callerUsername: "Maya",
+        callerAvatar: "",
+        threadId: "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",
+        roomName: "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",
+      }).success,
+    ).toBe(false);
+  });
+
+  it("requires a 6-digit 2FA code and an enabled boolean on status", () => {
+    expect(twoFactorCodeBodySchema.safeParse({ code: "123456" }).success).toBe(true);
+    expect(twoFactorCodeBodySchema.safeParse({ code: "12345" }).success).toBe(false);
+    expect(twoFactorCodeBodySchema.safeParse({ code: "abcdef" }).success).toBe(false);
+    expect(twoFactorCodeBodySchema.safeParse({ userId: "other", code: "123456" }).success).toBe(true);
+    expect(twoFactorStatusSchema.safeParse({ enabled: false }).success).toBe(true);
+    expect(twoFactorStatusSchema.safeParse({ enrolled: true }).success).toBe(false);
+    expect(loginBodySchema.safeParse({ email: "andrei", password: "secret-password" }).success).toBe(true);
+    expect(loginBodySchema.safeParse({ email: "andrei", password: "secret-password", totpCode: "123456" }).success).toBe(
+      true,
+    );
+  });
+
+  it("accepts only real device-token platforms and rejects empty tokens", () => {
+    expect(deviceTokenRegisterBodySchema.safeParse({ token: "device-token-1", platform: "android" }).success).toBe(true);
+    expect(deviceTokenRegisterBodySchema.safeParse({ token: "device-token-1", platform: "iphone" }).success).toBe(true);
+    expect(deviceTokenRegisterBodySchema.parse({ token: "device-token-1", platform: "iphone" }).platform).toBe("ios");
+    expect(deviceTokenRegisterBodySchema.safeParse({ token: "   ", platform: "ios" }).success).toBe(false);
+    expect(deviceTokenRegisterBodySchema.safeParse({ token: "short", platform: "ios" }).success).toBe(false);
+    expect(deviceTokenRegisterBodySchema.safeParse({ token: "device-token-1", platform: "windows" }).success).toBe(false);
+    expect(deviceTokenDeleteBodySchema.safeParse({ platform: "ios" }).success).toBe(true);
+    expect(deviceTokenDeleteBodySchema.safeParse({ platform: "unknown" }).success).toBe(false);
   });
 });

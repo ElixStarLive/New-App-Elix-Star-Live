@@ -3,7 +3,23 @@ import react from "@vitejs/plugin-react";
 import tsconfigPaths from "vite-tsconfig-paths";
 import path from "node:path";
 
-export default defineConfig(({ mode }) => ({
+function stripLoopbackViteEnv(mode: string): Record<string, string> {
+  if (mode !== "production" && mode !== "store") return {};
+  const define: Record<string, string> = {};
+  for (const key of ["VITE_API_URL", "VITE_WS_URL"] as const) {
+    const value = (process.env[key] || "").trim();
+    if (/127\.0\.0\.1|localhost/i.test(value)) {
+      delete process.env[key];
+      define[`import.meta.env.${key}`] = JSON.stringify("");
+    }
+  }
+  return define;
+}
+
+export default defineConfig(({ mode }) => {
+  const loopbackEnvDefine = stripLoopbackViteEnv(mode);
+  return {
+  define: loopbackEnvDefine,
   resolve: {
     alias: {
       "@": path.resolve(__dirname, "src"),
@@ -53,6 +69,10 @@ export default defineConfig(({ mode }) => ({
           });
         },
       },
+      "/env.js": {
+        target: process.env.VITE_DEV_PROXY_TARGET || "http://127.0.0.1:8080",
+        changeOrigin: true,
+      },
       "/live": {
         target: process.env.VITE_DEV_PROXY_TARGET || "http://127.0.0.1:8080",
         changeOrigin: true,
@@ -64,6 +84,10 @@ export default defineConfig(({ mode }) => ({
   test: {
     environment: "node",
     include: ["shared/**/*.test.ts", "server/**/*.test.ts", "src/**/*.test.ts", "src/**/*.test.tsx"],
-    environmentMatchGlobs: [["src/**/*.test.tsx", "jsdom"]],
+    environmentMatchGlobs: [
+      ["src/**/*.test.tsx", "jsdom"],
+      ["src/lib/api.origin.test.ts", "jsdom"],
+    ],
   },
-}));
+};
+});
