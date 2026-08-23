@@ -41,7 +41,7 @@ All 78 rows below are **NOT VERIFIED** until a page completes the full gate with
 | PAGE-024 | NOT VERIFIED | NOT VERIFIED | NOT VERIFIED | NOT VERIFIED | NOT VERIFIED | NOT VERIFIED | — |
 | PAGE-025 | NOT VERIFIED | NOT VERIFIED | NOT VERIFIED | NOT VERIFIED | NOT VERIFIED | NOT VERIFIED | — |
 | PAGE-026 | NOT VERIFIED | NOT VERIFIED | NOT VERIFIED | NOT VERIFIED | NOT VERIFIED | NOT VERIFIED | — |
-| PAGE-027 | NOT VERIFIED | NOT VERIFIED | NOT VERIFIED | NOT VERIFIED | NOT VERIFIED | NOT VERIFIED | — |
+| PAGE-027 | YES | YES | YES | PASS | PASS | PASS | *(pending commit)* |
 | PAGE-028 | NOT VERIFIED | NOT VERIFIED | NOT VERIFIED | NOT VERIFIED | NOT VERIFIED | NOT VERIFIED | — |
 | PAGE-029 | NOT VERIFIED | NOT VERIFIED | NOT VERIFIED | NOT VERIFIED | NOT VERIFIED | NOT VERIFIED | — |
 | PAGE-030 | NOT VERIFIED | NOT VERIFIED | NOT VERIFIED | NOT VERIFIED | NOT VERIFIED | NOT VERIFIED | — |
@@ -137,8 +137,17 @@ All 78 rows below are **NOT VERIFIED** until a page completes the full gate with
 - **Runtime forgot:** **BLOCKED** — local API DOWN
 - **Commit:** `0e7aaf3`
 
+## PAGE-027 Followers
+
+- **Fixed:** committed missing `Followers` owner stack; removed obsolete duplicate `FollowList.tsx` (routes already owned by `Followers` / `FollowingList`); page API/session import from `@shared/contracts/auth` + `social` so barrel missing modules do not break PAGE-027.
+- **Tests:** `npx vitest run src/features/profile/followersApi.test.ts src/features/profile/followersSession.test.ts src/features/profile/page027Ownership.test.ts` → **10 passed / 0 failed**
+- **Agent4 handoff:** `shared/contracts/index.ts` still exports missing `inbox`/`alerts`/`calls`/`risingStars`/`promote`/`hearts` modules (uncommitted on main tree) — restore barrel or drop dead exports.
+- **Runtime GET /api/profiles/:id/followers:** **BLOCKED** — local API not verified this pass
+- **Commit:** *(set on commit)*
+
 ## Release blockers (remaining)
 
-1. PAGE-002→078 not completed under this gate.
+1. PAGE-028→078 not completed under this gate.
 2. Live HTTP login E2E blocked while local API is down.
 3. Full production build / device gates still open for later pages.
+4. Shared contracts barrel incomplete on this branch (Agent 4).
