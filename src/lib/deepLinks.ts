@@ -7,16 +7,21 @@ import { namedExitForLocation } from "@/lib/settingsNav";
 const ROOT_PATHS = new Set(["/", "/feed", "/friends", "/inbox", "/profile", "/login"]);
 const WEB_HOSTS = new Set(["www.elixstarlive.co.uk", "elixstarlive.co.uk"]);
 
-function navigateFromDeepLinkUrl(url: string, navigate: (path: string) => void): void {
+export function navigateFromDeepLinkUrl(url: string, navigate: (path: string) => void): void {
   try {
     const parsed = new URL(url);
     const host = parsed.hostname.toLowerCase();
     const path = parsed.pathname || "/";
 
     if (parsed.protocol === "elixstar:") {
-      const parts = path.replace(/^\/+/, "").split("/").filter(Boolean);
+      const combined = `${parsed.hostname || ""}${path}`.replace(/^\/+/, "");
+      const parts = combined.split("/").filter(Boolean);
       const type = parts[0];
       const id = parts[1];
+      if (type === "rising-stars" || type === "risingstars") {
+        navigate(id ? `/rising-stars/challenge/${id}` : "/rising-stars");
+        return;
+      }
       if (type && id) {
         if (type === "video") {
           navigate(`/video/${id}`);
@@ -32,10 +37,6 @@ function navigateFromDeepLinkUrl(url: string, navigate: (path: string) => void):
         }
         if (type === "hashtag") {
           navigate(`/hashtag/${id}`);
-          return;
-        }
-        if (type === "rising-stars" || type === "risingstars") {
-          navigate(id ? `/rising-stars/challenge/${id}` : "/rising-stars");
           return;
         }
       }
