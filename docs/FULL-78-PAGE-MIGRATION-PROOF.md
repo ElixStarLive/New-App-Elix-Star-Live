@@ -1,4 +1,4 @@
-﻿# FULL 78-PAGE MIGRATION PROOF
+# FULL 78-PAGE MIGRATION PROOF
 
 **Authority:** Owner orders 2026-08-23.  
 **Verdict status:** **NOT READY FOR RELEASE**  
@@ -17,7 +17,7 @@ All 78 rows below are **NOT VERIFIED** until a page completes the full gate with
 | --- | --- | --- | --- | --- | --- | --- | --- |
 | PAGE-001 | YES | YES | YES | PASS | PASS | PASS | `0bbeedd` |
 | PAGE-002 | YES | YES | YES | PASS | PASS | PASS | `79ec0ee` |
-| PAGE-003 | YES | YES | YES | PASS | PASS | PASS | — |
+| PAGE-003 | YES | YES | YES | PASS | PASS | PASS | `39d04b9` |
 | PAGE-004 | NOT VERIFIED | NOT VERIFIED | NOT VERIFIED | NOT VERIFIED | NOT VERIFIED | NOT VERIFIED | — |
 | PAGE-005 | NOT VERIFIED | NOT VERIFIED | NOT VERIFIED | NOT VERIFIED | NOT VERIFIED | NOT VERIFIED | — |
 | PAGE-006 | NOT VERIFIED | NOT VERIFIED | NOT VERIFIED | NOT VERIFIED | NOT VERIFIED | NOT VERIFIED | — |
@@ -128,7 +128,7 @@ All 78 rows below are **NOT VERIFIED** until a page completes the full gate with
 - **Fixed:** none required — NEW uses `setSessionToken` + `session.token` (store contract); verify → checkUser → `/profile`.
 - **Tests:** AuthCallback + authSession.verify → **6/6 PASS**
 - **Runtime verify email:** **BLOCKED** — local API DOWN
-- **Commit:** (this commit)
+- **Commit:** `39d04b9`
 
 ## Release blockers (remaining)
 
