@@ -2,6 +2,7 @@ import { useCallback, useEffect, useRef, useState, type FormEvent } from "react"
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { Lock, CheckCircle } from "lucide-react";
 import { authResetPassword } from "@/features/auth/authSession";
+import { isAbortLike } from "@/features/auth/abortLike";
 import { useIsMountedRef } from "@/hooks/useIsMountedRef";
 
 export default function ResetPassword() {
@@ -60,12 +61,16 @@ export default function ResetPassword() {
       setSuccess(true);
       setIsSubmitting(false);
       redirectTimerRef.current = setTimeout(() => goLogin(), 3000);
-    } catch {
-      if (isMounted.current) {
+    } catch (err) {
+      if (!isMounted.current) return;
+      if (isAbortLike(err)) {
         submitLock.current = false;
-        setError("Failed to reset password. Please try again.");
         setIsSubmitting(false);
+        return;
       }
+      submitLock.current = false;
+      setError("Failed to reset password. Please try again.");
+      setIsSubmitting(false);
     }
   };
 
