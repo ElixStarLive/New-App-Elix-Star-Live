@@ -43,7 +43,7 @@ All 78 rows below are **NOT VERIFIED** until a page completes the full gate with
 | PAGE-026 | NOT VERIFIED | NOT VERIFIED | NOT VERIFIED | NOT VERIFIED | NOT VERIFIED | NOT VERIFIED | — |
 | PAGE-027 | YES | YES | YES | PASS | PASS | PASS | `e56fcf7` |
 | PAGE-028 | YES | YES | YES | PASS | PASS | PASS | `fae3406` |
-| PAGE-029 | NOT VERIFIED | NOT VERIFIED | NOT VERIFIED | NOT VERIFIED | NOT VERIFIED | NOT VERIFIED | — |
+| PAGE-029 | YES | YES | YES | PASS | PASS | PASS | `64a2aa5` |
 | PAGE-030 | NOT VERIFIED | NOT VERIFIED | NOT VERIFIED | NOT VERIFIED | NOT VERIFIED | NOT VERIFIED | — |
 | PAGE-031 | NOT VERIFIED | NOT VERIFIED | NOT VERIFIED | NOT VERIFIED | NOT VERIFIED | NOT VERIFIED | — |
 | PAGE-032 | NOT VERIFIED | NOT VERIFIED | NOT VERIFIED | NOT VERIFIED | NOT VERIFIED | NOT VERIFIED | — |
@@ -158,8 +158,15 @@ All 78 rows below are **NOT VERIFIED** until a page completes the full gate with
 - **Runtime GET following:** **BLOCKED** — local API DOWN
 - **Commit:** `fae3406`
 
+## PAGE-029 Creator login details
+
+- **Fixed:** Resend confirmation no longer appears for generic credential errors containing “email”; aborted login clears without a false error; committed session/storage owner (sign-in only, no password persistence); single `/creator/login-details` route already present.
+- **Tests:** `npx vitest run src/pages/CreatorLoginDetails.test.tsx src/features/creatorLogin/` → **18 passed / 0 failed**
+- **Runtime auth login:** **BLOCKED** — local API DOWN
+- **Commit:** `64a2aa5`
+
 ## Release blockers (remaining)
 
-1. PAGE-006→026 and PAGE-029→078 not completed under this gate.
+1. PAGE-006→026 and PAGE-030→078 not completed under this gate.
 2. Live HTTP E2E blocked while local API is down.
 3. Full production build / device gates still open for later pages.
