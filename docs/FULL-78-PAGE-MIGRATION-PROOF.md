@@ -179,8 +179,15 @@ All 78 rows below are **NOT VERIFIED** until a page completes the full gate with
 - **Runtime inbox APIs:** **BLOCKED** — local API DOWN
 - **Commit:** `02ac3c8`
 
+## PAGE-031 Inbox Activity overlay
+
+- **Fixed:** loading state showed a blank body; now uses the shared spinner so loading is not mistaken for empty and is visible.
+- **Tests:** `InboxActivityOverlay` + page031 ownership + inboxActivityLine → **11 passed / 0 failed**
+- **Runtime activity API:** **BLOCKED** — local API DOWN
+- **Commit:** `14c2473`
+
 ## Release blockers (remaining)
 
-1. PAGE-007→026 and PAGE-031→078 not completed under this gate. PAGE-006 commit recorded `75aeb97`.
+1. PAGE-007→026 and PAGE-032→078 not completed under this gate.
 2. Live HTTP E2E blocked while local API is down.
 3. Full production build / device gates still open for later pages.
