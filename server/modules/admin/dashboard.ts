@@ -32,7 +32,8 @@ export const ADMIN_DASHBOARD_QUERY_LIVE = `
     (SELECT COUNT(*)::text FROM videos WHERE btrim(COALESCE(url, '')) <> '') AS videos,
     (SELECT COUNT(*)::text FROM live_streams WHERE is_live = TRUE AND ended_at IS NULL) AS live,
     (SELECT COUNT(*)::text FROM elix_reports WHERE status IN ('open', 'pending')) AS reports,
-    (SELECT COALESCE(SUM(amount_pence), 0)::text FROM elix_shop_purchases WHERE status = 'paid') AS revenue,
+    (SELECT COALESCE(SUM(ROUND(COALESCE(amount_gbp, 0) * 100))::bigint, 0)::text
+       FROM elix_shop_purchases) AS revenue,
     (SELECT COUNT(DISTINCT user_id)::text FROM elix_auth_sessions WHERE created_at > NOW() - INTERVAL '24 hours') AS dau
 `;
 
