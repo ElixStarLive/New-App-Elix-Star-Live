@@ -37,6 +37,7 @@ import { formatCompactNumber } from "@/lib/formatCompactNumber";
 import { GiftOverlay } from "@/components/GiftOverlay";
 import GiftAnimationOverlay from "@/components/GiftAnimationOverlay";
 import { LiveGiftFeedStack } from "@/components/LiveGiftFeedStack";
+import ReportModal from "@/components/ReportModal";
 import { AvatarRing } from "@/components/AvatarRing";
 import {
   BATTLE_MVP_CIRCLE_GAP_CLASS,
@@ -147,6 +148,7 @@ export function LiveRoomScreen({
   const [joinSent, setJoinSent] = useState(false);
   const [likeCount, setLikeCount] = useState(0);
   const [moreOpen, setMoreOpen] = useState(false);
+  const [reportOpen, setReportOpen] = useState(false);
   const [pollOpen, setPollOpen] = useState(false);
   const [pollDraft, setPollDraft] = useState("");
   const [topGifters, setTopGifters] = useState<Array<{ id: string; name: string; avatar: string | null }>>([]);
@@ -810,12 +812,34 @@ export function LiveRoomScreen({
               </button>
             </div>
           ) : (
-            <button type="button" className="w-full py-2 text-sm text-white/80" onClick={sendHeart}>
-              Send like
-            </button>
+            <div className="flex flex-col gap-1">
+              <button type="button" className="w-full py-2 text-sm text-white/80" onClick={sendHeart}>
+                Send like
+              </button>
+              {hostId ? (
+                <button
+                  type="button"
+                  className="w-full py-2 text-sm text-white/80"
+                  onClick={() => {
+                    setMoreOpen(false);
+                    setReportOpen(true);
+                  }}
+                >
+                  Report
+                </button>
+              ) : null}
+            </div>
           )}
         </div>
       ) : null}
+
+      <ReportModal
+        isOpen={reportOpen}
+        onClose={() => setReportOpen(false)}
+        videoId=""
+        contentType="user"
+        contentId={hostId || undefined}
+      />
 
       {pollOpen ? (
         <div className="absolute inset-x-0 bottom-0 z-50 mx-auto max-w-[480px] rounded-t-2xl border border-[#D8D9DD]/30 bg-black/80 p-3">
