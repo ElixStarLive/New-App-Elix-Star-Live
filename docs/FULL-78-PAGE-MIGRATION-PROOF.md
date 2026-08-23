@@ -19,7 +19,7 @@ All 78 rows below are **NOT VERIFIED** until a page completes the full gate with
 | PAGE-002 | YES | YES | YES | PASS | PASS | PASS | `79ec0ee` |
 | PAGE-003 | YES | YES | YES | PASS | PASS | PASS | `39d04b9` |
 | PAGE-004 | YES | YES | YES | PASS | PASS | PASS | `0e7aaf3` |
-| PAGE-005 | YES | YES | YES | PASS | PASS | PASS | — |
+| PAGE-005 | YES | YES | YES | PASS | PASS | PASS | `bcf96af` |
 | PAGE-006 | NOT VERIFIED | NOT VERIFIED | NOT VERIFIED | NOT VERIFIED | NOT VERIFIED | NOT VERIFIED | — |
 | PAGE-007 | NOT VERIFIED | NOT VERIFIED | NOT VERIFIED | NOT VERIFIED | NOT VERIFIED | NOT VERIFIED | — |
 | PAGE-008 | NOT VERIFIED | NOT VERIFIED | NOT VERIFIED | NOT VERIFIED | NOT VERIFIED | NOT VERIFIED | — |
@@ -98,7 +98,7 @@ All 78 rows below are **NOT VERIFIED** until a page completes the full gate with
 
 ## Release blockers (current)
 
-1. **0 / 78 pages** have a completed evidence → fix → clean → test → verify → commit chain under this standard.
+1. **7 / 78 pages** have a completed evidence → fix → clean → test → verify → commit chain under this standard (001–005, 027–028).
 2. **No release gate proven** this session: full typecheck, lint, full test suite, production build.
 3. **No production/runtime E2E proven** this session (local API was DOWN when last checked).
 4. **No physical-device verification** recorded for pages that require it (e.g. live/IAP).
@@ -142,7 +142,7 @@ All 78 rows below are **NOT VERIFIED** until a page completes the full gate with
 - **Fixed:** AbortError via shared `isAbortLike`.
 - **Tests:** ResetPassword + authSession.reset → **10/10 PASS**
 - **Runtime reset:** **BLOCKED** — local API DOWN
-- **Commit:** (this commit)
+- **Commit:** `bcf96af`
 
 ## PAGE-027 Followers
 
