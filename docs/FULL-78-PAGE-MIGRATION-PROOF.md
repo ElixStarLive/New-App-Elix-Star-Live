@@ -16,7 +16,7 @@
 | PAGE-008 | YES | YES | YES | PASS | PASS | PASS | `f4d9a47` |
 | PAGE-009 | YES | YES | YES | PASS | PASS | PASS | `125205b` |
 | PAGE-010 | YES | YES | YES | PASS | PASS | PASS | `bd35b07` |
-| PAGE-011 | YES | YES | YES | PASS | PASS | PASS | _(pending)_ |
+| PAGE-011 | YES | YES | YES | PASS | PASS | PASS | `5505886` |
 | PAGE-012 | NO | NO | NO | — | — | — | — |
 | PAGE-013 | NO | NO | NO | — | — | — | — |
 | PAGE-014 | NO | NO | NO | — | — | — | — |
