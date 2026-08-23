@@ -24,7 +24,11 @@ export function InboxActivityOverlay({
 
   let body: ReactNode = null;
   if (loading && items.length === 0 && !error) {
-    body = null;
+    body = (
+      <div className="flex justify-center py-10">
+        <div className="w-6 h-6 border-2 border-[#E6E9EE]/25 border-t-[#E6E9EE] rounded-full animate-spin elix-loader" />
+      </div>
+    );
   } else if (error && items.length === 0) {
     body = <p className="text-rose-300 text-sm py-6 text-center px-4">{error}</p>;
   } else if (items.length === 0) {

@@ -84,6 +84,7 @@ describe("PAGE-031 Inbox Activity overlay", () => {
     container = view.container;
     expect(document.body.textContent).toContain("Activity");
     expect(document.body.textContent).not.toContain("No activity yet. When someone likes");
+    expect(document.body.querySelector(".elix-loader")).toBeTruthy();
   });
 
   it("lists the real actor and opens the video target", () => {
