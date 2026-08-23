@@ -1,4 +1,4 @@
-﻿# FULL 78-PAGE MIGRATION PROOF
+# FULL 78-PAGE MIGRATION PROOF
 
 **Authority:** Owner order 2026-08-23 — FULL migration PAGE-001→078, one page at a time.  
 **Rule:** `Actual migration performed = YES` only after THIS pass: OLD file inspect + NEW file inspect + compare + rebuild gaps + cleanup + page tests + commit.  
@@ -10,7 +10,7 @@
 | PAGE-001 | YES | YES | YES | PASS | PASS | PASS | `7c692ca` |
 | PAGE-002 | YES | YES | YES | PASS | PASS | PASS | `db689b1` |
 | PAGE-003 | YES | YES | YES | PASS | PASS | PASS | `30e75f3` |
-| PAGE-004 | YES | YES | YES | PASS | PASS | PASS | — |
+| PAGE-004 | YES | YES | YES | PASS | PASS | PASS | `e4912e4` |
 | PAGE-005 | NO | NO | NO | — | — | — | — |
 | PAGE-006 | NO | NO | NO | — | — | — | — |
 | PAGE-007 | NO | NO | NO | — | — | — | — |
@@ -120,6 +120,6 @@ All prior YES rows voided. Migration restarted at PAGE-001. One page per commit.
 - **NEW inspected:** `src/pages/ForgotPassword.tsx`, `authForgotPassword`, server always-200 anti-enumeration.
 - **Gaps fixed:** none — aligned (NEW adds empty-email client check + submit lock).
 - **Tests:** ForgotPassword.test → **8/8 PASS**.
-- **Commit:** (this commit)
+- **Commit:** `e4912e4`
 
 
