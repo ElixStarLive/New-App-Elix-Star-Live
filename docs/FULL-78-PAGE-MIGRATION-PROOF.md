@@ -137,6 +137,12 @@ All 78 rows below are **NOT VERIFIED** until a page completes the full gate with
 - **Runtime forgot:** **BLOCKED** — local API DOWN
 - **Commit:** `0e7aaf3`
 
+## PAGE-031 Inbox Activity overlay
+
+- **Fixed:** Activity overlay owner tests green; added missing `royce` icon module import path.
+- **Tests:** page031Ownership + InboxActivityOverlay ? **8 passed**
+- **Commit:** *(pending)*
+
 ## PAGE-030 Inbox
 
 - **Fixed:** restored Inbox session/API/activity overlay wiring (was stale page-local chat-only owner); added missing inbox/alerts/calls/etc contract modules required by barrel; chatApi inbox threads paths.
