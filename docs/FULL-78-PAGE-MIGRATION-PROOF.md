@@ -147,7 +147,7 @@ All 78 rows below are **NOT VERIFIED** until a page completes the full gate with
 
 - **Fixed:** restored AlertsPage + alertsSession/API stack.
 - **Tests:** alerts feature suite ? **9 passed**
-- **Commit:** *(pending)*
+- **Commit:** `0c08ab0`
 
 ## PAGE-030 Inbox
 
