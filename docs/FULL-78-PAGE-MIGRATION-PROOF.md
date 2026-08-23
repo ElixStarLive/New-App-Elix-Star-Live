@@ -16,7 +16,7 @@
 | PAGE-008 | YES | YES | YES | PASS | PASS | PASS | `f4d9a47` |
 | PAGE-009 | YES | YES | YES | PASS | PASS | PASS | `125205b` |
 | PAGE-010 | YES | YES | YES | PASS | PASS | PASS | `bd35b07` |
-| PAGE-011 | NO | NO | NO | — | — | — | — |
+| PAGE-011 | YES | YES | YES | PASS | PASS | PASS | _(pending)_ |
 | PAGE-012 | NO | NO | NO | — | — | — | — |
 | PAGE-013 | NO | NO | NO | — | — | — | — |
 | PAGE-014 | NO | NO | NO | — | — | — | — |
@@ -84,6 +84,13 @@
 | PAGE-076 | NO | NO | NO | — | — | — | — |
 | PAGE-077 | NO | NO | NO | — | — | — | — |
 | PAGE-078 | NO | NO | NO | — | — | — | — |
+
+## PAGE-011 evidence
+
+- **OLD inspected:** Discover Explore loading/search finally-clear; nested FeedVideo handoffs.
+- **NEW inspected:** `Discover.tsx`, `Discover.test.tsx`, discover APIs.
+- **Gaps fixed:** clear loading on aborted/stale load+search (try/finally + clear when query &lt; 2); Discover tests use nested FeedVideo fixtures + `apiFetchProfiles` mock for overlay.
+- **Already aligned:** route/nav/empty copy/APIs/Rising/Tags handoffs.
 
 ## PAGE-010 evidence
 
