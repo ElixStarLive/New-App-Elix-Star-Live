@@ -328,6 +328,46 @@ export async function apiFetchProfile(userId: string): Promise<{
   return { profile: parsed.data, error: null };
 }
 
+export async function apiFetchProfiles(): Promise<{
+  profiles: Array<{
+    user_id: string;
+    username: string;
+    display_name: string;
+    avatar_url: string;
+  }>;
+  error: string | null;
+}> {
+  const { data, error } = await apiRequest<unknown>("/api/profiles");
+  if (error) return { profiles: [], error: error.message };
+  const rows = isRecord(data) && Array.isArray(data.profiles) ? data.profiles : [];
+  const profiles = rows
+    .map((row) => {
+      if (!isRecord(row)) return null;
+      const user_id = typeof row.user_id === "string" ? row.user_id : typeof row.userId === "string" ? row.userId : "";
+      if (!user_id) return null;
+      return {
+        user_id,
+        username: typeof row.username === "string" ? row.username : "user",
+        display_name:
+          typeof row.display_name === "string"
+            ? row.display_name
+            : typeof row.displayName === "string"
+              ? row.displayName
+              : typeof row.username === "string"
+                ? row.username
+                : "User",
+        avatar_url:
+          typeof row.avatar_url === "string"
+            ? row.avatar_url
+            : typeof row.avatarUrl === "string"
+              ? row.avatarUrl
+              : "",
+      };
+    })
+    .filter((row): row is NonNullable<typeof row> => Boolean(row));
+  return { profiles, error: null };
+}
+
 export async function apiFollow(userId: string): Promise<{ ok: true } | { ok: false; error: string }> {
   const { error } = await apiRequest<unknown>(`/api/profiles/${encodeURIComponent(userId)}/follow`, {
     method: "POST",

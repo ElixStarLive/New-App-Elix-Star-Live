@@ -334,6 +334,50 @@ function usernameConflict(error: unknown): AppError | null {
   return new AppError("conflict", "That username is already taken", 409);
 }
 
+/** Frozen OLD GET /api/profiles — authenticated directory for STEM/Following story strips. */
+router.get("/", requireAuth, async (req: AuthedRequest, res) => {
+  const live = await isLiveNeonSchema();
+  const { rows } = live
+    ? await getPool().query<{
+        user_id: string;
+        username: string;
+        display_name: string;
+        avatar_url: string | null;
+      }>(
+        `SELECT u.id AS user_id,
+                COALESCE(NULLIF(p.username, ''), u.username) AS username,
+                COALESCE(NULLIF(p.display_name, ''), u.display_name, u.username) AS display_name,
+                COALESCE(NULLIF(p.avatar_url, ''), u.avatar_url) AS avatar_url
+           FROM elix_auth_users u
+           LEFT JOIN profiles p ON p.user_id = u.id
+          WHERE (p.banned_until IS NULL OR p.banned_until <= NOW())
+          ORDER BY u.id DESC
+          LIMIT 200`,
+      )
+    : await getPool().query<{
+        user_id: string;
+        username: string;
+        display_name: string;
+        avatar_url: string | null;
+      }>(
+        `SELECT id AS user_id, username, display_name, avatar_url
+           FROM users
+          WHERE deleted_at IS NULL
+            AND (banned_until IS NULL OR banned_until <= NOW())
+          ORDER BY created_at DESC
+          LIMIT 200`,
+      );
+  res.setHeader("Cache-Control", "private, max-age=25");
+  res.json({
+    profiles: rows.map((row) => ({
+      user_id: row.user_id,
+      username: row.username,
+      display_name: row.display_name,
+      avatar_url: row.avatar_url || "",
+    })),
+  });
+});
+
 router.get("/me", requireAuth, async (req: AuthedRequest, res) => {
   const user = await publicProfile(req.userId as string, req.userId);
   const links = await selfEditLinks(req.userId as string);
