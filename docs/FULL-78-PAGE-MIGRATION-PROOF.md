@@ -141,7 +141,7 @@ All 78 rows below are **NOT VERIFIED** until a page completes the full gate with
 
 - **Fixed:** Activity overlay owner tests green; added missing `royce` icon module import path.
 - **Tests:** page031Ownership + InboxActivityOverlay ? **8 passed**
-- **Commit:** *(pending)*
+- **Commit:** `f5e6a6c`
 
 ## PAGE-030 Inbox
 
