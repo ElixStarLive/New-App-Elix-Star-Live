@@ -1,37 +1,133 @@
-import { useEffect, useState } from "react";
-import { useNavigate } from "react-router-dom";
-import { Check, RotateCcw, Sparkles, X } from "lucide-react";
-import { apiListCoinProducts, purchaseCoinProduct, type CoinProduct } from "@/features/iap/iapApi";
-import { useWalletStore } from "@/store/useWalletStore";
+import { useCallback, useEffect, useState } from "react";
+import { useLocation, useNavigate } from "react-router-dom";
+import { Check, RotateCcw, Sparkles } from "lucide-react";
+import { RoyceBackIcon } from "@/components/royce";
+import {
+  initializeCoinIap,
+  loadStoreCoinProducts,
+  purchaseCoinProduct,
+  reconcileOwnedCoinPurchases,
+  restoreCoinPurchases,
+  type CoinPackage,
+} from "@/features/iap/iapApi";
+import { FEED_HOME, returnToFromLocationState } from "@/lib/settingsNav";
 import { showToast } from "@/lib/toast";
 import { platform } from "@/lib/platform";
+import { useAuthStore } from "@/store/useAuthStore";
 
 export default function PurchaseCoins() {
   const navigate = useNavigate();
-  const fetchWallet = useWalletStore((s) => s.fetchWallet);
-  const [products, setProducts] = useState<CoinProduct[]>([]);
-  const [error, setError] = useState<string | null>(null);
-  const [busyId, setBusyId] = useState<string | null>(null);
+  const location = useLocation();
+  const userId = useAuthStore((s) => s.user?.id ?? null);
+  const [products, setProducts] = useState<CoinPackage[]>([]);
+  const [loading, setLoading] = useState(false);
+  const [selectedId, setSelectedId] = useState<string | null>(null);
   const isNative = platform.isNative;
 
+  const goBack = useCallback(() => {
+    navigate(returnToFromLocationState(location.state) || FEED_HOME, { replace: true });
+  }, [navigate, location.state]);
+
+  const loadProducts = useCallback(async () => {
+    if (!isNative) return;
+    try {
+      await initializeCoinIap();
+      try {
+        const recovered = await reconcileOwnedCoinPurchases();
+        if (recovered > 0) showToast("Previous coin purchase restored");
+      } catch {
+        /* best-effort restore must not block the store */
+      }
+      const res = await loadStoreCoinProducts();
+      if (res.error || res.products.length === 0) {
+        setProducts([]);
+        showToast(res.error || "Coin store unavailable. Try again in a moment.");
+        return;
+      }
+      setProducts(res.products);
+    } catch {
+      setProducts([]);
+      showToast("Failed to load products");
+    }
+  }, [isNative]);
+
   useEffect(() => {
-    void fetchWallet();
-    void apiListCoinProducts().then((res) => {
-      if (res.error) setError(res.error);
-      else setProducts(res.products);
-    });
-  }, [fetchWallet]);
+    void loadProducts();
+  }, [loadProducts]);
+
+  const handlePurchase = useCallback(
+    async (product: CoinPackage) => {
+      if (!userId) {
+        showToast("Please log in to purchase coins");
+        navigate("/login", { replace: true });
+        return;
+      }
+      if (loading) return;
+      setLoading(true);
+      setSelectedId(product.productId);
+      try {
+        const result = await purchaseCoinProduct(product.productId);
+        if (!result.ok) {
+          if (!result.cancelled && result.error !== "Purchase cancelled") {
+            showToast(result.error || "Purchase failed");
+          }
+          return;
+        }
+        if (result.restoredOwned) {
+          showToast("Previous purchase restored");
+          return;
+        }
+        if (typeof result.paidCoins === "number") {
+          showToast(`Coins updated — balance ${result.paidCoins.toLocaleString()}`);
+        } else {
+          showToast("Purchase completed. Open wallet to confirm balance.");
+        }
+      } catch {
+        showToast("Purchase failed");
+      } finally {
+        setLoading(false);
+        setSelectedId(null);
+      }
+    },
+    [loading, navigate, userId],
+  );
+
+  const handleRestore = useCallback(async () => {
+    try {
+      setLoading(true);
+      const result = await restoreCoinPurchases();
+      if (result.error) {
+        showToast(result.error);
+        return;
+      }
+      if (!result.restored) {
+        showToast("No purchases to restore");
+        return;
+      }
+      showToast("Purchases restored");
+    } catch {
+      showToast("Could not restore purchases");
+    } finally {
+      setLoading(false);
+    }
+  }, []);
 
   return (
     <div className="h-full min-h-0 w-full bg-transparent text-white flex justify-center px-2">
-      <div className="w-full max-w-[480px] h-full min-h-0 flex flex-col overflow-hidden">
-        <div className="sticky top-0 z-10 px-4 py-4 flex items-center justify-between" style={{ paddingTop: "var(--page-header-top)" }}>
-          <button type="button" onClick={() => navigate("/feed", { replace: true })} className="p-2" title="Back">
-            <X size={18} />
+      <div className="w-full max-w-[480px] h-full min-h-0 flex flex-col overflow-hidden elix-page-glass bg-transparent">
+        <div className="sticky top-0 bg-transparent z-10 px-4 py-4 border-b border-transparent flex items-center justify-between">
+          <button type="button" onClick={goBack} className="p-2 hover:brightness-125 rounded-full transition" title="Back">
+            <RoyceBackIcon />
           </button>
           <h1 className="text-lg font-bold">Get Coins</h1>
           {isNative ? (
-            <button type="button" disabled={busyId !== null} className="p-2" title="Restore purchases">
+            <button
+              type="button"
+              onClick={() => void handleRestore()}
+              disabled={loading}
+              className="p-2 hover:brightness-125 rounded-full transition"
+              title="Restore purchases"
+            >
               <RotateCcw className="w-5 h-5 text-[#F5F5F7]" />
             </button>
           ) : (
@@ -50,21 +146,13 @@ export default function PurchaseCoins() {
 
           {isNative ? (
             <div className="space-y-3 mb-8">
-              {error ? <p className="text-rose-300 text-sm">{error}</p> : null}
               {products.map((product) => (
                 <button
                   key={product.productId}
                   type="button"
-                  disabled={busyId !== null}
-                  onClick={() => {
-                    setBusyId(product.productId);
-                    void purchaseCoinProduct(product.productId).then((r) => {
-                      setBusyId(null);
-                      if (!r.ok) showToast(r.error);
-                      else void fetchWallet();
-                    });
-                  }}
-                  className="w-full p-6 rounded-2xl bg-white/5 border-2 border-transparent disabled:opacity-50"
+                  onClick={() => void handlePurchase(product)}
+                  disabled={loading}
+                  className="w-full p-6 rounded-2xl transition relative overflow-hidden bg-white/5 border-2 border-transparent hover:border-[#D8D9DD]/40 disabled:opacity-50 disabled:cursor-not-allowed"
                 >
                   <div className="flex items-center justify-between">
                     <div className="text-left">
@@ -72,11 +160,15 @@ export default function PurchaseCoins() {
                         <Sparkles className="w-6 h-6 text-[#F5F5F7]" />
                         <span className="text-2xl font-bold">{product.coins.toLocaleString()}</span>
                       </div>
-                      <p className="text-sm text-white/60">{product.label}</p>
+                      <p className="text-sm text-white/60">{product.title}</p>
                     </div>
-                    <div className="text-2xl font-bold text-[#F5F5F7]">{product.label}</div>
+                    <div className="text-right">
+                      <div className="text-2xl font-bold text-[#F5F5F7]">{product.price || "Loading…"}</div>
+                    </div>
                   </div>
-                  {busyId === product.productId ? <div className="mt-4 text-center text-sm text-white/60">Processing…</div> : null}
+                  {loading && selectedId === product.productId ? (
+                    <div className="mt-4 text-center text-sm text-white/60">Processing…</div>
+                  ) : null}
                 </button>
               ))}
             </div>
@@ -92,24 +184,24 @@ export default function PurchaseCoins() {
 
           <div className="bg-white/5 rounded-2xl p-6 space-y-4">
             <h3 className="font-bold mb-4">What you can do with coins:</h3>
-            <Feature text="Send virtual gifts to your favorite creators" />
-            <Feature text="Activate battle boosters during live competitions" />
-            <Feature text="Unlock premium features and filters" />
-            <Feature text="Support the community and help creators grow" />
+            <FeatureItem text="Send virtual gifts to your favorite creators" />
+            <FeatureItem text="Activate battle boosters during live competitions" />
+            <FeatureItem text="Unlock premium features and filters" />
+            <FeatureItem text="Support the community and help creators grow" />
           </div>
           <div className="bg-white/5 border border-white/10 rounded-xl p-4 mt-6">
             <p className="text-xs text-white/60 text-center font-semibold mb-1">All digital coin purchases are final and non-refundable.</p>
             <p className="text-[10px] text-white/40 text-center">
-              Coins have no real-world monetary value. Test coins are never money. Shop (Stripe) refunds, if eligible, are separate.
+              Coins have no real-world monetary value. Once purchased, coins cannot be returned, exchanged, or transferred, and are not refunded via Stripe or the shop. Gifts sent to creators are final. Shop (Stripe) refunds, if eligible, are separate — see Terms. Prices may vary by platform.
             </p>
           </div>
           <p className="text-xs text-white/40 text-center mt-3 px-4">
             By purchasing, you agree to our{" "}
-            <button type="button" className="text-white underline" onClick={() => navigate("/terms")}>
+            <button type="button" className="text-white underline cursor-pointer" onClick={() => navigate("/terms")}>
               Terms of Service
             </button>{" "}
             and{" "}
-            <button type="button" className="text-white underline" onClick={() => navigate("/privacy")}>
+            <button type="button" className="text-white underline cursor-pointer" onClick={() => navigate("/privacy")}>
               Privacy Policy
             </button>
             .
@@ -120,7 +212,7 @@ export default function PurchaseCoins() {
   );
 }
 
-function Feature({ text }: { text: string }) {
+function FeatureItem({ text }: { text: string }) {
   return (
     <div className="flex items-start gap-3">
       <div className="w-5 h-5 bg-[#FFFFFF] rounded-full flex items-center justify-center flex-shrink-0 mt-0.5">
