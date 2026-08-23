@@ -710,18 +710,19 @@ router.post("/forgot-password", async (req: Request, res: Response) => {
           `Click this link to reset your password: ${passwordResetCallbackUrl(origin, raw)}\n\nThis link expires in 1 hour. If you did not request a password reset, ignore this email.`,
         );
       } catch (error) {
+        // Frozen OLD: never reveal account existence via a distinct send-failure status.
         logger.error({ err: error, userId: user.id }, "password reset email send failed");
-        throw new AppError("unavailable", "Could not send password reset email. Try again later.", 503);
       }
     }
     res.json({ success: true });
   } catch (error) {
-    if (error instanceof AppError) {
-      res.status(error.status).json({ error: error.message });
+    if (error instanceof AppError && error.status === 429) {
+      res.status(429).json({ error: error.message });
       return;
     }
+    // Frozen OLD: unexpected failures still return success (no enumeration).
     logger.error({ err: error }, "forgot-password failed");
-    res.status(503).json({ error: "Password reset is temporarily unavailable. Try again later." });
+    res.json({ success: true });
   }
 });
 

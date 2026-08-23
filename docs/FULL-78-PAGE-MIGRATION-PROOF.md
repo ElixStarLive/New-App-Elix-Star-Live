@@ -9,7 +9,7 @@
 | PAGE-001 | YES | YES | YES | PASS | PASS | PASS | `8d778a1` |
 | PAGE-002 | YES | YES | YES | PASS | PASS | PASS | `d636117` |
 | PAGE-003 | YES | YES | YES | PASS | PASS | PASS | `5be73da` |
-| PAGE-004 | NO | NO | NO | — | — | — | — |
+| PAGE-004 | YES | YES | YES | PASS | PASS | PASS | pending |
 | PAGE-005 | NO | NO | NO | — | — | — | — |
 | PAGE-006 | NO | NO | NO | — | — | — | — |
 | PAGE-007 | NO | NO | NO | — | — | — | — |
@@ -84,6 +84,15 @@
 | PAGE-076 | NO | NO | NO | — | — | — | — |
 | PAGE-077 | NO | NO | NO | — | — | — | — |
 | PAGE-078 | NO | NO | NO | — | — | — | — |
+
+## PAGE-004 evidence
+
+- **OLD inspected:** `Elix Star Live/src/pages/ForgotPassword.tsx`, `server/routes/auth.ts` `handleForgotPassword`.
+- **NEW inspected:** `src/pages/ForgotPassword.tsx`, `POST /api/auth/forgot-password`.
+- **Gaps fixed:**
+  1. Server: mail-send failure and unexpected errors return `{ success: true }` (frozen OLD anti-enumeration), not 503.
+  2. UI: remove invented `elix-page-glass` / `min-h-[100dvh]` wrappers; match OLD chrome.
+- **Aligned:** 501 when mail not configured; always 200 for unknown/known when mail configured; rate-limit 429 kept; client success/error copy.
 
 ## PAGE-003 evidence
 
