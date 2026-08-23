@@ -1,9 +1,12 @@
 import { Router } from "express";
 import { getPool } from "../../infra/postgres.js";
+import { isLiveNeonSchema, publicTableExists } from "../../infra/liveSchema.js";
 import { requireAuth, type AuthedRequest } from "../../middleware/auth.js";
+import { AppError } from "../../middleware/errors.js";
 import { insertBlock } from "../blocks/service.js";
 import { listAlerts, markAlertsRead } from "../notifications/query.js";
 import { createReport } from "../reports/service.js";
+import { isSchemaUnavailable } from "../engagement/settings.js";
 
 export const moderationRouter = Router();
 export const notifyRouter = Router();
@@ -12,6 +15,15 @@ export const adminRouter = Router();
 function param(req: { params: Record<string, string | string[] | undefined> }, name: string): string {
   const value = req.params[name];
   return Array.isArray(value) ? (value[0] ?? "") : (value ?? "");
+}
+
+/** Live Neon inventory has no `notification_prefs` — fail closed, never invent defaults. */
+async function requireNotificationPrefsTable(): Promise<void> {
+  if (await isLiveNeonSchema()) {
+    if (!(await publicTableExists("notification_prefs"))) {
+      throw new AppError("SCHEMA_UNAVAILABLE", "SCHEMA_UNAVAILABLE", 503);
+    }
+  }
 }
 
 moderationRouter.post("/report", requireAuth, async (req: AuthedRequest, res) => {
@@ -37,38 +49,56 @@ notifyRouter.get("/", requireAuth, async (req: AuthedRequest, res) => {
 });
 
 notifyRouter.get("/prefs", requireAuth, async (req: AuthedRequest, res) => {
-  const { rows } = await getPool().query<{
-    live: boolean;
-    follow: boolean;
-    gift: boolean;
-    cohost: boolean;
-    battle: boolean;
-    system: boolean;
-  }>(`SELECT live, follow, gift, cohost, battle, system FROM notification_prefs WHERE user_id = $1`, [req.userId]);
-  res.json(
-    rows[0] ?? { live: true, follow: true, gift: true, cohost: true, battle: true, system: true },
-  );
+  await requireNotificationPrefsTable();
+  try {
+    const { rows } = await getPool().query<{
+      live: boolean;
+      follow: boolean;
+      gift: boolean;
+      cohost: boolean;
+      battle: boolean;
+      system: boolean;
+    }>(`SELECT live, follow, gift, cohost, battle, system FROM notification_prefs WHERE user_id = $1`, [req.userId]);
+    res.json(
+      rows[0] ?? { live: true, follow: true, gift: true, cohost: true, battle: true, system: true },
+    );
+  } catch (error) {
+    if (error instanceof AppError) throw error;
+    if (isSchemaUnavailable(error)) {
+      throw new AppError("SCHEMA_UNAVAILABLE", "SCHEMA_UNAVAILABLE", 503);
+    }
+    throw error;
+  }
 });
 
 notifyRouter.patch("/prefs", requireAuth, async (req: AuthedRequest, res) => {
-  const body = req.body as Record<string, unknown>;
-  await getPool().query(`INSERT INTO notification_prefs (user_id) VALUES ($1) ON CONFLICT DO NOTHING`, [req.userId]);
-  const fields = ["live", "follow", "gift", "cohost", "battle", "system"] as const;
-  const sets: string[] = [];
-  const values: unknown[] = [];
-  for (const field of fields) {
-    if (typeof body[field] === "boolean") {
-      values.push(body[field]);
-      sets.push(`${field} = $${values.length}`);
+  await requireNotificationPrefsTable();
+  try {
+    const body = req.body as Record<string, unknown>;
+    await getPool().query(`INSERT INTO notification_prefs (user_id) VALUES ($1) ON CONFLICT DO NOTHING`, [req.userId]);
+    const fields = ["live", "follow", "gift", "cohost", "battle", "system"] as const;
+    const sets: string[] = [];
+    const values: unknown[] = [];
+    for (const field of fields) {
+      if (typeof body[field] === "boolean") {
+        values.push(body[field]);
+        sets.push(`${field} = $${values.length}`);
+      }
     }
+    if (sets.length > 0) {
+      values.push(req.userId);
+      await getPool().query(`UPDATE notification_prefs SET ${sets.join(", ")} WHERE user_id = $${values.length}`, values);
+    }
+    const { rows } = await getPool().query(`SELECT live, follow, gift, cohost, battle, system FROM notification_prefs WHERE user_id = $1`, [
+      req.userId,
+    ]);
+    res.json(rows[0]);
+  } catch (error) {
+    if (error instanceof AppError) throw error;
+    if (isSchemaUnavailable(error)) {
+      throw new AppError("SCHEMA_UNAVAILABLE", "SCHEMA_UNAVAILABLE", 503);
+    }
+    throw error;
   }
-  if (sets.length > 0) {
-    values.push(req.userId);
-    await getPool().query(`UPDATE notification_prefs SET ${sets.join(", ")} WHERE user_id = $${values.length}`, values);
-  }
-  const { rows } = await getPool().query(`SELECT live, follow, gift, cohost, battle, system FROM notification_prefs WHERE user_id = $1`, [
-    req.userId,
-  ]);
-  res.json(rows[0]);
 });
 

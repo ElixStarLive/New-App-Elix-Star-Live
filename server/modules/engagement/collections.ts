@@ -17,7 +17,6 @@ import type {
   EngagementTreasureResponse,
 } from "../../../shared/contracts/engagement.js";
 import type { PoolClient } from "pg";
-import { logger } from "../../infra/logger.js";
 
 const CHEST_RARITIES = new Set(["common", "rare", "epic", "legendary", "mythic"]);
 const STICKER_RARITIES = new Set(["common", "rare", "epic", "legendary"]);
@@ -556,10 +555,15 @@ export async function recordCreatorGiftProgress(userId: string, creatorId: strin
       requiredCount(row.rows[0]?.gifts_count ?? 0, "Creator card gifts"),
     );
   } catch (error) {
-    logger.warn({ err: error, userId, creatorId }, "recordCreatorGiftProgress failed");
+    mapEngagementDbError(error);
   }
 }
 
+/**
+ * Watch-minute creator-card progress. Callers must exist on LIVE room paths.
+ * Until LIVE watch writers are wired, this remains unused outside tests —
+ * do not invent silent success from missing call sites.
+ */
 export async function recordCreatorWatchProgress(userId: string, creatorId: string, minutes: number): Promise<void> {
   const add = Math.max(0, Math.floor(minutes));
   if (!userId || !creatorId || userId === creatorId || add <= 0) return;
@@ -581,6 +585,6 @@ export async function recordCreatorWatchProgress(userId: string, creatorId: stri
       requiredCount(row.rows[0]?.gifts_count ?? 0, "Creator card gifts"),
     );
   } catch (error) {
-    logger.warn({ err: error, userId, creatorId }, "recordCreatorWatchProgress failed");
+    mapEngagementDbError(error);
   }
 }

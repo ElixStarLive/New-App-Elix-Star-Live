@@ -11,8 +11,8 @@ const router = Router();
 
 /**
  * Live Neon stores reposts in `elix_reposts` (not rebuild `reposts`).
- * Until column contract is proven against production Neon, GET stays empty
- * and mutations fail closed — never invent writes against an unknown shape.
+ * Column shape is not proven in repo docs/migrations — never invent SELECT/INSERT
+ * columns, and never return an empty success that hides broken profile repost tabs.
  */
 async function liveRepostsUnavailable(): Promise<never> {
   throw new AppError("unavailable", "REPOSTS_LIVE_SCHEMA_UNAVAILABLE", 503);
@@ -25,8 +25,7 @@ router.get("/list", async (req: AuthedRequest, res) => {
     return;
   }
   if (await isLiveNeonSchema()) {
-    res.json({ videos: [], nextCursor: null });
-    return;
+    await liveRepostsUnavailable();
   }
   res.json(
     await queryVideoPage({
@@ -71,8 +70,7 @@ router.get("/:userId", async (req: AuthedRequest, res) => {
   const userId = routeParam(req, "userId");
   await publicProfile(userId, req.userId);
   if (await isLiveNeonSchema()) {
-    res.json({ videos: [], nextCursor: null });
-    return;
+    await liveRepostsUnavailable();
   }
   res.json(
     await queryVideoPage({
