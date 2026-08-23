@@ -21,7 +21,7 @@ All 78 rows below are **NOT VERIFIED** until a page completes the full gate with
 | PAGE-004 | YES | YES | YES | PASS | PASS | PASS | `0e7aaf3` |
 | PAGE-005 | YES | YES | YES | PASS | PASS | PASS | `bcf96af` |
 | PAGE-006 | YES | YES | YES | PASS | PASS | PASS | `75aeb97` |
-| PAGE-007 | NOT VERIFIED | NOT VERIFIED | NOT VERIFIED | NOT VERIFIED | NOT VERIFIED | NOT VERIFIED | — |
+| PAGE-007 | YES | YES | YES | PASS | PASS | PASS | `eb8e7e8` |
 | PAGE-008 | NOT VERIFIED | NOT VERIFIED | NOT VERIFIED | NOT VERIFIED | NOT VERIFIED | NOT VERIFIED | — |
 | PAGE-009 | NOT VERIFIED | NOT VERIFIED | NOT VERIFIED | NOT VERIFIED | NOT VERIFIED | NOT VERIFIED | — |
 | PAGE-010 | NOT VERIFIED | NOT VERIFIED | NOT VERIFIED | NOT VERIFIED | NOT VERIFIED | NOT VERIFIED | — |
@@ -150,6 +150,14 @@ All 78 rows below are **NOT VERIFIED** until a page completes the full gate with
 - **Tests:** `npx vitest run src/lib/deepLinks.test.ts src/lib/appShell.test.ts src/lib/settingsNav.test.ts src/App.test.tsx src/components/LiveNotifyBanner.test.tsx` → **142 passed / 0 failed**
 - **Runtime deep link / WS:** **BLOCKED** — local API DOWN; native back not device-verified
 - **Commit:** `75aeb97`
+
+## PAGE-007 For You
+
+- **Fixed:** account switch A→B now drops prior videos/lives immediately (no stale liked/saved/follow flags); For You story rings restored via existing overlay under TopNav (no second chrome row); NEW-schema For You snap excludes empty media and `/stories/` clips; playback pauses while a story is open.
+- **Tests:** `npx vitest run src/pages/VideoFeed.test.tsx src/features/feed/useForYouFeed.test.tsx src/features/feed/page007LiveCardOwnership.test.ts src/features/feed/feedApi.foryou.test.ts src/features/promote/page007PromoteOwnership.test.ts server/modules/feed/page007Ownership.test.ts` → **28 passed / 0 failed / 0 skipped**
+- **Lint:** eslint VideoFeed + useForYouFeed (+ tests) → clean
+- **Runtime GET /api/feed/foryou + live cards:** **BLOCKED** — local API / LiveKit device not re-checked this page (PAGE-018 return gate still open)
+- **Commit:** `eb8e7e8`
 
 ## PAGE-027 Followers
 
