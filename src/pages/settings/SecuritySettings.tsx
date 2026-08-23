@@ -1,121 +1,127 @@
-import { useEffect, useState } from "react";
-import { apiRequest } from "@/lib/apiClient";
-import { isRecord } from "@/lib/isRecord";
-import { SettingsSubpage } from "./SettingsSubpage";
+import { useCallback, useEffect, useMemo, useSyncExternalStore, type ReactNode } from "react";
+import { useLocation, useNavigate } from "react-router-dom";
+import { ChevronRight, KeyRound, Shield, ShieldCheck } from "lucide-react";
+import { nativePrompt } from "@/components/NativeDialog";
+import SettingsOptionSheet from "@/components/SettingsOptionSheet";
+import {
+  apiDisableTwoFactor,
+  apiEnrollTwoFactor,
+  apiGetTwoFactorStatus,
+  apiVerifyTwoFactor,
+} from "@/features/security/securityApi";
+import {
+  createSecuritySession,
+  securityTwoFactorDescription,
+} from "@/features/security/securitySession";
+import { isPasswordResetEnabled } from "@/lib/authFeatures";
+import {
+  SETTINGS_HOME,
+  containerReturnState,
+  exitToFromLocationState,
+  returnToFromLocationState,
+} from "@/lib/settingsNav";
 import { showToast } from "@/lib/toast";
+import { useAuthStore } from "@/store/useAuthStore";
+
+export const SECURITY_HOME = "/settings/security";
+
+function SecurityRow({
+  icon,
+  label,
+  description,
+  onPress,
+}: {
+  icon: ReactNode;
+  label: string;
+  description: string;
+  onPress: () => void;
+}) {
+  return (
+    <button type="button" onClick={onPress} className="w-full flex items-center gap-3 px-2.5 py-2.5 active:bg-white/5 text-left rounded-md">
+      <span className="royce-glow-disc shrink-0 [&_svg]:size-[18px]" style={{ width: 36, height: 36 }}>
+        <span className="royce-icon-gold">{icon}</span>
+      </span>
+      <span className="flex-1 min-w-0">
+        <span className="block text-[15px] leading-tight text-[#E6E9EE]">{label}</span>
+        <span className="block text-xs text-[#8B9099] mt-0.5">{description}</span>
+      </span>
+      <ChevronRight size={16} className="text-white/30 shrink-0" />
+    </button>
+  );
+}
 
 export default function SecuritySettings() {
-  const [current, setCurrent] = useState("");
-  const [next, setNext] = useState("");
-  const [busy, setBusy] = useState(false);
-  const [enabled, setEnabled] = useState(false);
-  const [enrolled, setEnrolled] = useState(false);
-  const [secret, setSecret] = useState("");
-  const [code, setCode] = useState("");
+  const navigate = useNavigate();
+  const location = useLocation();
+  const userId = useAuthStore((state) => state.user?.id ?? null);
+  const showReset = isPasswordResetEnabled();
+  const childReturnState = containerReturnState(returnToFromLocationState(location.state) || SECURITY_HOME);
 
-  const refresh = () => {
-    void apiRequest<unknown>("/api/auth/2fa/status").then((res) => {
-      if (res.error || !isRecord(res.data)) return;
-      setEnabled(res.data.enabled === true);
-      setEnrolled(res.data.enrolled === true);
-    });
-  };
+  const session = useMemo(
+    () =>
+      createSecuritySession({
+        getAccountId: () => useAuthStore.getState().user?.id ?? null,
+        loadStatus: apiGetTwoFactorStatus,
+        enroll: apiEnrollTwoFactor,
+        verify: apiVerifyTwoFactor,
+        disable: apiDisableTwoFactor,
+        prompt: nativePrompt,
+        toast: showToast,
+        onSessionExpired: () => {
+          void useAuthStore.getState().checkUser();
+        },
+      }),
+    [],
+  );
+  const view = useSyncExternalStore(session.subscribe, session.getSnapshot, session.getSnapshot);
 
   useEffect(() => {
-    refresh();
-  }, []);
+    void session.load(userId);
+  }, [session, userId]);
+
+  const exit = useCallback(() => {
+    navigate(exitToFromLocationState(location.state, SETTINGS_HOME), { replace: true });
+  }, [navigate, location.state]);
+
+  const go = useCallback(
+    (path: string) => {
+      navigate(path, { state: childReturnState });
+    },
+    [navigate, childReturnState],
+  );
 
   return (
-    <SettingsSubpage title="Security">
-      <form
-        className="p-4 space-y-3"
-        onSubmit={(e) => {
-          e.preventDefault();
-          setBusy(true);
-          void apiRequest("/api/auth/change-password", {
-            method: "POST",
-            body: JSON.stringify({ currentPassword: current, newPassword: next }),
-          }).then((res) => {
-            setBusy(false);
-            if (res.error) showToast(res.error.message);
-            else showToast("Password updated");
-          });
-        }}
-      >
-        <input type="password" value={current} onChange={(e) => setCurrent(e.target.value)} placeholder="Current password" className="w-full bg-white/10 border border-white/10 rounded-xl px-3 py-3" />
-        <input type="password" value={next} onChange={(e) => setNext(e.target.value)} placeholder="New password" className="w-full bg-white/10 border border-white/10 rounded-xl px-3 py-3" />
-        <button type="submit" disabled={busy} className="w-full border border-[#D8D9DD]/40 rounded-xl py-3 font-bold">
-          {busy ? "Saving..." : "Update password"}
-        </button>
-      </form>
-      <div className="p-4 space-y-3 border-t border-white/10">
-        <p className="text-sm font-bold">Authenticator</p>
-        <p className="text-[12px] text-white/50">{enabled ? "Enabled" : enrolled ? "Enrolled, not enabled" : "Not set up"}</p>
-        {!enabled ? (
-          <>
-            <button
-              type="button"
-              className="w-full border border-[#D8D9DD]/40 rounded-xl py-3 font-bold"
-              onClick={() => {
-                void apiRequest<unknown>("/api/auth/2fa/enroll", { method: "POST" }).then((res) => {
-                  if (res.error) showToast(res.error.message);
-                  else if (isRecord(res.data) && typeof res.data.secret === "string") {
-                    setSecret(res.data.secret);
-                    setEnrolled(true);
-                  }
-                });
-              }}
-            >
-              Enroll authenticator
-            </button>
-            {secret ? <p className="text-[12px] break-all text-white/70">{secret}</p> : null}
-            <input value={code} onChange={(e) => setCode(e.target.value)} placeholder="6-digit code" className="w-full bg-white/10 border border-white/10 rounded-xl px-3 py-3" maxLength={6} />
-            <button
-              type="button"
-              className="w-full border border-[#D8D9DD]/40 rounded-xl py-3 font-bold"
-              onClick={() => {
-                void apiRequest("/api/auth/2fa/verify", {
-                  method: "POST",
-                  body: JSON.stringify({ code }),
-                }).then((res) => {
-                  if (res.error) showToast(res.error.message);
-                  else {
-                    showToast("Authenticator enabled");
-                    setCode("");
-                    refresh();
-                  }
-                });
-              }}
-            >
-              Verify and enable
-            </button>
-          </>
-        ) : (
-          <>
-            <input value={code} onChange={(e) => setCode(e.target.value)} placeholder="6-digit code" className="w-full bg-white/10 border border-white/10 rounded-xl px-3 py-3" maxLength={6} />
-            <button
-              type="button"
-              className="w-full border border-[#D8D9DD]/40 rounded-xl py-3 font-bold"
-              onClick={() => {
-                void apiRequest("/api/auth/2fa/disable", {
-                  method: "POST",
-                  body: JSON.stringify({ code }),
-                }).then((res) => {
-                  if (res.error) showToast(res.error.message);
-                  else {
-                    showToast("Authenticator disabled");
-                    setCode("");
-                    setSecret("");
-                    refresh();
-                  }
-                });
-              }}
-            >
-              Disable authenticator
-            </button>
-          </>
-        )}
+    <SettingsOptionSheet onClose={exit} title="Security">
+      <div className="flex-1 min-h-0 overflow-y-auto overscroll-y-contain px-3 pt-2 pb-[3mm]">
+        <div className="flex flex-col gap-0 max-w-full min-h-full">
+          {showReset ? (
+            <SecurityRow
+              icon={<KeyRound size={14} />}
+              label="Password"
+              description="Reset your password via email."
+              onPress={() => go("/forgot-password")}
+            />
+          ) : (
+            <div className="px-2.5 py-2.5 text-xs text-[#8B9099] leading-relaxed">
+              Password reset is unavailable until transactional email is configured on the server.
+            </div>
+          )}
+          <SecurityRow
+            icon={<Shield size={14} />}
+            label="Blocked accounts"
+            description="Manage people you have blocked."
+            onPress={() => go("/settings/blocked")}
+          />
+          <SecurityRow
+            icon={<ShieldCheck size={14} />}
+            label="Two-factor authentication"
+            description={securityTwoFactorDescription(view)}
+            onPress={() => {
+              void session.toggle();
+            }}
+          />
+        </div>
       </div>
-    </SettingsSubpage>
+    </SettingsOptionSheet>
   );
 }
