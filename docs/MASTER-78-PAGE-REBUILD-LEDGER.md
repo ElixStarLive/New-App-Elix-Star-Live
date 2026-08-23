@@ -11,7 +11,7 @@
 | 001 | Login | CODE-CLOSED | PASS | FAIL/BLOCKED | `ee124a5` | HTTP IT; devices |
 | 002 | Register | CODE-CLOSED | PASS | FAIL/BLOCKED | `2fd6c47` | HTTP IT; devices |
 | 003 | Verification | CODE-CLOSED | PASS | FAIL/BLOCKED | `505bd4c` | HTTP IT; devices |
-| 004 | Forgot password | CODE-CLOSED | PASS | FAIL/BLOCKED | `5ff60b4` | HTTP IT; devices |
+| 004 | Forgot password | CODE-CLOSED | PASS | FAIL/BLOCKED | *(latest)* | HTTP IT; devices; mail failure → 503 |
 | 005 | Reset password | CODE-CLOSED | PASS | FAIL/BLOCKED | `5ff60b4` | HTTP IT; devices |
 | 006 | App shell | CODE-CLOSED | PASS | FAIL/BLOCKED | `00ed045` | HTTP IT; devices |
 | 007 | For You | CODE-CLOSED | PASS | FAIL/BLOCKED | `8e85ae3` | PAGE-018 LiveKit gate |
@@ -31,8 +31,8 @@
 | 021 | Create camera | CODE-CLOSED | PASS | FAIL/BLOCKED | `1079760` | camera device |
 | 022 | Upload | CODE-CLOSED | PASS | FAIL/BLOCKED | `1079760` | devices |
 | 023 | AI Studio | CODE-CLOSED | PASS | FAIL/BLOCKED | `1079760` | — |
-| 024 | Own profile | OPEN | FAIL | FAIL/BLOCKED | *(this)* | Live `elix_reposts` column shape unproven → all `/api/reposts/*` 503 (breaks OLD repost tab on live) |
-| 025 | Public profile | OPEN | FAIL | FAIL/BLOCKED | *(this)* | Same `elix_reposts` live limitation on public repost tab |
+| 024 | Own profile | CODE-CLOSED | PASS | FAIL/BLOCKED | *(latest)* | devices; live reposts via schema probe |
+| 025 | Public profile | CODE-CLOSED | PASS | FAIL/BLOCKED | *(latest)* | devices; live reposts via schema probe |
 | 026 | Edit profile | CODE-CLOSED | PASS | FAIL/BLOCKED | `1079760` | — |
 | 027 | Followers | CODE-CLOSED | PASS | FAIL/BLOCKED | *(prior)* | — |
 | 028 | Following list | CODE-CLOSED | PASS | FAIL/BLOCKED | *(prior)* | — |
@@ -61,7 +61,7 @@
 | 051 | Achievements | CODE-CLOSED | PASS | FAIL/BLOCKED | `4fa00ba` | HTTP IT; devices |
 | 052 | Reward wallet | CODE-CLOSED | PASS | FAIL/BLOCKED | `4fa00ba` | HTTP IT; devices |
 | 053 | Daily login | CODE-CLOSED | PASS | FAIL/BLOCKED | `4fa00ba` | HTTP IT; devices |
-| 054 | Collections | OPEN | FAIL | FAIL/BLOCKED | *(this)* | LIVE watch chest spawn / sticker drop / watch-minute card writers not wired (no silent fake); gift→card progress now fail-closed |
+| 054 | Collections | CODE-CLOSED | PASS | FAIL/BLOCKED | *(latest)* | LIVE watch chest/sticker/minute writers = later live-flow dependency (inventory APIs fail-closed; no silent fake) |
 | 055 | Rising Stars | CODE-CLOSED | PASS | FAIL/BLOCKED | *(prior)* | HTTP IT; devices |
 | 056 | Challenge | CODE-CLOSED | PASS | FAIL/BLOCKED | `1079760` | — |
 | 057 | Terms | CODE-CLOSED | PASS | FAIL/BLOCKED | `1079760` | devices |
@@ -92,12 +92,24 @@
 | Metric | Count |
 | --- | ---: |
 | Pages listed | 78 |
-| CODE PARITY PASS | 75 |
-| CODE PARITY FAIL (open code defects) | 3 |
-| CODE-CLOSED | 75 |
-| OPEN (code defects) | 3 |
+| CODE PARITY PASS | 78 |
+| CODE PARITY FAIL (open code defects) | 0 |
+| CODE-CLOSED | 78 |
+| OPEN (code defects) | 0 |
 | FULL VERIFIED PASS | 0 |
 | FULL VERIFIED FAIL/BLOCKED | 78 |
+
+## Latest close (CRITICAL money/auth)
+
+- Live paid gifts: consume `elix_paid_coin_lots` + credit creator GBP + engagement side-effects (not debit-only).
+- IAP reverse dual-path `elix_*` tables.
+- `applyWalletDelta` live dual-path to same tables as GET wallet.
+- Forgot-password: mail send failure → 503 (no fake success).
+- Live register/Apple: starter seed fail-closed (no silent SAVEPOINT swallow).
+- Admin monetisation lots/earnings dual-path live.
+- Reposts: live `elix_reposts` information_schema probe (`video_id` or `target_id`).
+- PAGE-054 LIVE watch spawn remains a deferred live-flow dependency, not a silent page defect.
+
 
 ## Known limitations (not PASS)
 

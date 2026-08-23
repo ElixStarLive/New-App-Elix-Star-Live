@@ -433,18 +433,12 @@ router.post("/register", async (req: Request, res: Response) => {
            ON CONFLICT (user_id) DO NOTHING`,
           [id, username, displayName],
         );
-        await client.query("SAVEPOINT starter_seed");
-        try {
-          await client.query(
-            `INSERT INTO starter_coin_balances (user_id, balance, lifetime_granted, lifetime_spent)
-             VALUES ($1, $2, $2, 0)
-             ON CONFLICT (user_id) DO NOTHING`,
-            [id, REGISTER_STARTER_COINS],
-          );
-          await client.query("RELEASE SAVEPOINT starter_seed");
-        } catch {
-          await client.query("ROLLBACK TO SAVEPOINT starter_seed");
-        }
+        await client.query(
+          `INSERT INTO starter_coin_balances (user_id, balance, lifetime_granted, lifetime_spent)
+           VALUES ($1, $2, $2, 0)
+           ON CONFLICT (user_id) DO NOTHING`,
+          [id, REGISTER_STARTER_COINS],
+        );
         const loaded = await client.query<UserRow>(
           `${LIVE_AUTH_USER_SELECT} WHERE u.id = $1`,
           [id],
@@ -716,8 +710,8 @@ router.post("/forgot-password", async (req: Request, res: Response) => {
           `Click this link to reset your password: ${passwordResetCallbackUrl(origin, raw)}\n\nThis link expires in 1 hour. If you did not request a password reset, ignore this email.`,
         );
       } catch (error) {
-        // Frozen OLD: still 200 success — do not leak whether the account exists.
         logger.error({ err: error, userId: user.id }, "password reset email send failed");
+        throw new AppError("unavailable", "Could not send password reset email. Try again later.", 503);
       }
     }
     res.json({ success: true });
@@ -726,9 +720,8 @@ router.post("/forgot-password", async (req: Request, res: Response) => {
       res.status(error.status).json({ error: error.message });
       return;
     }
-    // Frozen OLD: unexpected failures still answer success (no enumeration).
     logger.error({ err: error }, "forgot-password failed");
-    res.json({ success: true });
+    res.status(503).json({ error: "Password reset is temporarily unavailable. Try again later." });
   }
 });
 
@@ -980,6 +973,12 @@ async function appleNative(req: Request, res: Response): Promise<void> {
          VALUES ($1, $2, $3, 0, NOW(), NOW())
          ON CONFLICT (user_id) DO NOTHING`,
         [id, username, displayName],
+      );
+      await client.query(
+        `INSERT INTO starter_coin_balances (user_id, balance, lifetime_granted, lifetime_spent)
+         VALUES ($1, $2, $2, 0)
+         ON CONFLICT (user_id) DO NOTHING`,
+        [id, REGISTER_STARTER_COINS],
       );
       const loaded = await client.query<UserRow>(`${LIVE_AUTH_USER_SELECT} WHERE u.id = $1`, [id]);
       return loaded.rows[0];
