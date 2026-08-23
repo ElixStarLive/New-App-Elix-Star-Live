@@ -193,7 +193,10 @@ function App() {
   }, [user?.id]);
 
   useEffect(() => {
-    if (!user?.id) return;
+    if (!user?.id) {
+      wsClient.disconnect();
+      return;
+    }
     void registerPushToken();
     void reconcileOwnedCoinPurchases().catch(() => undefined);
     const onForceDisconnect = () => {
@@ -201,7 +204,7 @@ function App() {
       void useAuthStore.getState().signOut();
     };
     wsClient.on("force_disconnect", onForceDisconnect);
-    const token = getSessionToken();
+    const token = useAuthStore.getState().session?.token || getSessionToken();
     if (token && !isLiveSessionPath(location.pathname)) {
       // For You inline live joins the real stream room on this singleton —
       // do not yank it back to __feed__ while that room is active (OLD PAGE-006).

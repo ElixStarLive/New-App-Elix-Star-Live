@@ -3,6 +3,7 @@ import { createRoot, type Root } from "react-dom/client";
 import { MemoryRouter } from "react-router-dom";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import App from "./App";
+import { wsClient } from "@/lib/wsClient";
 import { useCallStore } from "@/store/useCallStore";
 
 const authState = vi.hoisted(() => ({
@@ -197,6 +198,8 @@ describe("PAGE-006 App shell", () => {
 
   beforeEach(() => {
     setUnauthed();
+    vi.mocked(wsClient.connect).mockClear();
+    vi.mocked(wsClient.disconnect).mockClear();
     engagementFlag.enabled = true;
     window.localStorage.clear();
     useCallStore.getState().reset();
@@ -227,6 +230,15 @@ describe("PAGE-006 App shell", () => {
     expect(mounted.container.querySelector('nav[aria-label="Main navigation"]')).toBeNull();
     expect(mounted.container.querySelector('button[aria-label="For You"]')).toBeNull();
     expect(mounted.container.querySelector(".elix-app-shell")).toBeTruthy();
+  });
+
+  it("releases the singleton websocket when signed out", async () => {
+    const mounted = renderApp("/login");
+    root = mounted.root;
+    container = mounted.container;
+    await waitUntil(() => mounted.container.querySelector("h1")?.textContent === "Login");
+    expect(wsClient.disconnect).toHaveBeenCalledWith();
+    expect(wsClient.connect).not.toHaveBeenCalled();
   });
 
   it("renders register without authenticated chrome", async () => {
