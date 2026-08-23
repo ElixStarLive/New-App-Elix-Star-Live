@@ -14,6 +14,8 @@ export const AI_STUDIO_EXIT_TO = FEED_HOME;
 export const FOLLOW_LIST_EXIT_TO = SETTINGS_EXIT_TO;
 export const SAVED_HOME = "/saved";
 export const INBOX_HOME = "/inbox";
+export const CREATOR_LOGIN_HOME = "/creator/login-details";
+export const CREATOR_LOGIN_EXIT_TO = SETTINGS_HOME;
 
 function hasUnsafePathCharacters(path: string): boolean {
   return Array.from(path).some((character) => {
@@ -78,6 +80,7 @@ function namedExitForPath(pathname: string): string {
   }
   const followListMatch = path.match(/^\/profile\/([^/]+)\/(followers|following)$/);
   if (followListMatch) return `/profile/${followListMatch[1]}`;
+  if (path === CREATOR_LOGIN_HOME) return CREATOR_LOGIN_EXIT_TO;
   if (path.startsWith("/profile/") || path === "/edit-profile") return PROFILE_EXIT_TO;
   if (/^\/watch\/[^/]+\/profile/.test(path)) {
     const streamId = path.match(/^\/watch\/([^/]+)/)?.[1];

@@ -137,6 +137,12 @@ All 78 rows below are **NOT VERIFIED** until a page completes the full gate with
 - **Runtime forgot:** **BLOCKED** — local API DOWN
 - **Commit:** `0e7aaf3`
 
+## PAGE-029 Creator login details
+
+- **Fixed:** committed missing `creatorLogin` session/storage stack; added `CREATOR_LOGIN_HOME` named exit in settingsNav (hardware back / close ? Settings).
+- **Tests:** creatorLogin suite ? **11 passed / 0 failed**
+- **Commit:** *(pending)*
+
 ## PAGE-028 Following list
 
 - **Fixed:** A→B owner change clears prior rows (same contract as PAGE-027); idle/loading spinner gate; auth/social contract imports; toast on failed follow uses stable copy.
