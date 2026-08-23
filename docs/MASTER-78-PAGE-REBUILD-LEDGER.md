@@ -42,25 +42,25 @@
 | 033 | Chat thread | CODE-CLOSED | PASS | FAIL/BLOCKED | `7e24e52` | HTTP IT; devices |
 | 034 | Video call | CODE-CLOSED | PASS | FAIL/BLOCKED | `7e24e52` | LiveKit; devices |
 | 035 | Incoming call | CODE-CLOSED | PASS | FAIL/BLOCKED | `7e24e52` | LiveKit; devices |
-| 036 | Shop | CODE-CLOSED | PASS | FAIL/BLOCKED | *(this)* | Stripe device; HTTP IT |
-| 037 | Shop item | CODE-CLOSED | PASS | FAIL/BLOCKED | *(this)* | Stripe device; HTTP IT |
+| 036 | Shop | CODE-CLOSED | PASS | FAIL/BLOCKED | `4fa00ba` | Stripe device; HTTP IT |
+| 037 | Shop item | CODE-CLOSED | PASS | FAIL/BLOCKED | `4fa00ba` | Stripe device; HTTP IT |
 | 038 | Purchase coins | CODE-CLOSED | PASS | FAIL/BLOCKED | `1079760` | IAP credentials; devices |
 | 039 | Wallet | CODE-CLOSED | PASS | FAIL/BLOCKED | `1079760` | devices |
 | 040 | Settings | CODE-CLOSED | PASS | FAIL/BLOCKED | *(prior)* | — |
 | 041 | Safety | CODE-CLOSED | PASS | FAIL/BLOCKED | *(prior)* | — |
-| 042 | Security (2FA) | CODE-CLOSED | PASS | FAIL/BLOCKED | *(this)* | HTTP IT; devices |
-| 043 | Notification settings | CODE-CLOSED | PASS | FAIL/BLOCKED | *(this)* | FCM/APNs; devices |
+| 042 | Security (2FA) | CODE-CLOSED | PASS | FAIL/BLOCKED | `4fa00ba` | HTTP IT; devices |
+| 043 | Notification settings | CODE-CLOSED | PASS | FAIL/BLOCKED | `4fa00ba` | FCM/APNs; devices |
 | 044 | Blocked | CODE-CLOSED | PASS | FAIL/BLOCKED | `1079760` | — |
-| 045 | Creator payout | CODE-CLOSED | PASS | FAIL/BLOCKED | *(this)* | Stripe Connect; HTTP IT |
+| 045 | Creator payout | CODE-CLOSED | PASS | FAIL/BLOCKED | `4fa00ba` | Stripe Connect; HTTP IT |
 | 046 | Report | CODE-CLOSED | PASS | FAIL/BLOCKED | `1079760` | — |
-| 047 | Engagement Hub | CODE-CLOSED | PASS | FAIL/BLOCKED | *(this)* | HTTP IT; devices |
-| 048 | Missions | CODE-CLOSED | PASS | FAIL/BLOCKED | *(this)* | HTTP IT; devices |
-| 049 | Fan Level | CODE-CLOSED | PASS | FAIL/BLOCKED | *(this)* | HTTP IT; devices |
-| 050 | MVP | CODE-CLOSED | PASS | FAIL/BLOCKED | *(this)* | HTTP IT; devices |
-| 051 | Achievements | CODE-CLOSED | PASS | FAIL/BLOCKED | *(this)* | HTTP IT; devices |
-| 052 | Reward Wallet | CODE-CLOSED | PASS | FAIL/BLOCKED | *(this)* | HTTP IT; devices |
-| 053 | Daily Login | CODE-CLOSED | PASS | FAIL/BLOCKED | *(this)* | HTTP IT; devices |
-| 054 | Collections | CODE-CLOSED | PASS | FAIL/BLOCKED | *(this)* | LIVE spawn writers; devices |
+| 047 | Engagement Hub | CODE-CLOSED | PASS | FAIL/BLOCKED | `4fa00ba` | HTTP IT; devices |
+| 048 | Missions | CODE-CLOSED | PASS | FAIL/BLOCKED | `4fa00ba` | HTTP IT; devices |
+| 049 | Fan Level | CODE-CLOSED | PASS | FAIL/BLOCKED | `4fa00ba` | HTTP IT; devices |
+| 050 | MVP | CODE-CLOSED | PASS | FAIL/BLOCKED | `4fa00ba` | HTTP IT; devices |
+| 051 | Achievements | CODE-CLOSED | PASS | FAIL/BLOCKED | `4fa00ba` | HTTP IT; devices |
+| 052 | Reward Wallet | CODE-CLOSED | PASS | FAIL/BLOCKED | `4fa00ba` | HTTP IT; devices |
+| 053 | Daily Login | CODE-CLOSED | PASS | FAIL/BLOCKED | `4fa00ba` | HTTP IT; devices |
+| 054 | Collections | CODE-CLOSED | PASS | FAIL/BLOCKED | `4fa00ba` | LIVE spawn writers; devices |
 | 055 | Rising Stars hub | CODE-CLOSED | PASS | FAIL/BLOCKED | *(prior)* | HTTP IT; devices |
 | 056 | RS challenge | CODE-CLOSED | PASS | FAIL/BLOCKED | `1079760` | — |
 | 057 | Terms | CODE-CLOSED | PASS | FAIL/BLOCKED | `1079760` | devices |
