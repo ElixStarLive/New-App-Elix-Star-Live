@@ -142,7 +142,7 @@ All 78 rows below are **NOT VERIFIED** until a page completes the full gate with
 - **Fixed:** restored Inbox session/API/activity overlay wiring (was stale page-local chat-only owner); added missing inbox/alerts/calls/etc contract modules required by barrel; chatApi inbox threads paths.
 - **Tests:** page030Ownership + inboxSession + preview + activityLine ? **18 passed**
 - **Locked UI:** no intentional visual redesign; restored approved Inbox owner from NEW main tree.
-- **Commit:** *(pending)*
+- **Commit:** `d820d4e`
 
 ## PAGE-029 Creator login details
 
