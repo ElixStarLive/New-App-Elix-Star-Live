@@ -9,7 +9,7 @@
 | PAGE-001 | YES | YES | YES | PASS | PASS | PASS | `8d778a1` |
 | PAGE-002 | YES | YES | YES | PASS | PASS | PASS | `d636117` |
 | PAGE-003 | YES | YES | YES | PASS | PASS | PASS | `5be73da` |
-| PAGE-004 | YES | YES | YES | PASS | PASS | PASS | pending |
+| PAGE-004 | YES | YES | YES | PASS | PASS | PASS | `85014e1` |
 | PAGE-005 | NO | NO | NO | — | — | — | — |
 | PAGE-006 | NO | NO | NO | — | — | — | — |
 | PAGE-007 | NO | NO | NO | — | — | — | — |
