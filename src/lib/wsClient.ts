@@ -1,5 +1,6 @@
 import type { WsEventName } from "@shared/contracts";
 import { getWsUrl } from "./api";
+import { getSessionToken } from "./sessionToken";
 
 export type WsListener = (data: unknown) => void;
 
@@ -18,6 +19,7 @@ type WsEnvelope = {
 const MAX_RECONNECT_ATTEMPTS = 15;
 const BASE_RECONNECT_MS = 1000;
 const KEEPALIVE_MS = 25_000;
+const MAX_PENDING = 50;
 
 class WsClient {
   private socket: WebSocket | null = null;
@@ -60,6 +62,7 @@ class WsClient {
       this.socket.send(payload);
       return;
     }
+    if (this.pending.length >= MAX_PENDING) return;
     this.pending.push(payload);
   }
 
@@ -88,6 +91,8 @@ class WsClient {
       this.releaseOwnersOtherThan(roomId);
       this.audienceCreatorId = providedAudience ?? null;
       this.persistent = false;
+      // Queued frames belong to the room we left — never flush into the next room.
+      this.pending = [];
     }
 
     this.roomId = roomId;
@@ -97,8 +102,12 @@ class WsClient {
   }
 
   disconnect(ownerId?: string): void {
-    if (ownerId) this.owners.delete(ownerId);
-    if (this.owners.size > 0) return;
+    if (ownerId) {
+      this.owners.delete(ownerId);
+      if (this.owners.size > 0) return;
+    } else {
+      this.owners.clear();
+    }
     this.teardownTransport();
     this.roomId = null;
     this.token = null;
@@ -108,8 +117,21 @@ class WsClient {
   }
 
   reconnectOnForeground(): void {
-    if (!this.roomId || !this.token) return;
-    if (this.socket?.readyState === WebSocket.OPEN) return;
+    if (!this.roomId) return;
+    if (
+      this.socket?.readyState === WebSocket.OPEN ||
+      this.socket?.readyState === WebSocket.CONNECTING
+    ) {
+      return;
+    }
+    const token = getSessionToken() || this.token;
+    if (!token) return;
+    if (this.reconnectTimer) {
+      clearTimeout(this.reconnectTimer);
+      this.reconnectTimer = null;
+    }
+    this.reconnectAttempts = 0;
+    this.token = token;
     this.openSocket();
   }
 
@@ -202,7 +224,10 @@ class WsClient {
 
   private attemptReconnect(code: number): void {
     if (code === 1000 && !this.persistent) return;
-    if (!this.roomId || !this.token) return;
+    if (!this.roomId) return;
+    const token = getSessionToken() || this.token;
+    if (!token) return;
+    this.token = token;
     if (this.reconnectAttempts >= MAX_RECONNECT_ATTEMPTS) {
       this.dispatch({
         event: "ws_reconnect_exhausted",
