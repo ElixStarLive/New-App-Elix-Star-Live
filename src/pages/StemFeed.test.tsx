@@ -21,6 +21,7 @@ const feedApi = vi.hoisted(() => ({
   apiPostVideoComment: vi.fn(),
   apiMusicPreview: vi.fn(),
   apiDownloadVoiceOnlyVideo: vi.fn(),
+  apiFetchProfiles: vi.fn(),
 }));
 
 const ws = vi.hoisted(() => ({
@@ -126,6 +127,7 @@ describe("PAGE-008 STEM", () => {
     ws.connect.mockReset();
     feedApi.apiFetchStories.mockResolvedValue({ users: [], error: null });
     feedApi.apiLiveStreams.mockResolvedValue({ streams: [], error: null });
+    feedApi.apiFetchProfiles.mockResolvedValue({ profiles: [], error: null });
     feedApi.apiMusicPreview.mockResolvedValue({ url: null, error: "none" });
     feedApi.apiFetchVideoComments.mockResolvedValue({ comments: [], error: null });
     feedApi.apiLikeVideo.mockResolvedValue({ ok: true });
