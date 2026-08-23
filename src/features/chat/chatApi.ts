@@ -9,6 +9,7 @@ export type ChatThread = {
   otherAvatarUrl: string | null;
   lastMessage: string;
   unread: boolean;
+  unreadCount: number;
   updatedAt: string;
 };
 
@@ -21,26 +22,36 @@ export type ChatMessage = {
 };
 
 function parseThread(raw: unknown): ChatThread | null {
-  if (!isRecord(raw) || typeof raw.id !== "string") return null;
+  if (!isRecord(raw)) return null;
+  if (typeof raw.id !== "string" || typeof raw.otherUserId !== "string") return null;
+  if (typeof raw.otherUsername !== "string" || typeof raw.otherDisplayName !== "string") return null;
   return {
     id: raw.id,
-    otherUserId: typeof raw.otherUserId === "string" ? raw.otherUserId : "",
-    otherUsername: typeof raw.otherUsername === "string" ? raw.otherUsername : "user",
-    otherDisplayName: typeof raw.otherDisplayName === "string" ? raw.otherDisplayName : "User",
+    otherUserId: raw.otherUserId,
+    otherUsername: raw.otherUsername,
+    otherDisplayName: raw.otherDisplayName,
     otherAvatarUrl: typeof raw.otherAvatarUrl === "string" ? raw.otherAvatarUrl : null,
     lastMessage: typeof raw.lastMessage === "string" ? raw.lastMessage : "",
     unread: raw.unread === true,
+    unreadCount:
+      typeof raw.unreadCount === "number" && Number.isFinite(raw.unreadCount)
+        ? Math.max(0, Math.floor(raw.unreadCount))
+        : raw.unread === true
+          ? 1
+          : 0,
     updatedAt: typeof raw.updatedAt === "string" ? raw.updatedAt : "",
   };
 }
 
 function parseMessage(raw: unknown): ChatMessage | null {
-  if (!isRecord(raw) || typeof raw.id !== "string") return null;
+  if (!isRecord(raw)) return null;
+  if (typeof raw.id !== "string" || typeof raw.threadId !== "string") return null;
+  if (typeof raw.senderId !== "string" || typeof raw.body !== "string") return null;
   return {
     id: raw.id,
-    threadId: typeof raw.threadId === "string" ? raw.threadId : "",
-    senderId: typeof raw.senderId === "string" ? raw.senderId : "",
-    body: typeof raw.body === "string" ? raw.body : "",
+    threadId: raw.threadId,
+    senderId: raw.senderId,
+    body: raw.body,
     createdAt: typeof raw.createdAt === "string" ? raw.createdAt : "",
   };
 }
@@ -51,9 +62,10 @@ export async function apiListChatThreads(): Promise<{
 }> {
   const { data, error } = await apiRequest<unknown>("/api/inbox/threads");
   if (error) return { threads: [], error: error.message };
-  const list = Array.isArray(data) ? data : isRecord(data) && Array.isArray(data.threads) ? data.threads : null;
-  if (!list) return { threads: [], error: "Invalid inbox response" };
-  return { threads: list.map(parseThread).filter((t): t is ChatThread => t !== null), error: null };
+  if (!isRecord(data) || !Array.isArray(data.threads)) return { threads: [], error: "Invalid inbox response" };
+  const threads = data.threads.map(parseThread).filter((row): row is ChatThread => row !== null);
+  if (data.threads.length > 0 && threads.length === 0) return { threads: [], error: "Invalid inbox response" };
+  return { threads, error: null };
 }
 
 export async function apiDeleteChatThread(threadId: string): Promise<{ ok: true } | { ok: false; error: string }> {
@@ -64,6 +76,47 @@ export async function apiDeleteChatThread(threadId: string): Promise<{ ok: true 
   return { ok: true };
 }
 
+export type ChatThreadDetail = {
+  id: string;
+  otherUserId: string | null;
+  otherUsername: string;
+  otherDisplayName: string;
+  otherAvatarUrl: string | null;
+  otherLevel: number;
+  blocked: boolean;
+  otherUnavailable: boolean;
+  canSend: boolean;
+};
+
+function parseThreadDetail(raw: unknown): ChatThreadDetail | null {
+  if (!isRecord(raw) || typeof raw.id !== "string") return null;
+  return {
+    id: raw.id,
+    otherUserId: typeof raw.otherUserId === "string" ? raw.otherUserId : null,
+    otherUsername: typeof raw.otherUsername === "string" ? raw.otherUsername : "",
+    otherDisplayName: typeof raw.otherDisplayName === "string" ? raw.otherDisplayName : "",
+    otherAvatarUrl: typeof raw.otherAvatarUrl === "string" ? raw.otherAvatarUrl : null,
+    otherLevel:
+      typeof raw.otherLevel === "number" && Number.isFinite(raw.otherLevel) && raw.otherLevel > 0
+        ? Math.floor(raw.otherLevel)
+        : 1,
+    blocked: raw.blocked === true,
+    otherUnavailable: raw.otherUnavailable === true,
+    canSend: raw.canSend === true,
+  };
+}
+
+export async function apiGetChatThread(threadId: string): Promise<{
+  thread: ChatThreadDetail | null;
+  error: string | null;
+}> {
+  const { data, error } = await apiRequest<unknown>(`/api/inbox/threads/${encodeURIComponent(threadId)}`);
+  if (error) return { thread: null, error: error.message };
+  const parsed = parseThreadDetail(isRecord(data) ? data.thread : null);
+  if (!parsed || parsed.id !== threadId) return { thread: null, error: "Thread was not found" };
+  return { thread: parsed, error: null };
+}
+
 export async function apiFetchThreadMessages(threadId: string): Promise<{
   messages: ChatMessage[];
   error: string | null;
@@ -72,23 +125,37 @@ export async function apiFetchThreadMessages(threadId: string): Promise<{
     `/api/inbox/threads/${encodeURIComponent(threadId)}/messages`,
   );
   if (error) return { messages: [], error: error.message };
-  const list = Array.isArray(data) ? data : isRecord(data) && Array.isArray(data.messages) ? data.messages : null;
-  if (!list) return { messages: [], error: "Invalid messages response" };
-  return { messages: list.map(parseMessage).filter((m): m is ChatMessage => m !== null), error: null };
+  if (!isRecord(data) || !Array.isArray(data.messages)) return { messages: [], error: "Invalid messages response" };
+  const messages = data.messages
+    .map(parseMessage)
+    .filter((row): row is ChatMessage => row !== null && row.threadId === threadId);
+  if (data.messages.length > 0 && messages.length === 0) return { messages: [], error: "Invalid messages response" };
+  return { messages, error: null };
 }
 
 export async function apiSendThreadMessage(
   threadId: string,
   body: string,
+  clientRequestId?: string,
 ): Promise<{ message: ChatMessage | null; error: string | null }> {
+  const payload: { body: string; clientRequestId?: string } = { body };
+  if (clientRequestId) payload.clientRequestId = clientRequestId;
   const { data, error } = await apiRequest<unknown>(
     `/api/inbox/threads/${encodeURIComponent(threadId)}/messages`,
-    { method: "POST", body: JSON.stringify({ body }) },
+    { method: "POST", body: JSON.stringify(payload) },
   );
   if (error) return { message: null, error: error.message };
-  const parsed = parseMessage(isRecord(data) ? data.message ?? data : data);
-  if (!parsed) return { message: null, error: "Message was not confirmed" };
+  const parsed = parseMessage(isRecord(data) ? data.message : null);
+  if (!parsed || parsed.threadId !== threadId) return { message: null, error: "Message was not confirmed" };
   return { message: parsed, error: null };
+}
+
+export async function apiMarkThreadRead(threadId: string): Promise<{ ok: true } | { ok: false; error: string }> {
+  const { error } = await apiRequest<unknown>(`/api/inbox/threads/${encodeURIComponent(threadId)}/read`, {
+    method: "POST",
+  });
+  if (error) return { ok: false, error: error.message };
+  return { ok: true };
 }
 
 export async function apiEnsureDmThread(userId: string): Promise<{
@@ -104,25 +171,4 @@ export async function apiEnsureDmThread(userId: string): Promise<{
     return { threadId: null, error: "Could not open chat" };
   }
   return { threadId: data.id, error: null };
-}
-
-export async function apiListActivity(): Promise<{
-  items: Array<{ id: string; title: string; body: string; createdAt: string }>;
-  error: string | null;
-}> {
-  const { data, error } = await apiRequest<unknown>("/api/activity");
-  if (error) return { items: [], error: error.message };
-  const list = Array.isArray(data) ? data : isRecord(data) && Array.isArray(data.items) ? data.items : null;
-  if (!list) return { items: [], error: "Invalid activity response" };
-  const items: Array<{ id: string; title: string; body: string; createdAt: string }> = [];
-  for (const raw of list) {
-    if (!isRecord(raw) || typeof raw.id !== "string") continue;
-    items.push({
-      id: raw.id,
-      title: typeof raw.title === "string" ? raw.title : "",
-      body: typeof raw.body === "string" ? raw.body : "",
-      createdAt: typeof raw.createdAt === "string" ? raw.createdAt : "",
-    });
-  }
-  return { items, error: null };
 }
