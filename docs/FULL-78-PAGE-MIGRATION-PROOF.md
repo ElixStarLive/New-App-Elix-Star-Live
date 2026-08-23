@@ -20,7 +20,7 @@ All 78 rows below are **NOT VERIFIED** until a page completes the full gate with
 | PAGE-003 | YES | YES | YES | PASS | PASS | PASS | `39d04b9` |
 | PAGE-004 | YES | YES | YES | PASS | PASS | PASS | `0e7aaf3` |
 | PAGE-005 | YES | YES | YES | PASS | PASS | PASS | `bcf96af` |
-| PAGE-006 | YES | YES | YES | PASS | PASS | PASS | — |
+| PAGE-006 | YES | YES | YES | PASS | PASS | PASS | `75aeb97` |
 | PAGE-007 | NOT VERIFIED | NOT VERIFIED | NOT VERIFIED | NOT VERIFIED | NOT VERIFIED | NOT VERIFIED | — |
 | PAGE-008 | NOT VERIFIED | NOT VERIFIED | NOT VERIFIED | NOT VERIFIED | NOT VERIFIED | NOT VERIFIED | — |
 | PAGE-009 | NOT VERIFIED | NOT VERIFIED | NOT VERIFIED | NOT VERIFIED | NOT VERIFIED | NOT VERIFIED | — |
@@ -98,7 +98,7 @@ All 78 rows below are **NOT VERIFIED** until a page completes the full gate with
 
 ## Release blockers (current)
 
-1. **7 / 78 pages** have a completed evidence → fix → clean → test → verify → commit chain under this standard (001–005, 027–028).
+1. **10 / 78 pages** have a completed evidence → fix → clean → test → verify → commit chain under this standard (001–006, 027–030).
 2. **No release gate proven** this session: full typecheck, lint, full test suite, production build.
 3. **No production/runtime E2E proven** this session (local API was DOWN when last checked).
 4. **No physical-device verification** recorded for pages that require it (e.g. live/IAP).
@@ -144,6 +144,13 @@ All 78 rows below are **NOT VERIFIED** until a page completes the full gate with
 - **Runtime reset:** **BLOCKED** — local API DOWN
 - **Commit:** `bcf96af`
 
+## PAGE-006 App shell
+
+- **Fixed:** custom-scheme deep links (`elixstar://video/id`, `elixstar://rising-stars`) were parsed from pathname only, so the type lived in `URL.hostname` and never matched. Parser now joins hostname + pathname. Rising Stars hub no longer requires a challenge id.
+- **Tests:** `npx vitest run src/lib/deepLinks.test.ts src/lib/appShell.test.ts src/lib/settingsNav.test.ts src/App.test.tsx src/components/LiveNotifyBanner.test.tsx` → **142 passed / 0 failed**
+- **Runtime deep link / WS:** **BLOCKED** — local API DOWN; native back not device-verified
+- **Commit:** `75aeb97`
+
 ## PAGE-027 Followers
 
 - **Fixed:** loading/idle always shows spinner (match OLD; no blank first paint / no stale rows under load); session clears rows when owner id changes so A→B failure cannot show A; follow failure toast uses stable `Could not update follow`.
@@ -174,6 +181,6 @@ All 78 rows below are **NOT VERIFIED** until a page completes the full gate with
 
 ## Release blockers (remaining)
 
-1. PAGE-006→026 and PAGE-031→078 not completed under this gate.
+1. PAGE-007→026 and PAGE-031→078 not completed under this gate. PAGE-006 commit recorded `75aeb97`.
 2. Live HTTP E2E blocked while local API is down.
 3. Full production build / device gates still open for later pages.
