@@ -1,0 +1,130 @@
+import { useEffect } from "react";
+import { useNavigate, useLocation } from "react-router-dom";
+import { App as CapacitorApp } from "@capacitor/app";
+import { Capacitor } from "@capacitor/core";
+import { namedExitForLocation } from "@/lib/settingsNav";
+
+const ROOT_PATHS = new Set(["/", "/feed", "/friends", "/inbox", "/profile", "/login"]);
+const WEB_HOSTS = new Set(["www.elixstarlive.co.uk", "elixstarlive.co.uk"]);
+
+function navigateFromDeepLinkUrl(url: string, navigate: (path: string) => void): void {
+  try {
+    const parsed = new URL(url);
+    const host = parsed.hostname.toLowerCase();
+    const path = parsed.pathname || "/";
+
+    if (parsed.protocol === "elixstar:") {
+      const parts = path.replace(/^\/+/, "").split("/").filter(Boolean);
+      const type = parts[0];
+      const id = parts[1];
+      if (type && id) {
+        if (type === "video") {
+          navigate(`/video/${id}`);
+          return;
+        }
+        if (type === "user") {
+          navigate(`/profile/${id}`);
+          return;
+        }
+        if (type === "live") {
+          navigate(`/live/${id}`);
+          return;
+        }
+        if (type === "hashtag") {
+          navigate(`/hashtag/${id}`);
+          return;
+        }
+        if (type === "rising-stars" || type === "risingstars") {
+          navigate(id ? `/rising-stars/challenge/${id}` : "/rising-stars");
+          return;
+        }
+      }
+      navigate("/feed");
+      return;
+    }
+
+    if ((parsed.protocol === "https:" || parsed.protocol === "http:") && WEB_HOSTS.has(host)) {
+      const parts = path.replace(/^\/+/, "").split("/").filter(Boolean);
+      const type = parts[0];
+      const id = parts[1];
+      if (type === "video" && id) {
+        navigate(`/video/${id}`);
+        return;
+      }
+      if (type === "profile" && id) {
+        navigate(`/profile/${id}`);
+        return;
+      }
+      if (type === "live" && id) {
+        navigate(`/live/${id}`);
+        return;
+      }
+      if (type === "watch" && id) {
+        navigate(`/watch/${id}`);
+        return;
+      }
+      if (type === "hashtag" && id) {
+        navigate(`/hashtag/${id}`);
+        return;
+      }
+      if (type === "rising-stars") {
+        if (parts[1] === "challenge" && parts[2]) {
+          navigate(`/rising-stars/challenge/${parts[2]}`);
+          return;
+        }
+        navigate("/rising-stars");
+        return;
+      }
+      if (path && path !== "/") {
+        navigate(path);
+        return;
+      }
+    }
+  } catch {
+    /* fall through */
+  }
+  navigate("/feed");
+}
+
+/** Frozen OLD deep-link + hardware-back owner (PAGE-006). */
+export function useDeepLinks(): void {
+  const navigate = useNavigate();
+  const location = useLocation();
+
+  useEffect(() => {
+    let urlHandle: { remove: () => Promise<void> } | null = null;
+    let backHandle: { remove: () => Promise<void> } | null = null;
+
+    void CapacitorApp.addListener("appUrlOpen", (event: { url: string }) => {
+      navigateFromDeepLinkUrl(event.url, navigate);
+    }).then((h) => {
+      urlHandle = h;
+    });
+
+    if (Capacitor.isNativePlatform()) {
+      void CapacitorApp.addListener("backButton", ({ canGoBack }) => {
+        const modalEvent = new CustomEvent("app:back-button", { cancelable: true });
+        const handled = !document.dispatchEvent(modalEvent);
+        if (handled) return;
+
+        if (canGoBack && !ROOT_PATHS.has(window.location.pathname)) {
+          const exit = namedExitForLocation(window.location.pathname, location.state);
+          if (exit === window.location.pathname) {
+            void CapacitorApp.minimizeApp();
+          } else {
+            navigate(exit, { replace: true });
+          }
+        } else {
+          void CapacitorApp.minimizeApp();
+        }
+      }).then((h) => {
+        backHandle = h;
+      });
+    }
+
+    return () => {
+      void urlHandle?.remove().catch(() => undefined);
+      void backHandle?.remove().catch(() => undefined);
+    };
+  }, [navigate, location.state]);
+}

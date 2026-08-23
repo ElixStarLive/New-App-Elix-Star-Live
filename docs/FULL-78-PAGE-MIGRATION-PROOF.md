@@ -11,7 +11,7 @@
 | PAGE-003 | YES | YES | YES | PASS | PASS | PASS | `5be73da` |
 | PAGE-004 | YES | YES | YES | PASS | PASS | PASS | `85014e1` |
 | PAGE-005 | YES | YES | YES | PASS | PASS | PASS | `843d9f9` |
-| PAGE-006 | NO | NO | NO | — | — | — | — |
+| PAGE-006 | YES | YES | YES | PASS | PASS | PASS | _(pending commit)_ |
 | PAGE-007 | NO | NO | NO | — | — | — | — |
 | PAGE-008 | NO | NO | NO | — | — | — | — |
 | PAGE-009 | NO | NO | NO | — | — | — | — |
@@ -84,6 +84,22 @@
 | PAGE-076 | NO | NO | NO | — | — | — | — |
 | PAGE-077 | NO | NO | NO | — | — | — | — |
 | PAGE-078 | NO | NO | NO | — | — | — | — |
+
+## PAGE-006 evidence
+
+- **OLD inspected:** `Elix Star Live/src/App.tsx`, `deepLinks.ts`, `toast.ts`, OfflineBanner, feed presence WS guard, IAP init/reconcile, admin bottom-nav visibility, engagement always routed.
+- **NEW inspected:** `src/App.tsx`, `src/lib/appShell.ts`, `OfflineBanner`, toast host vs imperative toast.
+- **Gaps fixed this migration:**
+  1. Port `useDeepLinks` (URL open + hardware back minimize) — remove duplicate App back-only listener.
+  2. Restore OLD imperative DOM `showToast` (remove React `ToastHost`).
+  3. WS `__feed__` presence: do not yank when current room ≠ `__feed__` (protects For You inline live).
+  4. Boot `initializeCoinIap` + reconcile on auth and foreground.
+  5. OfflineBanner: restore `animate-in slide-in-from-top duration-300`.
+  6. Show bottom nav on `/admin*` (match OLD; was incorrectly hidden).
+  7. Engagement routes always available (remove `EngagementGate`); Settings always shows Engagement Hub.
+  8. `/creator/login-details` public outside `RequireAuth`.
+- **Deferred to later pages:** client blocked-id hydrate store (feed already filters blocks server-side); music library stop-on-leave (no NEW sound-library player yet).
+- **Tests:** `appShell`, `deepLinks`, `toast`, `App.test`, Settings + ownership updates PASS.
 
 ## PAGE-005 evidence
 

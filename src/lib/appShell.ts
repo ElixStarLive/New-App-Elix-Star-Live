@@ -44,9 +44,7 @@ export function isShellNavHiddenPath(pathname: string): boolean {
     pathname === "/register" ||
     /^\/inbox\/[^/]+$/.test(pathname) ||
     pathname === "/call" ||
-    pathname.startsWith("/call/") ||
-    pathname === "/admin" ||
-    pathname.startsWith("/admin/")
+    pathname.startsWith("/call/")
   );
 }
 

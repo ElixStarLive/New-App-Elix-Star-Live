@@ -57,9 +57,9 @@ describe("PAGE-006 app shell classification", () => {
     expect(isShellNavHiddenPath("/music")).toBe(false);
     expect(isShellNavHiddenPath("/music/track-1")).toBe(false);
     expect(isShellNavHiddenPath("/terms")).toBe(false);
-    expect(isShellNavHiddenPath("/admin")).toBe(true);
-    expect(isShellNavHiddenPath("/admin/users")).toBe(true);
-    expect(isShellNavHiddenPath("/admin/reports")).toBe(true);
+    expect(isShellNavHiddenPath("/admin")).toBe(false);
+    expect(isShellNavHiddenPath("/admin/users")).toBe(false);
+    expect(isShellNavHiddenPath("/admin/reports")).toBe(false);
   });
 
   it("shows top nav only on For You", () => {
@@ -81,9 +81,9 @@ describe("PAGE-006 app shell classification", () => {
     expect(showBottomNavFor("/feed", true)).toBe(true);
     expect(showBottomNavFor("/feed", false)).toBe(false);
     expect(showBottomNavFor("/create", true)).toBe(false);
-    expect(showBottomNavFor("/admin", true)).toBe(false);
-    expect(showBottomNavFor("/admin/users", true)).toBe(false);
-    expect(showBottomNavFor("/admin/reports", true)).toBe(false);
+    expect(showBottomNavFor("/admin", true)).toBe(true);
+    expect(showBottomNavFor("/admin/users", true)).toBe(true);
+    expect(showBottomNavFor("/admin/reports", true)).toBe(true);
     expect(showBottomNavFor("/reset-password", true)).toBe(false);
   });
 

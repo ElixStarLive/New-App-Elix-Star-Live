@@ -6,7 +6,6 @@ import { ErrorBoundary } from "@/components/ErrorBoundary";
 import { OfflineBanner } from "@/components/OfflineBanner";
 import { IncomingCallModal } from "@/components/IncomingCallModal";
 import { LiveNotifyBanner } from "@/components/LiveNotifyBanner";
-import { ToastHost } from "@/components/ToastHost";
 import { useAuthStore } from "@/store/useAuthStore";
 import { cn } from "@/lib/cn";
 import {
@@ -19,13 +18,13 @@ import {
   isPublicPath,
   showBottomNavFor,
 } from "@/lib/appShell";
-import { App as CapacitorApp } from "@capacitor/app";
-import { Capacitor } from "@capacitor/core";
-import { namedExitForLocation, namedHardwareBackTarget } from "@/lib/settingsNav";
+import { namedExitForLocation } from "@/lib/settingsNav";
+import { useDeepLinks } from "@/lib/deepLinks";
 import { wsClient } from "@/lib/wsClient";
 import { getSessionToken } from "@/lib/sessionToken";
 import { bindVideoCallSignals, endActiveCall } from "@/features/calls/videoCallSession";
 import { registerPushToken } from "@/lib/pushRegister";
+import { initializeCoinIap, reconcileOwnedCoinPurchases } from "@/features/iap/iapApi";
 
 const VideoFeed = lazy(() => import("@/pages/VideoFeed"));
 const StemFeed = lazy(() => import("@/pages/StemFeed"));
@@ -48,7 +47,6 @@ const ChatThread = lazy(() => import("@/pages/ChatThread"));
 const FriendsFeed = lazy(() => import("@/pages/FriendsFeed"));
 const EditProfile = lazy(() => import("@/pages/EditProfile"));
 const Settings = lazy(() => import("@/pages/Settings"));
-const EngagementGate = lazy(() => import("@/pages/engagement/EngagementGate"));
 const EngagementHub = lazy(() => import("@/pages/engagement/EngagementHub"));
 const EngagementMissions = lazy(() => import("@/pages/engagement/EngagementMissions"));
 const EngagementFanLevel = lazy(() => import("@/pages/engagement/EngagementFanLevel"));
@@ -150,6 +148,8 @@ function App() {
   const navigate = useNavigate();
   const swipeStart = useRef<{ x: number; y: number } | null>(null);
 
+  useDeepLinks();
+
   const handleEdgeTouchStart = useCallback((e: React.TouchEvent) => {
     swipeStart.current = { x: e.touches[0].clientX, y: e.touches[0].clientY };
   }, []);
@@ -169,26 +169,6 @@ function App() {
   );
 
   useEffect(() => {
-    if (!Capacitor.isNativePlatform()) return;
-    let handle: { remove: () => Promise<void> } | undefined;
-    let cancelled = false;
-    void CapacitorApp.addListener("backButton", () => {
-      const to = namedHardwareBackTarget(location.pathname, location.state);
-      if (to) navigate(to, { replace: true });
-    }).then((listener) => {
-      if (cancelled) {
-        void listener.remove();
-        return;
-      }
-      handle = listener;
-    });
-    return () => {
-      cancelled = true;
-      void handle?.remove();
-    };
-  }, [navigate, location.pathname, location.state]);
-
-  useEffect(() => {
     const runCheckUser = () => {
       void useAuthStore.getState().checkUser();
     };
@@ -198,6 +178,10 @@ function App() {
       const unsub = useAuthStore.persist.onFinishHydration(runCheckUser);
       return unsub;
     }
+  }, []);
+
+  useEffect(() => {
+    void initializeCoinIap().catch(() => undefined);
   }, []);
 
   useEffect(() => {
@@ -211,6 +195,7 @@ function App() {
   useEffect(() => {
     if (!user?.id) return;
     void registerPushToken();
+    void reconcileOwnedCoinPurchases().catch(() => undefined);
     const onForceDisconnect = () => {
       endActiveCall();
       void useAuthStore.getState().signOut();
@@ -218,7 +203,14 @@ function App() {
     wsClient.on("force_disconnect", onForceDisconnect);
     const token = getSessionToken();
     if (token && !isLiveSessionPath(location.pathname)) {
-      wsClient.connect("__feed__", token, { persistent: true, ownerId: "app-feed-presence" });
+      // For You inline live joins the real stream room on this singleton —
+      // do not yank it back to __feed__ while that room is active (OLD PAGE-006).
+      const currentRoom = wsClient.getCurrentRoomId();
+      if (currentRoom && currentRoom !== "__feed__") {
+        /* leave live/preview room alone */
+      } else if (!wsClient.isConnected() || currentRoom !== "__feed__") {
+        wsClient.connect("__feed__", token, { persistent: true, ownerId: "app-feed-presence" });
+      }
     } else {
       wsClient.disconnect("app-feed-presence");
     }
@@ -232,6 +224,9 @@ function App() {
       if (document.visibilityState === "visible") {
         wsClient.reconnectOnForeground();
         void useAuthStore.getState().checkUser();
+        if (useAuthStore.getState().user?.id) {
+          void reconcileOwnedCoinPurchases().catch(() => undefined);
+        }
       }
     };
     document.addEventListener("visibilitychange", handleVisibility);
@@ -271,7 +266,6 @@ function App() {
       <OfflineBanner />
       <IncomingCallModal />
       <LiveNotifyBanner />
-      <ToastHost />
       <div
         className="fixed left-0 top-0 bottom-0 z-[9998]"
         style={{ width: EDGE_SWIPE_WIDTH }}
@@ -315,6 +309,7 @@ function App() {
               <Route path="/support" element={<Support />} />
               <Route path="/forgot-password" element={<ForgotPassword />} />
               <Route path="/reset-password" element={<ResetPassword />} />
+              <Route path="/creator/login-details" element={<CreatorLoginDetails />} />
               <Route element={<RequireAuth />}>
                 <Route path="/feed" element={<VideoFeed />} />
                 <Route path="/stem" element={<StemFeed />} />
@@ -323,16 +318,14 @@ function App() {
                 <Route path="/discover" element={<Discover />} />
                 <Route path="/rising-stars" element={<RisingStars />} />
                 <Route path="/rising-stars/challenge/:challengeId" element={<RisingStarsChallenge />} />
-                <Route element={<EngagementGate />}>
-                  <Route path="/engagement" element={<EngagementHub />} />
-                  <Route path="/engagement/missions" element={<EngagementMissions />} />
-                  <Route path="/engagement/fan-level" element={<EngagementFanLevel />} />
-                  <Route path="/engagement/mvp" element={<EngagementMvp />} />
-                  <Route path="/engagement/achievements" element={<EngagementAchievements />} />
-                  <Route path="/engagement/rewards" element={<EngagementRewards />} />
-                  <Route path="/engagement/daily-login" element={<EngagementDailyLogin />} />
-                  <Route path="/engagement/collections" element={<EngagementCollections />} />
-                </Route>
+                <Route path="/engagement" element={<EngagementHub />} />
+                <Route path="/engagement/missions" element={<EngagementMissions />} />
+                <Route path="/engagement/fan-level" element={<EngagementFanLevel />} />
+                <Route path="/engagement/mvp" element={<EngagementMvp />} />
+                <Route path="/engagement/achievements" element={<EngagementAchievements />} />
+                <Route path="/engagement/rewards" element={<EngagementRewards />} />
+                <Route path="/engagement/daily-login" element={<EngagementDailyLogin />} />
+                <Route path="/engagement/collections" element={<EngagementCollections />} />
                 <Route path="/hashtag/:tag" element={<Hashtag />} />
                 <Route path="/report" element={<Report />} />
                 <Route path="/video/:videoId" element={<VideoView />} />
@@ -351,7 +344,6 @@ function App() {
                 <Route path="/music" element={<MusicFeed />} />
                 <Route path="/music/:songId" element={<MusicFeed />} />
                 <Route path="/create" element={<Create />} />
-                <Route path="/creator/login-details" element={<CreatorLoginDetails />} />
                 <Route path="/inbox" element={<Inbox />} />
                 <Route path="/alerts" element={<AlertsPage />} />
                 <Route path="/inbox/:threadId" element={<ChatThread />} />

@@ -58,6 +58,25 @@ vi.mock("@/lib/pushRegister", () => ({
   registerPushToken: async () => undefined,
 }));
 
+vi.mock("@/features/iap/iapApi", () => ({
+  initializeCoinIap: async () => true,
+  reconcileOwnedCoinPurchases: async () => 0,
+}));
+
+vi.mock("@capacitor/app", () => ({
+  App: {
+    addListener: vi.fn(async () => ({ remove: async () => undefined })),
+    minimizeApp: vi.fn(async () => undefined),
+  },
+}));
+
+vi.mock("@capacitor/core", () => ({
+  Capacitor: {
+    isNativePlatform: () => false,
+    getPlatform: () => "web",
+  },
+}));
+
 vi.mock("@/features/auth/authSession", () => ({
   authVerifyEmail: async () => ({
     ok: true as const,
@@ -628,7 +647,7 @@ describe("PAGE-006 App shell", () => {
     container = mounted.container;
     await waitUntil(() => (mounted.container.textContent || "").includes("admin-page"));
     expect(mounted.container.textContent).toContain("admin-page");
-    expect(mounted.container.querySelector('nav[aria-label="Main navigation"]')).toBeNull();
+    expect(mounted.container.querySelector('nav[aria-label="Main navigation"]')).toBeTruthy();
   });
 
   it("sends unauthenticated /admin/users to login without user-list data", async () => {
@@ -647,7 +666,7 @@ describe("PAGE-006 App shell", () => {
     container = mounted.container;
     await waitUntil(() => (mounted.container.textContent || "").includes("admin-users-page"));
     expect(mounted.container.textContent).toContain("admin-users-page");
-    expect(mounted.container.querySelector('nav[aria-label="Main navigation"]')).toBeNull();
+    expect(mounted.container.querySelector('nav[aria-label="Main navigation"]')).toBeTruthy();
   });
 
   it("redirects non-admin away from /admin/users", async () => {
@@ -675,7 +694,7 @@ describe("PAGE-006 App shell", () => {
     container = mounted.container;
     await waitUntil(() => (mounted.container.textContent || "").includes("admin-reports-page"));
     expect(mounted.container.textContent).toContain("admin-reports-page");
-    expect(mounted.container.querySelector('nav[aria-label="Main navigation"]')).toBeNull();
+    expect(mounted.container.querySelector('nav[aria-label="Main navigation"]')).toBeTruthy();
   });
 
   it("redirects non-admin away from /admin/reports", async () => {
@@ -704,7 +723,7 @@ describe("PAGE-006 App shell", () => {
     container = mounted.container;
     await waitUntil(() => (mounted.container.textContent || "").includes("admin-economy-page"));
     expect(mounted.container.textContent).toContain("admin-economy-page");
-    expect(mounted.container.querySelector('nav[aria-label="Main navigation"]')).toBeNull();
+    expect(mounted.container.querySelector('nav[aria-label="Main navigation"]')).toBeTruthy();
   });
 
   it("redirects non-admin away from /admin/economy", async () => {
@@ -733,7 +752,7 @@ describe("PAGE-006 App shell", () => {
     container = mounted.container;
     await waitUntil(() => (mounted.container.textContent || "").includes("admin-monetisation-page"));
     expect(mounted.container.textContent).toContain("admin-monetisation-page");
-    expect(mounted.container.querySelector('nav[aria-label="Main navigation"]')).toBeNull();
+    expect(mounted.container.querySelector('nav[aria-label="Main navigation"]')).toBeTruthy();
   });
 
   it("redirects non-admin away from /admin/monetisation", async () => {
@@ -762,7 +781,7 @@ describe("PAGE-006 App shell", () => {
     container = mounted.container;
     await waitUntil(() => (mounted.container.textContent || "").includes("admin-purchases-page"));
     expect(mounted.container.textContent).toContain("admin-purchases-page");
-    expect(mounted.container.querySelector('nav[aria-label="Main navigation"]')).toBeNull();
+    expect(mounted.container.querySelector('nav[aria-label="Main navigation"]')).toBeTruthy();
   });
 
   it("redirects non-admin away from /admin/purchases", async () => {
@@ -791,7 +810,7 @@ describe("PAGE-006 App shell", () => {
     container = mounted.container;
     await waitUntil(() => (mounted.container.textContent || "").includes("admin-withdrawals-page"));
     expect(mounted.container.textContent).toContain("admin-withdrawals-page");
-    expect(mounted.container.querySelector('nav[aria-label="Main navigation"]')).toBeNull();
+    expect(mounted.container.querySelector('nav[aria-label="Main navigation"]')).toBeTruthy();
   });
 
   it("redirects non-admin away from /admin/withdrawals", async () => {
@@ -820,7 +839,7 @@ describe("PAGE-006 App shell", () => {
     container = mounted.container;
     await waitUntil(() => (mounted.container.textContent || "").includes("admin-rising-stars-page"));
     expect(mounted.container.textContent).toContain("admin-rising-stars-page");
-    expect(mounted.container.querySelector('nav[aria-label="Main navigation"]')).toBeNull();
+    expect(mounted.container.querySelector('nav[aria-label="Main navigation"]')).toBeTruthy();
   });
 
   it("redirects non-admin away from /admin/rising-stars", async () => {
@@ -849,7 +868,7 @@ describe("PAGE-006 App shell", () => {
     container = mounted.container;
     await waitUntil(() => (mounted.container.textContent || "").includes("admin-progression-page"));
     expect(mounted.container.textContent).toContain("admin-progression-page");
-    expect(mounted.container.querySelector('nav[aria-label="Main navigation"]')).toBeNull();
+    expect(mounted.container.querySelector('nav[aria-label="Main navigation"]')).toBeTruthy();
   });
 
   it("redirects non-admin away from /admin/progression", async () => {
@@ -1022,14 +1041,13 @@ describe("PAGE-006 App shell", () => {
     await waitUntil(() => (mounted.container.textContent || "").includes("engagement-missions-page"));
   });
 
-  it("sends a disabled /engagement/missions deep link to Settings", async () => {
+  it("opens authenticated /engagement/missions when the flag is off (OLD always available)", async () => {
     engagementFlag.enabled = false;
     setAuthed();
     const mounted = renderApp("/engagement/missions");
     root = mounted.root;
     container = mounted.container;
-    await waitUntil(() => (mounted.container.textContent || "").includes("settings-page"));
-    expect(mounted.container.textContent).not.toContain("engagement-missions-page");
+    await waitUntil(() => (mounted.container.textContent || "").includes("engagement-missions-page"));
   });
 
   it("sends unauthenticated /engagement/fan-level to login", async () => {
@@ -1048,14 +1066,13 @@ describe("PAGE-006 App shell", () => {
     await waitUntil(() => (mounted.container.textContent || "").includes("engagement-fan-level-page"));
   });
 
-  it("sends a disabled /engagement/fan-level deep link to Settings", async () => {
+  it("opens authenticated /engagement/fan-level when the flag is off (OLD always available)", async () => {
     engagementFlag.enabled = false;
     setAuthed();
     const mounted = renderApp("/engagement/fan-level");
     root = mounted.root;
     container = mounted.container;
-    await waitUntil(() => (mounted.container.textContent || "").includes("settings-page"));
-    expect(mounted.container.textContent).not.toContain("engagement-fan-level-page");
+    await waitUntil(() => (mounted.container.textContent || "").includes("engagement-fan-level-page"));
   });
 
   it("sends unauthenticated /engagement/mvp to login", async () => {
@@ -1074,14 +1091,13 @@ describe("PAGE-006 App shell", () => {
     await waitUntil(() => (mounted.container.textContent || "").includes("engagement-mvp-page"));
   });
 
-  it("sends a disabled /engagement/mvp deep link to Settings", async () => {
+  it("opens authenticated /engagement/mvp when the flag is off (OLD always available)", async () => {
     engagementFlag.enabled = false;
     setAuthed();
     const mounted = renderApp("/engagement/mvp");
     root = mounted.root;
     container = mounted.container;
-    await waitUntil(() => (mounted.container.textContent || "").includes("settings-page"));
-    expect(mounted.container.textContent).not.toContain("engagement-mvp-page");
+    await waitUntil(() => (mounted.container.textContent || "").includes("engagement-mvp-page"));
   });
 
   it("sends unauthenticated /engagement/achievements to login", async () => {
@@ -1100,14 +1116,13 @@ describe("PAGE-006 App shell", () => {
     await waitUntil(() => (mounted.container.textContent || "").includes("engagement-achievements-page"));
   });
 
-  it("sends a disabled /engagement/achievements deep link to Settings", async () => {
+  it("opens authenticated /engagement/achievements when the flag is off (OLD always available)", async () => {
     engagementFlag.enabled = false;
     setAuthed();
     const mounted = renderApp("/engagement/achievements");
     root = mounted.root;
     container = mounted.container;
-    await waitUntil(() => (mounted.container.textContent || "").includes("settings-page"));
-    expect(mounted.container.textContent).not.toContain("engagement-achievements-page");
+    await waitUntil(() => (mounted.container.textContent || "").includes("engagement-achievements-page"));
   });
 
   it("sends unauthenticated /engagement/rewards to login", async () => {
@@ -1126,14 +1141,13 @@ describe("PAGE-006 App shell", () => {
     await waitUntil(() => (mounted.container.textContent || "").includes("engagement-rewards-page"));
   });
 
-  it("sends a disabled /engagement/rewards deep link to Settings", async () => {
+  it("opens authenticated /engagement/rewards when the flag is off (OLD always available)", async () => {
     engagementFlag.enabled = false;
     setAuthed();
     const mounted = renderApp("/engagement/rewards");
     root = mounted.root;
     container = mounted.container;
-    await waitUntil(() => (mounted.container.textContent || "").includes("settings-page"));
-    expect(mounted.container.textContent).not.toContain("engagement-rewards-page");
+    await waitUntil(() => (mounted.container.textContent || "").includes("engagement-rewards-page"));
   });
 
   it("sends unauthenticated /engagement/daily-login to login", async () => {
@@ -1152,14 +1166,13 @@ describe("PAGE-006 App shell", () => {
     await waitUntil(() => (mounted.container.textContent || "").includes("engagement-daily-login-page"));
   });
 
-  it("sends a disabled /engagement/daily-login deep link to Settings", async () => {
+  it("opens authenticated /engagement/daily-login when the flag is off (OLD always available)", async () => {
     engagementFlag.enabled = false;
     setAuthed();
     const mounted = renderApp("/engagement/daily-login");
     root = mounted.root;
     container = mounted.container;
-    await waitUntil(() => (mounted.container.textContent || "").includes("settings-page"));
-    expect(mounted.container.textContent).not.toContain("engagement-daily-login-page");
+    await waitUntil(() => (mounted.container.textContent || "").includes("engagement-daily-login-page"));
   });
 
   it("sends unauthenticated /engagement/collections to login", async () => {
@@ -1178,14 +1191,13 @@ describe("PAGE-006 App shell", () => {
     await waitUntil(() => (mounted.container.textContent || "").includes("engagement-collections-page"));
   });
 
-  it("sends a disabled /engagement/collections deep link to Settings", async () => {
+  it("opens authenticated /engagement/collections when the flag is off (OLD always available)", async () => {
     engagementFlag.enabled = false;
     setAuthed();
     const mounted = renderApp("/engagement/collections");
     root = mounted.root;
     container = mounted.container;
-    await waitUntil(() => (mounted.container.textContent || "").includes("settings-page"));
-    expect(mounted.container.textContent).not.toContain("engagement-collections-page");
+    await waitUntil(() => (mounted.container.textContent || "").includes("engagement-collections-page"));
   });
 
   it("sends unauthenticated /rising-stars to login", async () => {
@@ -1222,14 +1234,13 @@ describe("PAGE-006 App shell", () => {
     expect(mounted.container.querySelector('nav[aria-label="Main navigation"]')).toBeTruthy();
   });
 
-  it("sends a disabled /engagement deep link to Settings", async () => {
+  it("opens authenticated /engagement when the flag is off (OLD always available)", async () => {
     engagementFlag.enabled = false;
     setAuthed();
     const mounted = renderApp("/engagement");
     root = mounted.root;
     container = mounted.container;
-    await waitUntil(() => (mounted.container.textContent || "").includes("settings-page"));
-    expect(mounted.container.textContent).not.toContain("engagement-hub-page");
+    await waitUntil(() => (mounted.container.textContent || "").includes("engagement-hub-page"));
   });
 
   it("can still show IncomingCallModal over Settings", async () => {

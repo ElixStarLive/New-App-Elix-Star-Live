@@ -1,9 +1,10 @@
-import React, { useState } from "react";
+import { useCallback, useState, type ReactNode } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import {
   Ban,
   Bell,
   Bookmark,
+  BookOpen,
   ChevronRight,
   Gift,
   Globe,
@@ -13,6 +14,7 @@ import {
   Lock,
   LogOut,
   Moon,
+  Radio,
   Shield,
   Trash2,
   User,
@@ -21,9 +23,10 @@ import {
   VolumeX,
   Wallet,
 } from "lucide-react";
-import { useAuthStore } from "@/store/useAuthStore";
-import { useSettingsStore } from "@/store/useSettingsStore";
-import { authDeleteAccount } from "@/features/auth/authSession";
+import LanguagePickerSheet from "@/components/LanguagePickerSheet";
+import SettingsOptionSheet from "@/components/SettingsOptionSheet";
+import { requestSettingsDeleteAccount, requestSettingsLogout } from "@/features/settings/settingsSession";
+import { LANGUAGE_SHORT, useT } from "@/lib/i18n";
 import {
   ENGAGEMENT_HOME,
   SETTINGS_EXIT_TO,
@@ -33,102 +36,198 @@ import {
   returnToFromLocationState,
 } from "@/lib/settingsNav";
 import { showToast } from "@/lib/toast";
-import { X } from "lucide-react";
+import { useAuthStore } from "@/store/useAuthStore";
+import { useSettingsStore } from "@/store/useSettingsStore";
+
+function SettingsRow({
+  icon,
+  label,
+  value,
+  onPress,
+}: {
+  icon?: ReactNode;
+  label: string;
+  value?: string;
+  onPress: () => void;
+}) {
+  return (
+    <button type="button" onClick={onPress} className="w-full flex items-center gap-3 px-2.5 py-2.5 active:bg-white/5 text-left rounded-md">
+      {icon ? (
+        <span className="royce-glow-disc shrink-0 [&_svg]:size-[18px]" style={{ width: 36, height: 36 }}>
+          <span className="royce-icon-gold">{icon}</span>
+        </span>
+      ) : null}
+      <span className="flex-1 min-w-0 text-[15px] leading-tight text-[#E6E9EE]">{label}</span>
+      {value ? <span className="text-[12px] tabular-nums shrink-0 text-[#C8CDD5]">{value}</span> : null}
+      <ChevronRight size={16} className="text-white/30 shrink-0" />
+    </button>
+  );
+}
+
+function SettingsSection({ label }: { label: string }) {
+  return <div className="mt-3.5 mb-1 px-1 text-[10px] uppercase tracking-[0.12em] text-[#8B9099] leading-none">{label}</div>;
+}
 
 export default function Settings() {
   const navigate = useNavigate();
   const location = useLocation();
-  const user = useAuthStore((s) => s.user);
-  const signOut = useAuthStore((s) => s.signOut);
-  const liveNotifications = useSettingsStore((s) => s.liveNotifications);
-  const setLiveNotifications = useSettingsStore((s) => s.setLiveNotifications);
-  const muteAllSounds = useSettingsStore((s) => s.muteAllSounds);
-  const setMuteAllSounds = useSettingsStore((s) => s.setMuteAllSounds);
-  const [busy, setBusy] = useState(false);
+  const { t, lang } = useT();
+  const [languageOpen, setLanguageOpen] = useState(false);
+  const user = useAuthStore((state) => state.user);
+  const signOut = useAuthStore((state) => state.signOut);
+  const liveNotifications = useSettingsStore((state) => state.liveNotifications);
+  const setLiveNotifications = useSettingsStore((state) => state.setLiveNotifications);
+  const muteAllSounds = useSettingsStore((state) => state.muteAllSounds);
+  const setMuteAllSounds = useSettingsStore((state) => state.setMuteAllSounds);
   const childReturnState = containerReturnState(returnToFromLocationState(location.state) || SETTINGS_HOME);
 
-  const Row = ({ ic, t, v, fn }: { ic: React.ReactNode; t: string; v?: string; fn: () => void }) => (
-    <button type="button" onClick={fn} className="w-full flex items-center gap-3 px-2.5 py-2.5 active:bg-white/5 text-left rounded-md">
-      <span className="royce-glow-disc shrink-0" style={{ width: 36, height: 36 }}>{ic}</span>
-      <span className="flex-1 min-w-0 text-[15px] leading-tight text-[#E6E9EE]">{t}</span>
-      {v ? <span className="text-[12px] tabular-nums shrink-0 text-[#C8CDD5]">{v}</span> : null}
-      <ChevronRight size={16} className="text-white/30 shrink-0" />
-    </button>
-  );
-  const S = ({ t }: { t: string }) => (
-    <div className="mt-3.5 mb-1 px-1 text-[10px] uppercase tracking-[0.12em] text-[#8B9099] leading-none">{t}</div>
+  const exitSettings = useCallback(() => {
+    navigate(exitToFromLocationState(location.state, SETTINGS_EXIT_TO), { replace: true });
+  }, [navigate, location.state]);
+
+  const go = useCallback(
+    (path: string) => {
+      navigate(path, { state: childReturnState });
+    },
+    [navigate, childReturnState],
   );
 
+  const handleLogout = async () => {
+    try {
+      const outcome = await requestSettingsLogout(signOut);
+      if (!outcome.started) return;
+      const serverError = useAuthStore.getState().lastError;
+      if (serverError) showToast(serverError);
+      navigate("/login", { replace: true });
+    } catch {
+      showToast("Sign out failed");
+    }
+  };
+
+  const handleDeleteAccount = async () => {
+    try {
+      const outcome = await requestSettingsDeleteAccount(signOut);
+      if ("cancelled" in outcome && outcome.cancelled) return;
+      if (!outcome.ok) {
+        showToast(outcome.error);
+        return;
+      }
+      navigate("/login", { replace: true });
+    } catch {
+      showToast("Something went wrong. Please try again.");
+    }
+  };
+
   return (
-    <div className="page-above-bottom-nav min-h-full">
-      <div className="page-above-bottom-nav__inner elix-settings-write min-h-full flex flex-col">
-        <header className="flex items-center justify-between px-3 pb-2 border-b border-[#D8D9DD]/45" style={{ paddingTop: "var(--page-header-top)" }}>
-          <span className="w-10" />
-          <h1 className="text-[16px] font-bold text-[#E6E9EE]">Settings</h1>
-          <button type="button" className="royce-glow-disc" onClick={() => navigate(exitToFromLocationState(location.state, SETTINGS_EXIT_TO), { replace: true })} aria-label="Close">
-            <X size={16} />
-          </button>
-        </header>
-        <div className="flex-1 min-h-0 overflow-y-auto px-3 pt-2 pb-[3mm]">
+    <SettingsOptionSheet onClose={exitSettings} title={t("settings.title")}>
+      <div className="flex-1 min-h-0 overflow-y-auto overscroll-y-contain px-3 pt-2 pb-[3mm]">
+        <div className="flex flex-col gap-0 max-w-full min-h-full">
           <div className="flex flex-col items-center pb-3">
             <img src="/elix-logo.png" alt="Elix Star Live" className="w-20 h-20 object-contain" />
           </div>
-          <S t="Account" />
-          <Row ic={<User size={14} />} t="Edit profile" fn={() => navigate("/edit-profile", { state: childReturnState })} />
-          <Row ic={<Lock size={14} />} t="Privacy" fn={() => navigate("/settings/safety", { state: childReturnState })} />
-          <Row ic={<Shield size={14} />} t="Security" fn={() => navigate("/settings/security", { state: childReturnState })} />
-          <Row ic={<Wallet size={14} />} t="Creator payout" fn={() => navigate("/settings/payout", { state: childReturnState })} />
-          <Row ic={<Gift size={14} />} t="Engagement Hub" fn={() => navigate(ENGAGEMENT_HOME, { state: childReturnState })} />
-          {user?.isAdmin ? <Row ic={<LayoutDashboard size={14} />} t="Admin" fn={() => navigate("/admin", { state: childReturnState })} /> : null}
 
-          <S t="Preferences" />
-          <Row ic={<Bell size={14} />} t="Notifications" fn={() => navigate("/settings/notifications", { state: childReturnState })} />
-          <Row ic={<Bell size={14} />} t="Live notifications" v={liveNotifications ? "On" : "Off"} fn={() => setLiveNotifications(!liveNotifications)} />
-          <Row ic={muteAllSounds ? <VolumeX size={14} /> : <Volume2 size={14} />} t="Mute all sounds" v={muteAllSounds ? "On" : "Off"} fn={() => setMuteAllSounds(!muteAllSounds)} />
-          <Row ic={<Moon size={14} />} t="Dark mode" v="On" fn={() => showToast("Dark mode is always on")} />
-          <Row ic={<Globe size={14} />} t="Language" v="EN" fn={() => showToast("English")} />
+          <SettingsSection label={t("settings.section.account")} />
+          <SettingsRow icon={<User size={14} />} label={t("settings.editProfile")} onPress={() => go("/edit-profile")} />
+          <SettingsRow icon={<Lock size={14} />} label={t("settings.privacy")} onPress={() => go("/settings/safety")} />
+          <SettingsRow icon={<Shield size={14} />} label={t("settings.security")} onPress={() => go("/settings/security")} />
+          <SettingsRow icon={<Trash2 size={14} />} label={t("settings.deleteAccount")} onPress={() => void handleDeleteAccount()} />
+          <SettingsRow icon={<Wallet size={14} />} label="Creator payout" onPress={() => go("/settings/payout")} />
+          <SettingsRow icon={<Gift size={14} />} label="Engagement Hub" onPress={() => go(ENGAGEMENT_HOME)} />
+          {user?.isAdmin === true ? <SettingsRow icon={<LayoutDashboard size={14} />} label="Admin" onPress={() => go("/admin")} /> : null}
 
-          <S t="Content" />
-          <Row ic={<Video size={14} />} t="Video quality" v="Auto" fn={() => showToast("Auto")} />
-          <Row ic={<Heart size={14} />} t="Liked videos" fn={() => navigate("/profile?tab=liked", { state: childReturnState })} />
-          <Row ic={<Bookmark size={14} />} t="Saved videos" fn={() => navigate("/saved", { state: childReturnState })} />
+          <SettingsSection label={t("settings.section.preferences")} />
+          <SettingsRow icon={<Bell size={14} />} label={t("settings.notifications")} onPress={() => go("/settings/notifications")} />
+          <SettingsRow
+            icon={<Radio size={14} />}
+            label={t("settings.liveNotifications")}
+            value={liveNotifications ? t("common.on") : t("common.off")}
+            onPress={() => setLiveNotifications(!liveNotifications)}
+          />
+          <SettingsRow
+            icon={muteAllSounds ? <VolumeX size={14} /> : <Volume2 size={14} />}
+            label="Mute all sounds"
+            value={muteAllSounds ? t("common.on") : t("common.off")}
+            onPress={() => {
+              const next = !muteAllSounds;
+              setMuteAllSounds(next);
+              showToast(next ? "All app sounds muted" : "App sounds on");
+            }}
+          />
+          <SettingsRow
+            icon={<Moon size={14} />}
+            label={t("settings.darkMode")}
+            value={t("common.on")}
+            onPress={() => showToast(t("toast.darkModeAlwaysOn"))}
+          />
+          <SettingsRow
+            icon={<Globe size={14} />}
+            label={t("settings.language")}
+            value={LANGUAGE_SHORT[lang]}
+            onPress={() => setLanguageOpen(true)}
+          />
 
-          <S t="Safety" />
-          <Row ic={<Ban size={14} />} t="Blocked accounts" fn={() => navigate("/settings/blocked", { state: childReturnState })} />
-          <Row ic={<Shield size={14} />} t="Safety Center" fn={() => navigate("/settings/safety", { state: childReturnState })} />
+          <SettingsSection label={t("settings.section.content")} />
+          <SettingsRow
+            icon={<Video size={14} />}
+            label={t("settings.videoQuality")}
+            value={t("common.auto")}
+            onPress={() => showToast(t("toast.videoQualityAuto"))}
+          />
+          <SettingsRow icon={<Heart size={14} />} label={t("settings.likedVideos")} onPress={() => go("/profile?tab=liked")} />
+          <SettingsRow icon={<Bookmark size={14} />} label="Saved videos" onPress={() => go("/saved")} />
 
-          <S t="Support" />
-          <Row ic={<HelpCircle size={14} />} t="How the app works" fn={() => navigate("/how-it-works", { state: childReturnState })} />
-          <Row ic={<HelpCircle size={14} />} t="Help & Support" fn={() => navigate("/support", { state: childReturnState })} />
+          <SettingsSection label={t("settings.section.safety")} />
+          <SettingsRow icon={<Ban size={14} />} label={t("settings.blockedAccounts")} onPress={() => go("/settings/blocked")} />
+          <SettingsRow icon={<Shield size={14} />} label={t("settings.safetyCenter")} onPress={() => go("/settings/safety")} />
 
-          <div className="grid grid-cols-3 gap-1 mt-auto pt-4">
-            <button type="button" onClick={() => navigate("/terms")} className="text-[12px] py-2 text-center text-[#E6E9EE]">Terms</button>
-            <button type="button" onClick={() => navigate("/privacy")} className="text-[12px] py-2 text-center text-[#E6E9EE]">Privacy</button>
-            <button type="button" onClick={() => navigate("/guidelines")} className="text-[12px] py-2 text-center text-[#E6E9EE]">Guidelines</button>
-          </div>
-          <div className="mt-3 pt-2.5 flex items-center justify-center gap-6 border-t border-white/10">
-            <button type="button" onClick={() => void signOut().then(() => navigate("/login"))} className="flex items-center gap-1.5 py-1.5 text-[13px] px-2.5 text-[#E6E9EE]">
-              <LogOut size={15} /> Logout
+          <SettingsSection label={t("settings.section.support")} />
+          <SettingsRow icon={<BookOpen size={14} />} label="How the app works" onPress={() => go("/how-it-works")} />
+          <SettingsRow icon={<HelpCircle size={14} />} label={t("settings.helpSupport")} onPress={() => go("/support")} />
+
+          <div className="grid grid-cols-3 gap-1 mt-auto pt-4 px-0.5">
+            <button
+              type="button"
+              onClick={() => go("/terms")}
+              className="text-[12px] py-2 rounded-md active:bg-white/5 text-center leading-tight text-[#E6E9EE]"
+            >
+              {t("common.terms")}
             </button>
             <button
               type="button"
-              disabled={busy}
-              onClick={() => {
-                if (!window.confirm("Delete your account?")) return;
-                setBusy(true);
-                void authDeleteAccount().then((res) => {
-                  setBusy(false);
-                  if (!res.ok) showToast(res.error);
-                  else void signOut().then(() => navigate("/login"));
-                });
-              }}
-              className="flex items-center gap-1.5 py-1.5 text-[13px] px-2.5 text-[#E6E9EE]"
+              onClick={() => go("/privacy")}
+              className="text-[12px] py-2 rounded-md active:bg-white/5 text-center leading-tight text-[#E6E9EE]"
             >
-              <Trash2 size={15} /> Delete
+              {t("common.privacy")}
+            </button>
+            <button
+              type="button"
+              onClick={() => go("/guidelines")}
+              className="text-[12px] py-2 rounded-md active:bg-white/5 text-center leading-tight text-[#E6E9EE]"
+            >
+              {t("common.guidelines")}
             </button>
           </div>
+
+          <div className="mt-3 pt-2.5 flex items-center justify-center gap-6 border-t border-white/10">
+            <button
+              type="button"
+              onClick={() => void handleLogout()}
+              className="flex items-center gap-1.5 py-1.5 text-[13px] active:bg-white/5 px-2.5 rounded-md text-[#E6E9EE]"
+            >
+              <LogOut size={15} className="royce-icon-gold" /> {t("common.logout")}
+            </button>
+            <button
+              type="button"
+              onClick={() => void handleDeleteAccount()}
+              className="flex items-center gap-1.5 py-1.5 text-[13px] active:bg-white/20/10 px-2.5 rounded-md text-[#E6E9EE]"
+            >
+              <Trash2 size={15} className="royce-icon-gold" /> {t("common.delete")}
+            </button>
+          </div>
+          <div className="text-center text-[9px] pt-1.5 pb-0.5 text-[#8B9099] opacity-40">v1.0.0</div>
         </div>
       </div>
-    </div>
+      {languageOpen ? <LanguagePickerSheet onClose={() => setLanguageOpen(false)} /> : null}
+    </SettingsOptionSheet>
   );
 }
