@@ -15,7 +15,7 @@
 | PAGE-007 | YES | YES | IN PROGRESS | — | — | PASS* | `b7d0a2b` backend |
 | PAGE-008 | YES | YES | YES | PASS | PASS | PASS | `f4d9a47` |
 | PAGE-009 | YES | YES | YES | PASS | PASS | PASS | `125205b` |
-| PAGE-010 | NO | NO | NO | — | — | — | — |
+| PAGE-010 | YES | YES | YES | PASS | PASS | PASS | _(pending)_ |
 | PAGE-011 | NO | NO | NO | — | — | — | — |
 | PAGE-012 | NO | NO | NO | — | — | — | — |
 | PAGE-013 | NO | NO | NO | — | — | — | — |
@@ -84,6 +84,20 @@
 | PAGE-076 | NO | NO | NO | — | — | — | — |
 | PAGE-077 | NO | NO | NO | — | — | — | — |
 | PAGE-078 | NO | NO | NO | — | — | — | — |
+
+## PAGE-010 evidence
+
+- **OLD inspected:** `FriendsFeed.tsx`, `handleFriendsFeed` (follow ∪ follower).
+- **NEW inspected:** `FriendsFeed.tsx`, `queryFriendsPage`, `GET /api/feed/friends`.
+- **Gaps fixed:** none — already matched OLD (overlay title Friends, `followingFirst={false}`, empty copy, return nav, union query).
+- **Tests:** `page010Ownership` PASS.
+
+## PAGE-009 evidence
+
+- **OLD inspected:** Following feed + `FeedStoryCirclesOverlay` with `followingFirst`.
+- **NEW inspected:** `FollowingFeed.tsx`, `FollowingFeedOverlay`.
+- **Gaps fixed:** restore `apiFetchProfiles` suggested strip (followed-first then live); 5s image story advance.
+- **Already aligned:** GET following feed, empty copy, return nav, live rings.
 
 ## PAGE-008 evidence
 
