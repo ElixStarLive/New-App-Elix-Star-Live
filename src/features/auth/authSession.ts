@@ -251,14 +251,20 @@ export async function authDeleteAccount(): Promise<{ ok: true } | { ok: false; e
   return { ok: true };
 }
 
-export async function authSaveConsent(): Promise<{ ok: true } | { ok: false; error: string }> {
+export async function authSaveConsent(
+  email?: string,
+): Promise<{ ok: true } | { ok: false; error: string }> {
+  const body: Record<string, unknown> = {
+    consent_type: "terms_privacy_and_age_13_plus",
+    version: "2026-07-21",
+    age_confirmed_13_plus: true,
+  };
+  if (email?.trim()) {
+    body.meta = { email: email.trim() };
+  }
   const { error } = await apiRequest<unknown>("/api/auth/consent", {
     method: "POST",
-    body: JSON.stringify({
-      consent_type: "terms_privacy_and_age_13_plus",
-      version: "2026-07-21",
-      age_confirmed_13_plus: true,
-    }),
+    body: JSON.stringify(body),
   });
   if (error) return { ok: false, error: error.message };
   return { ok: true };

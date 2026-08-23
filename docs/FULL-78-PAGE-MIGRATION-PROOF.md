@@ -6,8 +6,8 @@
 
 | Page | OLD inspected | NEW inspected | Actual migration performed | Contracts aligned | Cleanup complete | Tests | Commit |
 | --- | --- | --- | --- | --- | --- | --- | --- |
-| PAGE-001 | YES | YES | YES | PASS | PASS | PENDING | pending |
-| PAGE-002 | NO | NO | NO | — | — | — | — |
+| PAGE-001 | YES | YES | YES | PASS | PASS | PASS | `8d778a1` |
+| PAGE-002 | YES | YES | YES | PASS | PASS | PASS | pending |
 | PAGE-003 | NO | NO | NO | — | — | — | — |
 | PAGE-004 | NO | NO | NO | — | — | — | — |
 | PAGE-005 | NO | NO | NO | — | — | — | — |
@@ -84,6 +84,17 @@
 | PAGE-076 | NO | NO | NO | — | — | — | — |
 | PAGE-077 | NO | NO | NO | — | — | — | — |
 | PAGE-078 | NO | NO | NO | — | — | — | — |
+
+## PAGE-002 evidence
+
+- **OLD inspected:** `Elix Star Live/src/pages/Register.tsx`, `docs/old-spec/PAGES.md` PAGE-002, `CONTRACTS.md` register/consent.
+- **NEW inspected:** `src/pages/Register.tsx`, `authSession.ts` register/consent, `server/modules/auth/router.ts` register/consent/starter.
+- **Gaps fixed this migration:**
+  1. Email-confirm path always shows fixed check-email copy (not welcomeMessage).
+  2. Consent POST includes `meta.email` like OLD.
+  3. AbortError / aborted register errors unlock without fake failure copy.
+  4. Terms/Privacy links match OLD (no invented `returnTo` on Register).
+- **Already aligned:** UI chrome 80×80 logo Create Account; terms gate; password ≥8; match confirm; consent version `2026-07-21`; starter welcome toast; navigate `from`; starter coins server-side not paid lots.
 
 ## PAGE-001 evidence
 

@@ -62,6 +62,11 @@ export default function Register() {
       const res = await signUpWithPassword(email.trim(), password, handle);
       if (!isMounted.current) return;
       if (res.error) {
+        if (res.error === "aborted" || res.error.toLowerCase().includes("aborted")) {
+          submitLock.current = false;
+          setIsSubmitting(false);
+          return;
+        }
         submitLock.current = false;
         setError(res.error);
         setIsSubmitting(false);
@@ -69,12 +74,12 @@ export default function Register() {
       }
       if (res.needsEmailConfirmation) {
         submitLock.current = false;
-        setInfo(res.welcomeMessage || "Please check your email to confirm your account.");
+        setInfo("Please check your email to confirm your account.");
         setIsSubmitting(false);
         return;
       }
 
-      const consent = await authSaveConsent();
+      const consent = await authSaveConsent(email.trim());
       if (!isMounted.current) return;
       if (!consent.ok) {
         submitLock.current = false;
@@ -88,8 +93,14 @@ export default function Register() {
 
       showToast(res.welcomeMessage || REGISTER_WELCOME_STARTER);
       navigate(from, { replace: true });
-    } catch {
+    } catch (err) {
       if (!isMounted.current) return;
+      const message = err instanceof Error ? err.message : "";
+      if (err instanceof Error && (err.name === "AbortError" || message.toLowerCase().includes("aborted"))) {
+        submitLock.current = false;
+        setIsSubmitting(false);
+        return;
+      }
       submitLock.current = false;
       setError("Failed to create account");
       setIsSubmitting(false);
@@ -184,14 +195,17 @@ export default function Register() {
               I confirm I am at least 13 years old and agree to the{" "}
               <Link
                 to="/terms"
-                state={{ returnTo: "/register" }}
                 className="text-[#F5F5F7] underline"
                 onClick={(e) => e.stopPropagation()}
               >
                 Terms of Service
               </Link>{" "}
               and{" "}
-              <Link to="/privacy" className="text-[#F5F5F7] underline" onClick={(e) => e.stopPropagation()}>
+              <Link
+                to="/privacy"
+                className="text-[#F5F5F7] underline"
+                onClick={(e) => e.stopPropagation()}
+              >
                 Privacy Policy
               </Link>
             </span>
