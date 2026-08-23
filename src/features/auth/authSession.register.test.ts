@@ -31,11 +31,25 @@ describe("authRegister", () => {
   it("posts consent-attested register body and never puts the password in the URL", async () => {
     apiRequestMock.mockResolvedValue({
       data: {
-        token: "tok",
-        user: sessionUser,
+        user: {
+          id: sessionUser.id,
+          email: sessionUser.email,
+          user_metadata: { username: "andrei", full_name: "Andrei", avatar_url: "" },
+          email_confirmed_at: "2026-08-01T00:00:00.000Z",
+          created_at: "2026-08-01T00:00:00.000Z",
+        },
+        session: { access_token: "tok", accessToken: "tok" },
+        profile_meta: {
+          is_admin: false,
+          is_creator: false,
+          banned_until: null,
+          starter_coin_balance: 50000,
+          total_xp: 0,
+          level: 0,
+        },
         needsEmailConfirmation: false,
-        confirmationEmailSent: false,
-        welcomeMessage: "Welcome! You received 50,000 Starter Coins to explore gifts and support creators.",
+        confirmation_email_sent: false,
+        welcome_message: "Welcome! You received 50,000 Starter Coins to explore gifts and support creators.",
       },
       error: null,
     });
@@ -47,6 +61,10 @@ describe("authRegister", () => {
       consentVersion: "2026-07-21",
     });
     expect(result.ok).toBe(true);
+    if (result.ok) {
+      expect(result.token).toBe("tok");
+      expect(result.welcomeMessage).toContain("50,000");
+    }
     expect(apiRequestMock).toHaveBeenCalledWith("/api/auth/register", {
       method: "POST",
       body: JSON.stringify({
@@ -64,11 +82,17 @@ describe("authRegister", () => {
   it("does not treat confirmation-required as an authenticated session", async () => {
     apiRequestMock.mockResolvedValue({
       data: {
-        token: null,
-        user: { ...sessionUser, emailConfirmed: false },
+        user: {
+          id: sessionUser.id,
+          email: sessionUser.email,
+          user_metadata: { username: "andrei", full_name: "Andrei", avatar_url: "" },
+          email_confirmed_at: "",
+          created_at: "2026-08-01T00:00:00.000Z",
+        },
+        session: null,
         needsEmailConfirmation: true,
-        confirmationEmailSent: true,
-        welcomeMessage: "Check your email to confirm your account before signing in.",
+        confirmation_email_sent: true,
+        welcome_message: "Check your email to confirm your account before signing in.",
       },
       error: null,
     });
@@ -103,20 +127,14 @@ describe("authRegister", () => {
     }
   });
 
-  it("always sends displayName so production register validation can pass", async () => {
+  it("rejects a { token, user } register body instead of mapping it", async () => {
     apiRequestMock.mockResolvedValue({
       data: {
-        user: {
-          id: "00000000-0000-4000-8000-000000000001",
-          email: "andrei@example.com",
-          user_metadata: { username: "andrei", full_name: "andrei", avatar_url: "" },
-          email_confirmed_at: "",
-          created_at: "2026-08-20T00:00:00.000Z",
-        },
-        session: null,
-        needsEmailConfirmation: true,
-        confirmation_email_sent: true,
-        welcome_message: "Check your email to confirm your account before signing in.",
+        token: "tok",
+        user: sessionUser,
+        needsEmailConfirmation: false,
+        confirmationEmailSent: false,
+        welcomeMessage: "Welcome! You received 50,000 Starter Coins to explore gifts and support creators.",
       },
       error: null,
     });
@@ -126,22 +144,9 @@ describe("authRegister", () => {
       ageConfirmed13Plus: true,
       consentVersion: "2026-07-21",
     });
-    expect(apiRequestMock).toHaveBeenCalledWith("/api/auth/register", {
-      method: "POST",
-      body: JSON.stringify({
-        email: "andrei@example.com",
-        password: "secret-password",
-        displayName: "andrei",
-        ageConfirmed13Plus: true,
-        consentVersion: "2026-07-21",
-      }),
-    });
-    expect(result.ok).toBe(true);
-    if (result.ok) {
-      expect(result.token).toBeNull();
-      expect(result.needsEmailConfirmation).toBe(true);
-      expect(result.confirmationEmailSent).toBe(true);
-      expect(result.welcomeMessage).toBe("Check your email to confirm your account before signing in.");
+    expect(result.ok).toBe(false);
+    if (!result.ok) {
+      expect(result.error).toBe("Invalid registration response from server.");
     }
   });
 });

@@ -97,10 +97,11 @@ describe("http integration", () => {
     resetEnvCache();
   });
 
-  function accessTokenFromLogin(body: Record<string, unknown>): string {
-    const session = body.session;
+  function accessTokenFromLogin(body: unknown): string {
+    if (!body || typeof body !== "object") return "";
+    const session = (body as { session?: { access_token?: unknown } }).session;
     if (!session || typeof session !== "object") return "";
-    const value = (session as { access_token?: unknown }).access_token;
+    const value = session.access_token;
     return typeof value === "string" ? value : "";
   }
 
@@ -137,10 +138,12 @@ describe("http integration", () => {
       }),
     });
     expect(registered.status).toBe(201);
-    token = String(registered.body.token ?? "");
+    expect(registered.body).not.toHaveProperty("token");
+    expect(registered.body).not.toHaveProperty("welcomeMessage");
+    token = accessTokenFromLogin(registered.body);
     expect(token).toBeTruthy();
     expect(registered.body.needsEmailConfirmation).toBe(false);
-    expect(String(registered.body.welcomeMessage ?? "")).toContain("50,000");
+    expect(String(registered.body.welcome_message ?? "")).toContain("50,000");
     const userId = String((registered.body.user as { id?: string } | undefined)?.id ?? "");
     expect(userId).toBeTruthy();
 
@@ -163,13 +166,6 @@ describe("http integration", () => {
       [userId],
     );
     expect(Number(starter.rows[0]?.starter_coins ?? 0)).toBe(50000);
-    const consentRow = await getPool().query<{ kind: string; version: string }>(
-      `SELECT kind, version FROM user_consents WHERE user_id = $1`,
-      [userId],
-    );
-    expect(consentRow.rows[0]?.kind).toBe("terms_privacy_and_age_13_plus");
-    expect(consentRow.rows[0]?.version).toBe("2026-07-21");
-
     const consent = await json("/api/auth/consent", {
       method: "POST",
       body: JSON.stringify({
@@ -179,6 +175,11 @@ describe("http integration", () => {
       }),
     });
     expect(consent.status).toBe(200);
+    const consentRow = await getPool().query<{ kind: string }>(
+      `SELECT kind FROM user_consents WHERE user_id = $1`,
+      [userId],
+    );
+    expect(consentRow.rows[0]?.kind).toBe("terms_privacy_and_age_13_plus");
 
     const dupEmail = await json("/api/auth/register", {
       method: "POST",
@@ -213,7 +214,8 @@ describe("http integration", () => {
         password: "password12",
       }),
     });
-    expect(missingTerms.status).toBe(400);
+    expect(missingTerms.status).toBe(201);
+    expect(accessTokenFromLogin(missingTerms.body)).toBeTruthy();
 
     const shortPassword = await json("/api/auth/register", {
       method: "POST",
@@ -810,7 +812,7 @@ describe("http integration", () => {
       });
       expect(registered.status).toBe(201);
       const id = String((registered.body.user as { id?: string } | undefined)?.id ?? "");
-      const userToken = String(registered.body.token ?? "");
+      const userToken = accessTokenFromLogin(registered.body);
       return { id, token: userToken };
     }
 
@@ -974,7 +976,7 @@ describe("http integration", () => {
       expect(registered.status).toBe(201);
       return {
         id: String((registered.body.user as { id?: string } | undefined)?.id ?? ""),
-        token: String(registered.body.token ?? ""),
+        token: accessTokenFromLogin(registered.body),
       };
     }
 
@@ -1154,7 +1156,7 @@ describe("http integration", () => {
       expect(registered.status).toBe(201);
       return {
         id: String((registered.body.user as { id?: string } | undefined)?.id ?? ""),
-        token: String(registered.body.token ?? ""),
+        token: accessTokenFromLogin(registered.body),
       };
     }
 
@@ -1320,7 +1322,7 @@ describe("http integration", () => {
       expect(registered.status).toBe(201);
       return {
         id: String((registered.body.user as { id?: string } | undefined)?.id ?? ""),
-        token: String(registered.body.token ?? ""),
+        token: accessTokenFromLogin(registered.body),
       };
     }
 
@@ -1447,7 +1449,7 @@ describe("http integration", () => {
       return {
         id: String((registered.body.user as { id?: string } | undefined)?.id ?? ""),
         username,
-        token: String(registered.body.token ?? ""),
+        token: accessTokenFromLogin(registered.body),
       };
     }
 
@@ -1556,7 +1558,7 @@ describe("http integration", () => {
       return {
         id: String((registered.body.user as { id?: string } | undefined)?.id ?? ""),
         username,
-        token: String(registered.body.token ?? ""),
+        token: accessTokenFromLogin(registered.body),
       };
     }
 
@@ -1637,7 +1639,7 @@ describe("http integration", () => {
       return {
         id: String((registered.body.user as { id?: string } | undefined)?.id ?? ""),
         username,
-        token: String(registered.body.token ?? ""),
+        token: accessTokenFromLogin(registered.body),
       };
     }
 
@@ -1722,7 +1724,7 @@ describe("http integration", () => {
       expect(registered.status).toBe(201);
       return {
         id: String((registered.body.user as { id?: string } | undefined)?.id ?? ""),
-        token: String(registered.body.token ?? ""),
+        token: accessTokenFromLogin(registered.body),
       };
     }
 
@@ -1858,7 +1860,7 @@ describe("http integration", () => {
       expect(registered.status).toBe(201);
       return {
         id: String((registered.body.user as { id?: string } | undefined)?.id ?? ""),
-        token: String(registered.body.token ?? ""),
+        token: accessTokenFromLogin(registered.body),
       };
     }
 
@@ -2049,7 +2051,7 @@ describe("http integration", () => {
       expect(registered.status).toBe(201);
       return {
         id: String((registered.body.user as { id?: string } | undefined)?.id ?? ""),
-        token: String(registered.body.token ?? ""),
+        token: accessTokenFromLogin(registered.body),
       };
     }
 
@@ -2150,7 +2152,7 @@ describe("http integration", () => {
       expect(registered.status).toBe(201);
       return {
         id: String((registered.body.user as { id?: string } | undefined)?.id ?? ""),
-        token: String(registered.body.token ?? ""),
+        token: accessTokenFromLogin(registered.body),
       };
     }
 
@@ -2246,7 +2248,7 @@ describe("http integration", () => {
       expect(registered.status).toBe(201);
       return {
         id: String((registered.body.user as { id?: string } | undefined)?.id ?? ""),
-        token: String(registered.body.token ?? ""),
+        token: accessTokenFromLogin(registered.body),
       };
     }
 
@@ -2334,7 +2336,7 @@ describe("http integration", () => {
       expect(registered.status).toBe(201);
       return {
         id: String((registered.body.user as { id?: string } | undefined)?.id ?? ""),
-        token: String(registered.body.token ?? ""),
+        token: accessTokenFromLogin(registered.body),
       };
     }
 
@@ -2599,7 +2601,7 @@ describe("http integration", () => {
       expect(registered.status).toBe(201);
       return {
         id: String((registered.body.user as { id?: string } | undefined)?.id ?? ""),
-        token: String(registered.body.token ?? ""),
+        token: accessTokenFromLogin(registered.body),
       };
     }
 
@@ -2716,7 +2718,7 @@ describe("http integration", () => {
       return {
         id: String((registered.body.user as { id?: string } | undefined)?.id ?? ""),
         username,
-        token: String(registered.body.token ?? ""),
+        token: accessTokenFromLogin(registered.body),
       };
     }
 
@@ -2812,7 +2814,7 @@ describe("http integration", () => {
       expect(registered.status).toBe(201);
       return {
         id: String((registered.body.user as { id?: string } | undefined)?.id ?? ""),
-        token: String(registered.body.token ?? ""),
+        token: accessTokenFromLogin(registered.body),
         username,
       };
     }
@@ -2935,7 +2937,7 @@ describe("http integration", () => {
       expect(registered.status).toBe(201);
       return {
         id: String((registered.body.user as { id?: string } | undefined)?.id ?? ""),
-        token: String(registered.body.token ?? ""),
+        token: accessTokenFromLogin(registered.body),
         username,
       };
     }
@@ -3015,7 +3017,7 @@ describe("http integration", () => {
       expect(registered.status).toBe(201);
       return {
         id: String((registered.body.user as { id?: string } | undefined)?.id ?? ""),
-        token: String(registered.body.token ?? ""),
+        token: accessTokenFromLogin(registered.body),
         username,
       };
     }
@@ -3117,7 +3119,7 @@ describe("http integration", () => {
       expect(registered.status).toBe(201);
       return {
         id: String((registered.body.user as { id?: string } | undefined)?.id ?? ""),
-        token: String(registered.body.token ?? ""),
+        token: accessTokenFromLogin(registered.body),
         username,
       };
     }
@@ -3272,7 +3274,7 @@ describe("http integration", () => {
       expect(registered.status).toBe(201);
       return {
         id: String((registered.body.user as { id?: string } | undefined)?.id ?? ""),
-        token: String(registered.body.token ?? ""),
+        token: accessTokenFromLogin(registered.body),
         username,
       };
     }
@@ -3345,7 +3347,7 @@ describe("http integration", () => {
       expect(registered.status).toBe(201);
       return {
         id: String((registered.body.user as { id?: string } | undefined)?.id ?? ""),
-        token: String(registered.body.token ?? ""),
+        token: accessTokenFromLogin(registered.body),
         username,
       };
     }
@@ -3434,7 +3436,7 @@ describe("http integration", () => {
       expect(registered.status).toBe(201);
       return {
         id: String((registered.body.user as { id?: string } | undefined)?.id ?? ""),
-        token: String(registered.body.token ?? ""),
+        token: accessTokenFromLogin(registered.body),
         username,
       };
     }
@@ -3610,7 +3612,7 @@ describe("http integration", () => {
       expect(registered.status).toBe(201);
       return {
         id: String((registered.body.user as { id?: string } | undefined)?.id ?? ""),
-        token: String(registered.body.token ?? ""),
+        token: accessTokenFromLogin(registered.body),
         username,
       };
     }
@@ -3769,7 +3771,7 @@ describe("http integration", () => {
       expect(registered.status).toBe(201);
       return {
         id: String((registered.body.user as { id?: string } | undefined)?.id ?? ""),
-        token: String(registered.body.token ?? ""),
+        token: accessTokenFromLogin(registered.body),
       };
     }
 
@@ -3890,7 +3892,7 @@ describe("http integration", () => {
       expect(registered.status).toBe(201);
       return {
         id: String((registered.body.user as { id?: string } | undefined)?.id ?? ""),
-        token: String(registered.body.token ?? ""),
+        token: accessTokenFromLogin(registered.body),
       };
     }
 
@@ -3994,7 +3996,7 @@ describe("http integration", () => {
       expect(registered.status).toBe(201);
       return {
         id: String((registered.body.user as { id?: string } | undefined)?.id ?? ""),
-        token: String(registered.body.token ?? ""),
+        token: accessTokenFromLogin(registered.body),
       };
     }
 
@@ -4091,7 +4093,7 @@ describe("http integration", () => {
       });
       const body = (await res.json()) as { token?: string; user?: { id?: string } };
       expect(res.status).toBe(201);
-      return { id: String(body.user?.id ?? ""), token: String(body.token ?? "") };
+      return { id: String(body.user?.id ?? ""), token: accessTokenFromLogin(body) };
     }
 
     const unauth = await fetch(`${base}/api/wallet`);
@@ -4172,7 +4174,7 @@ describe("http integration", () => {
       });
       const body = (await res.json()) as { token?: string; user?: { id?: string; isAdmin?: boolean } };
       expect(res.status).toBe(201);
-      return { id: String(body.user?.id ?? ""), token: String(body.token ?? ""), isAdmin: body.user?.isAdmin === true };
+      return { id: String(body.user?.id ?? ""), token: accessTokenFromLogin(body), isAdmin: body.user?.isAdmin === true };
     }
 
     const unauthLogout = await fetch(`${base}/api/auth/logout`, { method: "POST" });
@@ -4250,7 +4252,7 @@ describe("http integration", () => {
       });
       const body = (await res.json()) as { token?: string; user?: { id?: string } };
       expect(res.status).toBe(201);
-      return { id: String(body.user?.id ?? ""), token: String(body.token ?? ""), email };
+      return { id: String(body.user?.id ?? ""), token: accessTokenFromLogin(body), email };
     }
 
     async function authJson(pathName: string, userToken: string, init: RequestInit = {}) {
@@ -4394,7 +4396,7 @@ describe("http integration", () => {
       });
       const body = (await res.json()) as { token?: string; user?: { id?: string } };
       expect(res.status).toBe(201);
-      return { id: String(body.user?.id ?? ""), token: String(body.token ?? "") };
+      return { id: String(body.user?.id ?? ""), token: accessTokenFromLogin(body) };
     }
 
     async function authJson(pathName: string, userToken: string, init: RequestInit = {}) {
@@ -4516,7 +4518,7 @@ describe("http integration", () => {
       });
       const body = (await res.json()) as { token?: string; user?: { id?: string } };
       expect(res.status).toBe(201);
-      return { id: String(body.user?.id ?? ""), token: String(body.token ?? ""), username };
+      return { id: String(body.user?.id ?? ""), token: accessTokenFromLogin(body), username };
     }
 
     async function authJson(pathName: string, userToken: string, init: RequestInit = {}) {
@@ -4697,7 +4699,7 @@ describe("http integration", () => {
       });
       const body = (await res.json()) as { token?: string; user?: { id?: string } };
       expect(res.status).toBe(201);
-      return { id: String(body.user?.id ?? ""), token: String(body.token ?? ""), username };
+      return { id: String(body.user?.id ?? ""), token: accessTokenFromLogin(body), username };
     }
 
     async function authJson(pathName: string, userToken: string, init: RequestInit = {}) {
@@ -5014,7 +5016,7 @@ describe("http integration", () => {
       });
       const body = (await res.json()) as { token?: string; user?: { id?: string } };
       expect(res.status).toBe(201);
-      return { id: String(body.user?.id ?? ""), token: String(body.token ?? ""), username };
+      return { id: String(body.user?.id ?? ""), token: accessTokenFromLogin(body), username };
     }
 
     async function authJson(pathName: string, userToken: string, init: RequestInit = {}) {
@@ -5120,7 +5122,7 @@ describe("http integration", () => {
       });
       const body = (await res.json()) as { token?: string; user?: { id?: string } };
       expect(res.status).toBe(201);
-      return { id: String(body.user?.id ?? ""), token: String(body.token ?? "") };
+      return { id: String(body.user?.id ?? ""), token: accessTokenFromLogin(body) };
     }
 
     async function authJson(pathName: string, userToken: string, init: RequestInit = {}) {
@@ -5236,7 +5238,7 @@ describe("http integration", () => {
       });
       const body = (await res.json()) as { token?: string; user?: { id?: string } };
       expect(res.status).toBe(201);
-      return { id: String(body.user?.id ?? ""), token: String(body.token ?? "") };
+      return { id: String(body.user?.id ?? ""), token: accessTokenFromLogin(body) };
     }
 
     async function authJson(pathName: string, userToken: string, init: RequestInit = {}) {
@@ -5398,7 +5400,7 @@ describe("http integration", () => {
       });
       const body = (await res.json()) as { token?: string; user?: { id?: string } };
       expect(res.status).toBe(201);
-      return { id: String(body.user?.id ?? ""), token: String(body.token ?? "") };
+      return { id: String(body.user?.id ?? ""), token: accessTokenFromLogin(body) };
     }
 
     async function authJson(pathName: string, userToken: string, init: RequestInit = {}) {
@@ -5516,7 +5518,7 @@ describe("http integration", () => {
       });
       const body = (await res.json()) as { token?: string; user?: { id?: string } };
       expect(res.status).toBe(201);
-      return { id: String(body.user?.id ?? ""), token: String(body.token ?? "") };
+      return { id: String(body.user?.id ?? ""), token: accessTokenFromLogin(body) };
     }
 
     async function authJson(pathName: string, userToken: string, init: RequestInit = {}) {
@@ -5690,7 +5692,7 @@ describe("http integration", () => {
       });
       const body = (await res.json()) as { token?: string; user?: { id?: string } };
       expect(res.status).toBe(201);
-      return { id: String(body.user?.id ?? ""), token: String(body.token ?? "") };
+      return { id: String(body.user?.id ?? ""), token: accessTokenFromLogin(body) };
     }
 
     async function authJson(pathName: string, userToken: string, init: RequestInit = {}) {
@@ -5958,7 +5960,7 @@ describe("http integration", () => {
       });
       const body = (await res.json()) as { token?: string; user?: { id?: string } };
       expect(res.status).toBe(201);
-      return { id: String(body.user?.id ?? ""), token: String(body.token ?? "") };
+      return { id: String(body.user?.id ?? ""), token: accessTokenFromLogin(body) };
     }
 
     async function authJson(pathName: string, userToken: string, init: RequestInit = {}) {
@@ -6114,7 +6116,7 @@ describe("http integration", () => {
       });
       const body = (await res.json()) as { token?: string; user?: { id?: string } };
       expect(res.status).toBe(201);
-      return { id: String(body.user?.id ?? ""), token: String(body.token ?? "") };
+      return { id: String(body.user?.id ?? ""), token: accessTokenFromLogin(body) };
     }
 
     async function authJson(pathName: string, userToken: string, init: RequestInit = {}) {
@@ -6371,7 +6373,7 @@ describe("http integration", () => {
       });
       const body = (await res.json()) as { token?: string; user?: { id?: string } };
       expect(res.status).toBe(201);
-      return { id: String(body.user?.id ?? ""), token: String(body.token ?? "") };
+      return { id: String(body.user?.id ?? ""), token: accessTokenFromLogin(body) };
     }
 
     async function authJson(pathName: string, userToken: string, init: RequestInit = {}) {
@@ -6666,7 +6668,7 @@ describe("http integration", () => {
       });
       const body = (await res.json()) as { token?: string; user?: { id?: string } };
       expect(res.status).toBe(201);
-      return { id: String(body.user?.id ?? ""), token: String(body.token ?? "") };
+      return { id: String(body.user?.id ?? ""), token: accessTokenFromLogin(body) };
     }
 
     async function authJson(pathName: string, userToken: string, init: RequestInit = {}) {
@@ -6936,7 +6938,7 @@ describe("http integration", () => {
       expect(res.status).toBe(201);
       return {
         id: String(body.user?.id ?? ""),
-        token: String(body.token ?? ""),
+        token: accessTokenFromLogin(body),
         isAdmin: body.user?.isAdmin === true,
       };
     }
@@ -7042,7 +7044,7 @@ describe("http integration", () => {
       return {
         id: String(body.user?.id ?? ""),
         username: String(body.user?.username ?? username),
-        token: String(body.token ?? ""),
+        token: accessTokenFromLogin(body),
         email: `${username}@example.com`,
         isAdmin: body.user?.isAdmin === true,
       };
@@ -7217,7 +7219,7 @@ describe("http integration", () => {
       return {
         id: String(body.user?.id ?? ""),
         username: String(body.user?.username ?? username),
-        token: String(body.token ?? ""),
+        token: accessTokenFromLogin(body),
         email: `${username}@example.com`,
         isAdmin: body.user?.isAdmin === true,
       };
@@ -7435,7 +7437,7 @@ describe("http integration", () => {
       expect(res.status).toBe(201);
       return {
         id: String(body.user?.id ?? ""),
-        token: String(body.token ?? ""),
+        token: accessTokenFromLogin(body),
         isAdmin: body.user?.isAdmin === true,
       };
     }
@@ -7605,7 +7607,7 @@ describe("http integration", () => {
       expect(res.status).toBe(201);
       return {
         id: String(body.user?.id ?? ""),
-        token: String(body.token ?? ""),
+        token: accessTokenFromLogin(body),
         isAdmin: body.user?.isAdmin === true,
       };
     }
@@ -7819,7 +7821,7 @@ describe("http integration", () => {
       expect(res.status).toBe(201);
       return {
         id: String(body.user?.id ?? ""),
-        token: String(body.token ?? ""),
+        token: accessTokenFromLogin(body),
         isAdmin: body.user?.isAdmin === true,
       };
     }
@@ -8000,7 +8002,7 @@ describe("http integration", () => {
       expect(res.status).toBe(201);
       return {
         id: String(body.user?.id ?? ""),
-        token: String(body.token ?? ""),
+        token: accessTokenFromLogin(body),
         isAdmin: body.user?.isAdmin === true,
       };
     }
@@ -8370,7 +8372,7 @@ describe("http integration", () => {
       expect(res.status).toBe(201);
       return {
         id: String(body.user?.id ?? ""),
-        token: String(body.token ?? ""),
+        token: accessTokenFromLogin(body),
         isAdmin: body.user?.isAdmin === true,
       };
     }
@@ -8829,7 +8831,7 @@ describe("http integration", () => {
       });
       const body = (await res.json()) as { token?: string; user?: { id?: string } };
       expect(res.status).toBe(201);
-      return { id: String(body.user?.id ?? ""), token: String(body.token ?? "") };
+      return { id: String(body.user?.id ?? ""), token: accessTokenFromLogin(body) };
     }
 
     async function authJson(pathName: string, userToken: string | null, init: RequestInit = {}) {

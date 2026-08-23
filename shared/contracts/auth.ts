@@ -81,8 +81,8 @@ export const registerBodySchema = z.object({
     return value.trim() === "" ? undefined : value;
   }, usernameSchema.optional()),
   displayName: z.string().trim().min(1).max(48).optional(),
-  ageConfirmed13Plus: z.literal(true),
-  consentVersion: z.literal(REGISTER_CONSENT_VERSION),
+  ageConfirmed13Plus: z.literal(true).optional(),
+  consentVersion: z.literal(REGISTER_CONSENT_VERSION).optional(),
 });
 
 export const loginBodySchema = z.object({
@@ -156,13 +156,40 @@ export const meSuccessSchema = z.object({
   user: sessionUserSchema,
 });
 
-export const registerSuccessSchema = z.object({
-  token: z.string().nullable(),
-  user: sessionUserSchema,
+export const productionRegisterSuccessSchema = z.object({
+  user: productionLoginUserSchema,
+  session: productionLoginSessionSchema.nullable(),
+  profile_meta: productionLoginProfileMetaSchema.optional(),
   needsEmailConfirmation: z.boolean(),
-  confirmationEmailSent: z.boolean(),
-  welcomeMessage: z.string(),
+  confirmation_email_sent: z.boolean().optional().default(false),
+  welcome_message: z.string(),
 });
+
+export type ProductionRegisterSuccess = z.infer<typeof productionRegisterSuccessSchema>;
+
+export function sessionUserFromProductionRegister(data: ProductionRegisterSuccess): SessionUser | null {
+  if (data.session && data.profile_meta) {
+    return sessionUserFromProductionLogin({
+      user: data.user,
+      session: data.session,
+      profile_meta: data.profile_meta,
+    });
+  }
+  const parsed = sessionUserSchema.safeParse({
+    id: data.user.id,
+    username: data.user.user_metadata.username,
+    displayName: data.user.user_metadata.full_name,
+    avatarUrl: data.user.user_metadata.avatar_url || null,
+    bio: "",
+    isVerified: false,
+    followerCount: 0,
+    followingCount: 0,
+    email: data.user.email,
+    isAdmin: false,
+    emailConfirmed: Boolean(data.user.email_confirmed_at),
+  });
+  return parsed.success ? parsed.data : null;
+}
 
 export const forgotPasswordBodySchema = z.object({
   email: z.string().trim().email(),

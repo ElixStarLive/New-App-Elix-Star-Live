@@ -180,23 +180,58 @@ async function loadLoginProfileMeta(user: UserRow) {
   };
 }
 
+function productionAuthUser(user: UserRow) {
+  return {
+    id: user.id,
+    email: user.email,
+    user_metadata: {
+      username: user.username,
+      full_name: user.display_name,
+      avatar_url: user.avatar_url || "",
+    },
+    email_confirmed_at: isoOrEmpty(user.email_confirmed_at),
+    created_at: isoOrEmpty(user.created_at),
+  };
+}
+
 async function writeProductionLogin(res: Response, user: UserRow): Promise<void> {
   const session = await issueSession(user);
   setAuthSessionCookie(res, session.token);
   res.json({
-    user: {
-      id: user.id,
-      email: user.email,
-      user_metadata: {
-        username: user.username,
-        full_name: user.display_name,
-        avatar_url: user.avatar_url || "",
-      },
-      email_confirmed_at: isoOrEmpty(user.email_confirmed_at),
-      created_at: isoOrEmpty(user.created_at),
-    },
+    user: productionAuthUser(user),
     session: { access_token: session.token, accessToken: session.token },
     profile_meta: await loadLoginProfileMeta(user),
+  });
+}
+
+async function writeProductionRegister(
+  res: Response,
+  user: UserRow,
+  opts: {
+    needsEmailConfirmation: boolean;
+    confirmationEmailSent: boolean;
+    welcomeMessage: string;
+  },
+): Promise<void> {
+  if (opts.needsEmailConfirmation) {
+    res.status(201).json({
+      user: productionAuthUser(user),
+      session: null,
+      needsEmailConfirmation: true,
+      confirmation_email_sent: opts.confirmationEmailSent,
+      welcome_message: opts.welcomeMessage,
+    });
+    return;
+  }
+  const session = await issueSession(user);
+  setAuthSessionCookie(res, session.token);
+  res.status(201).json({
+    user: productionAuthUser(user),
+    session: { access_token: session.token, accessToken: session.token },
+    profile_meta: await loadLoginProfileMeta(user),
+    needsEmailConfirmation: false,
+    confirmation_email_sent: false,
+    welcome_message: opts.welcomeMessage,
   });
 }
 
@@ -368,12 +403,9 @@ router.post("/register", async (req: Request, res: Response) => {
         );
         return loaded.rows[0];
       });
-      const sessionUser = await toSessionUser(user);
       if (requireConfirm) {
         const confirmationEmailSent = await sendConfirmationEmail(body.email, user.id);
-        res.status(201).json({
-          token: null,
-          user: sessionUser,
+        await writeProductionRegister(res, user, {
           needsEmailConfirmation: true,
           confirmationEmailSent,
           welcomeMessage: confirmationEmailSent
@@ -382,10 +414,7 @@ router.post("/register", async (req: Request, res: Response) => {
         });
         return;
       }
-      const session = await issueSession(user);
-      res.status(201).json({
-        token: session.token,
-        user: session.user,
+      await writeProductionRegister(res, user, {
         needsEmailConfirmation: false,
         confirmationEmailSent: false,
         welcomeMessage: REGISTER_WELCOME_STARTER,
@@ -427,18 +456,11 @@ router.post("/register", async (req: Request, res: Response) => {
       );
       await client.query(`INSERT INTO creator_wallet_gbp (user_id) VALUES ($1)`, [row.id]);
       await client.query(`INSERT INTO notification_prefs (user_id) VALUES ($1)`, [row.id]);
-      await client.query(`INSERT INTO user_consents (user_id, kind) VALUES ($1, $2)`, [
-        row.id,
-        REGISTER_CONSENT_TYPE,
-      ]);
       return row;
     });
-    const sessionUser = await toSessionUser(user);
     if (requireConfirm) {
       const confirmationEmailSent = await sendConfirmationEmail(body.email, user.id);
-      res.status(201).json({
-        token: null,
-        user: sessionUser,
+      await writeProductionRegister(res, user, {
         needsEmailConfirmation: true,
         confirmationEmailSent,
         welcomeMessage: confirmationEmailSent
@@ -447,10 +469,7 @@ router.post("/register", async (req: Request, res: Response) => {
       });
       return;
     }
-    const session = await issueSession(user);
-    res.status(201).json({
-      token: session.token,
-      user: session.user,
+    await writeProductionRegister(res, user, {
       needsEmailConfirmation: false,
       confirmationEmailSent: false,
       welcomeMessage: REGISTER_WELCOME_STARTER,

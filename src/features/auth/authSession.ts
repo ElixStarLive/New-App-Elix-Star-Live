@@ -1,8 +1,9 @@
 import {
   meSuccessSchema,
   productionLoginSuccessSchema,
-  registerSuccessSchema,
+  productionRegisterSuccessSchema,
   sessionUserFromProductionLogin,
+  sessionUserFromProductionRegister,
   verifyEmailSuccessSchema,
   type SessionUser,
 } from "@shared/contracts";
@@ -101,9 +102,18 @@ export async function authRegister(body: {
     body: JSON.stringify(payload),
   });
   if (error) return { ok: false, error: error.message || "Registration failed.", code: error.code };
-  const parsed = registerSuccessSchema.safeParse(data);
+  const parsed = productionRegisterSuccessSchema.safeParse(data);
   if (!parsed.success) return { ok: false, error: "Invalid registration response from server." };
-  return { ok: true, ...parsed.data };
+  const user = sessionUserFromProductionRegister(parsed.data);
+  if (!user) return { ok: false, error: "Invalid registration response from server." };
+  return {
+    ok: true,
+    token: parsed.data.session?.access_token ?? null,
+    user,
+    needsEmailConfirmation: parsed.data.needsEmailConfirmation,
+    confirmationEmailSent: parsed.data.confirmation_email_sent,
+    welcomeMessage: parsed.data.welcome_message,
+  };
 }
 
 export async function authGetMe(): Promise<AuthMeResult> {

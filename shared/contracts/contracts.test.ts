@@ -3,7 +3,9 @@ import {
   loginBodySchema,
   loginIdentifier,
   productionLoginSuccessSchema,
+  productionRegisterSuccessSchema,
   sessionUserFromProductionLogin,
+  sessionUserFromProductionRegister,
   registerBodySchema,
   resetPasswordBodySchema,
   wsEnvelopeSchema,
@@ -30,16 +32,16 @@ describe("contracts", () => {
     expect(result.success).toBe(false);
   });
 
-  it("requires 13+ terms consent on register", () => {
+  it("accepts the production register body without consent fields", () => {
     const result = registerBodySchema.safeParse({
       email: "ok@example.com",
       username: "andrei",
       password: "password12",
     });
-    expect(result.success).toBe(false);
+    expect(result.success).toBe(true);
   });
 
-  it("accepts optional username and required consent", () => {
+  it("accepts optional username and optional consent", () => {
     const result = registerBodySchema.safeParse({
       email: "ok@example.com",
       password: "password12",
@@ -121,6 +123,75 @@ describe("contracts", () => {
           isAdmin: false,
           emailConfirmed: true,
         },
+      }).success,
+    ).toBe(false);
+  });
+
+  it("accepts the production register success body and rejects { token, user }", () => {
+    const confirmed = productionRegisterSuccessSchema.safeParse({
+      user: {
+        id: "00000000-0000-4000-8000-000000000001",
+        email: "andrei@example.com",
+        user_metadata: { username: "andrei", full_name: "andrei", avatar_url: "" },
+        email_confirmed_at: "2026-08-01T00:00:00.000Z",
+        created_at: "2026-08-01T00:00:00.000Z",
+      },
+      session: { access_token: "prod-tok", accessToken: "prod-tok" },
+      profile_meta: {
+        is_admin: false,
+        is_creator: false,
+        banned_until: null,
+        starter_coin_balance: 50000,
+        total_xp: 0,
+        level: 0,
+      },
+      needsEmailConfirmation: false,
+      welcome_message: "Welcome! You received 50,000 Starter Coins to explore gifts and support creators.",
+    });
+    expect(confirmed.success).toBe(true);
+    if (confirmed.success) {
+      const user = sessionUserFromProductionRegister(confirmed.data);
+      expect(user?.username).toBe("andrei");
+      expect(confirmed.data.confirmation_email_sent).toBe(false);
+    }
+
+    const pending = productionRegisterSuccessSchema.safeParse({
+      user: {
+        id: "00000000-0000-4000-8000-000000000001",
+        email: "andrei@example.com",
+        user_metadata: { username: "andrei", full_name: "andrei", avatar_url: "" },
+        email_confirmed_at: "",
+        created_at: "2026-08-01T00:00:00.000Z",
+      },
+      session: null,
+      needsEmailConfirmation: true,
+      confirmation_email_sent: true,
+      welcome_message: "Check your email to confirm your account before signing in.",
+    });
+    expect(pending.success).toBe(true);
+    if (pending.success) {
+      expect(sessionUserFromProductionRegister(pending.data)?.emailConfirmed).toBe(false);
+    }
+
+    expect(
+      productionRegisterSuccessSchema.safeParse({
+        token: "tok",
+        user: {
+          id: "00000000-0000-4000-8000-000000000001",
+          username: "andrei",
+          displayName: "Andrei",
+          avatarUrl: null,
+          bio: "",
+          isVerified: false,
+          followerCount: 0,
+          followingCount: 0,
+          email: "andrei@example.com",
+          isAdmin: false,
+          emailConfirmed: true,
+        },
+        needsEmailConfirmation: false,
+        confirmationEmailSent: false,
+        welcomeMessage: "Welcome! You received 50,000 Starter Coins to explore gifts and support creators.",
       }).success,
     ).toBe(false);
   });

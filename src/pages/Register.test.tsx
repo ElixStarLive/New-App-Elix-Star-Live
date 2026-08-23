@@ -101,6 +101,7 @@ describe("PAGE-002 Register", () => {
     container = mounted.container;
     const page = mounted.container;
     expect(page.querySelector("h1")?.textContent).toBe("Create Account");
+    expect(page.querySelector(".elix-auth-form")?.parentElement?.className).not.toContain("elix-page-glass");
     expect(page.querySelector('img[alt="Elix Star Live"]')).toBeTruthy();
     expect(page.querySelector('img[alt="Elix Star Live"]')?.className).toContain("w-20");
     expect(page.textContent).toContain("Username (optional)");
