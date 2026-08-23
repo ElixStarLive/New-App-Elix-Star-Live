@@ -29,9 +29,11 @@ describe("PAGE-001 Login ownership", () => {
     expect(session).not.toMatch(/meSuccessSchema/);
     expect(contract).toMatch(/productionLoginSuccessSchema/);
     expect(contract).toMatch(/access_token/);
+    expect(contract).toMatch(/accessToken/);
     expect(router).toMatch(/writeProductionLogin/);
     expect(router).toMatch(/writeProductionSession/);
     expect(router).toMatch(/access_token/);
+    expect(router).toMatch(/accessToken/);
     expect(router).toMatch(/Invalid login credentials\./);
     expect(session).toMatch(/idToken/);
     expect(session).not.toMatch(/identityToken,\s*nonce/);

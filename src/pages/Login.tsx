@@ -91,7 +91,11 @@ export default function Login() {
           unlockSubmit();
           return;
         }
-        setError(res.error);
+        const message =
+          res.error === "System error: Authentication not configured."
+            ? "Please refresh the page and try again. If the problem continues, ensure the app is updated and the server is running."
+            : res.error;
+        setError(message);
         unlockSubmit();
         return;
       }
