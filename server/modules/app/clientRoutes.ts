@@ -1,19 +1,81 @@
 import { Router } from "express";
-import Stripe from "stripe";
-import { randomUUID } from "node:crypto";
 import { getPool, withTransaction } from "../../infra/postgres.js";
-import { env } from "../../infra/env.js";
-import { createLivekitToken } from "../../infra/livekit.js";
+import { isLiveNeonSchema } from "../../infra/liveSchema.js";
 import { requireAuth, requireAdmin, type AuthedRequest } from "../../middleware/auth.js";
+import { issueCallToken } from "../calls/token.js";
 import { AppError } from "../../middleware/errors.js";
-import { reportBodySchema } from "../../../shared/contracts/social.js";
-import { withdrawalBodySchema } from "../../../shared/contracts/money.js";
+import { queryDiscoverPage, queryDiscoverSearch } from "../discover/query.js";
+import { querySearchPage } from "../search/query.js";
+import { normalizeSearchCategory } from "../../../shared/searchCategories.js";
+import {
+  listInboxActivity,
+  listInboxCircles,
+  listInboxNotices,
+  listInboxThreads,
+  listLiveShareRequests,
+} from "../inbox/query.js";
+import {
+  dmRealtimePayloads,
+  getThreadDetail,
+  isBlockedEitherWay,
+  listThreadMessages,
+  markThreadRead,
+  sendThreadMessage,
+} from "../inbox/thread.js";
+import { logger } from "../../infra/logger.js";
+import { handleAdminDashboard, handleAdminDau } from "../admin/dashboard.js";
+import { handleAdminEconomy, handleAdminPatchGiftCatalog } from "../admin/economy.js";
+import { handleAdminMonetisation, handleAdminPatchMonetisationConfig } from "../admin/monetisation.js";
+import { handleAdminIapPurchases, handleAdminShopPurchases } from "../admin/purchases.js";
+import { handleAdminBan, handleAdminUnban, handleAdminUsers } from "../admin/users.js";
+import { handleAdminPatchReport, handleAdminReports } from "../admin/reports.js";
+import {
+  handleAdminChargeback,
+  handleAdminUnfreeze,
+  handleAdminWithdrawalAction,
+  handleAdminWithdrawals,
+} from "../admin/withdrawals.js";
+import {
+  handleAdminRisingStarsAudit,
+  handleAdminRisingStarsAwardBadge,
+  handleAdminRisingStarsChallenges,
+  handleAdminRisingStarsCreateBadge,
+  handleAdminRisingStarsCreateCategory,
+  handleAdminRisingStarsCreateChallenge,
+  handleAdminRisingStarsCreateRegion,
+  handleAdminRisingStarsCreateRewardDefinition,
+  handleAdminRisingStarsCreateSeason,
+  handleAdminRisingStarsDisqualify,
+  handleAdminRisingStarsFreeze,
+  handleAdminRisingStarsGrantReward,
+  handleAdminRisingStarsSeasons,
+  handleAdminRisingStarsSetChallengeStatus,
+  handleAdminRisingStarsSnapshot,
+} from "../admin/risingStars.js";
+import {
+  handleAdminProgressionArchiveMission,
+  handleAdminProgressionAudit,
+  handleAdminProgressionBattleCaps,
+  handleAdminProgressionConfig,
+  handleAdminProgressionDailyRewards,
+  handleAdminProgressionFeatureFlags,
+  handleAdminProgressionLevels,
+  handleAdminProgressionMissions,
+  handleAdminProgressionPatchConfig,
+  handleAdminProgressionPatchFeatureFlags,
+  handleAdminProgressionPatchMission,
+  handleAdminProgressionPutBattleCaps,
+  handleAdminProgressionPutDailyPolicy,
+  handleAdminProgressionPutDailyReward,
+  handleAdminProgressionPutLevel,
+  handleAdminProgressionStarterAdjust,
+  handleAdminProgressionUser,
+  handleAdminProgressionXpAdjust,
+} from "../admin/progression.js";
 
 export const inboxRouter = Router();
-export const safetyRouter = Router();
 export const discoverRouter = Router();
 export const callsRouter = Router();
-export const payoutsRouter = Router();
 export const extraAdminRouter = Router();
 
 function param(req: { params: Record<string, string | string[] | undefined> }, name: string): string {
@@ -21,54 +83,33 @@ function param(req: { params: Record<string, string | string[] | undefined> }, n
   return Array.isArray(value) ? (value[0] ?? "") : (value ?? "");
 }
 
-inboxRouter.get("/threads", requireAuth, async (req: AuthedRequest, res) => {
-  const { rows } = await getPool().query<{
-    id: string;
-    other_user_id: string;
-    username: string;
-    display_name: string;
-    avatar_url: string | null;
-    last_message: string | null;
-    updated_at: Date;
-    unread: boolean;
-  }>(
-    `SELECT t.id,
-            o.id AS other_user_id,
-            o.username,
-            o.display_name,
-            o.avatar_url,
-            (SELECT body FROM chat_messages m WHERE m.thread_id = t.id ORDER BY created_at DESC LIMIT 1) AS last_message,
-            COALESCE((SELECT MAX(created_at) FROM chat_messages m WHERE m.thread_id = t.id), t.created_at) AS updated_at,
-            EXISTS(
-              SELECT 1 FROM chat_messages m
-              WHERE m.thread_id = t.id
-                AND m.sender_id <> $1
-                AND (mem.last_read_at IS NULL OR m.created_at > mem.last_read_at)
-            ) AS unread
-     FROM chat_threads t
-     JOIN chat_thread_members mem ON mem.thread_id = t.id AND mem.user_id = $1
-     JOIN chat_thread_members other ON other.thread_id = t.id AND other.user_id <> $1
-     JOIN users o ON o.id = other.user_id
-     ORDER BY updated_at DESC`,
-    [req.userId],
-  );
-  res.json({
-    threads: rows.map((row) => ({
-      id: row.id,
-      otherUserId: row.other_user_id,
-      otherUsername: row.username,
-      otherDisplayName: row.display_name,
-      otherAvatarUrl: row.avatar_url,
-      lastMessage: row.last_message ?? "",
-      unread: row.unread,
-      updatedAt: row.updated_at.toISOString(),
-    })),
-  });
-});
-
-inboxRouter.post("/threads", requireAuth, async (req: AuthedRequest, res) => {
+async function ensureInboxThread(req: AuthedRequest, res: import("express").Response): Promise<void> {
   const userId = typeof req.body?.userId === "string" ? req.body.userId : "";
   if (!userId || userId === req.userId) throw new AppError("validation_error", "Invalid recipient", 400);
+  if (await isBlockedEitherWay(req.userId as string, userId)) {
+    throw new AppError("forbidden", "You cannot message this user.", 403);
+  }
+  const live = await isLiveNeonSchema();
+  if (live) {
+    const existing = await getPool().query<{ id: string }>(
+      `SELECT id FROM chat_threads
+       WHERE (user1_id = $1 AND user2_id = $2) OR (user1_id = $2 AND user2_id = $1)
+       LIMIT 1`,
+      [req.userId, userId],
+    );
+    if (existing.rows[0]) {
+      res.json({ id: existing.rows[0].id });
+      return;
+    }
+    const created = await getPool().query<{ id: string }>(
+      `INSERT INTO chat_threads (user1_id, user2_id, last_message, last_at, created_at)
+       VALUES ($1, $2, '', NOW(), NOW())
+       RETURNING id`,
+      [req.userId, userId],
+    );
+    res.status(201).json({ id: created.rows[0].id });
+    return;
+  }
   const existing = await getPool().query<{ id: string }>(
     `SELECT t.id
      FROM chat_threads t
@@ -92,434 +133,335 @@ inboxRouter.post("/threads", requireAuth, async (req: AuthedRequest, res) => {
     return id;
   });
   res.status(201).json({ id: created });
+}
+
+inboxRouter.get("/threads", requireAuth, async (req: AuthedRequest, res) => {
+  res.json({ threads: await listInboxThreads(req.userId as string) });
+});
+
+inboxRouter.get("/circles", requireAuth, async (req: AuthedRequest, res) => {
+  res.json({ users: await listInboxCircles(req.userId as string) });
+});
+
+inboxRouter.get("/notices", requireAuth, async (req: AuthedRequest, res) => {
+  res.json(await listInboxNotices(req.userId as string));
+});
+
+inboxRouter.get("/live-share-requests", requireAuth, async (req: AuthedRequest, res) => {
+  res.json({ items: await listLiveShareRequests(req.userId as string) });
+});
+
+inboxRouter.post("/threads", requireAuth, async (req: AuthedRequest, res) => {
+  await ensureInboxThread(req, res);
+});
+
+/** OLD contract alias — same handler as POST /threads. */
+inboxRouter.post("/threads/ensure", requireAuth, async (req: AuthedRequest, res) => {
+  await ensureInboxThread(req, res);
 });
 
 inboxRouter.delete("/threads/:threadId", requireAuth, async (req: AuthedRequest, res) => {
-  await getPool().query(
+  const threadId = param(req, "threadId");
+  if (await isLiveNeonSchema()) {
+    const client = await getPool().connect();
+    try {
+      await client.query("BEGIN");
+      const owned = await client.query(
+        `SELECT 1 FROM chat_threads WHERE id = $1 AND (user1_id = $2 OR user2_id = $2) FOR UPDATE`,
+        [threadId, req.userId],
+      );
+      if (!owned.rows[0]) {
+        await client.query("ROLLBACK");
+        throw new AppError("not_found", "Thread not found", 404);
+      }
+      await client.query(`DELETE FROM messages WHERE thread_id = $1`, [threadId]);
+      await client.query(
+        `DELETE FROM chat_threads WHERE id = $1 AND (user1_id = $2 OR user2_id = $2)`,
+        [threadId, req.userId],
+      );
+      await client.query("COMMIT");
+    } catch (error) {
+      try {
+        await client.query("ROLLBACK");
+      } catch {
+        /* ignore */
+      }
+      throw error;
+    } finally {
+      client.release();
+    }
+    res.json({ ok: true });
+    return;
+  }
+  const result = await getPool().query(
     `DELETE FROM chat_threads t
      USING chat_thread_members m
      WHERE t.id = $1 AND m.thread_id = t.id AND m.user_id = $2`,
-    [param(req, "threadId"), req.userId],
+    [threadId, req.userId],
   );
+  if (!result.rowCount) throw new AppError("not_found", "Thread not found", 404);
   res.json({ ok: true });
 });
 
+inboxRouter.get("/threads/:threadId", requireAuth, async (req: AuthedRequest, res) => {
+  res.json({ thread: await getThreadDetail(req.userId as string, param(req, "threadId")) });
+});
+
 inboxRouter.get("/threads/:threadId/messages", requireAuth, async (req: AuthedRequest, res) => {
-  const threadId = param(req, "threadId");
-  const member = await getPool().query(
-    `SELECT 1 FROM chat_thread_members WHERE thread_id = $1 AND user_id = $2`,
-    [threadId, req.userId],
-  );
-  if (!member.rows[0]) throw new AppError("forbidden", "Not in this thread", 403);
-  const { rows } = await getPool().query<{
-    id: string;
-    thread_id: string;
-    sender_id: string;
-    body: string;
-    created_at: Date;
-  }>(
-    `SELECT id, thread_id, sender_id, body, created_at
-     FROM chat_messages WHERE thread_id = $1 ORDER BY created_at ASC LIMIT 200`,
-    [threadId],
-  );
-  await getPool().query(
-    `UPDATE chat_thread_members SET last_read_at = NOW() WHERE thread_id = $1 AND user_id = $2`,
-    [threadId, req.userId],
-  );
-  res.json({
-    messages: rows.map((row) => ({
-      id: row.id,
-      threadId: row.thread_id,
-      senderId: row.sender_id,
-      body: row.body,
-      createdAt: row.created_at.toISOString(),
-    })),
-  });
+  res.json({ messages: await listThreadMessages(req.userId as string, param(req, "threadId")) });
+});
+
+inboxRouter.post("/threads/:threadId/read", requireAuth, async (req: AuthedRequest, res) => {
+  await markThreadRead(req.userId as string, param(req, "threadId"));
+  res.json({ ok: true });
 });
 
 inboxRouter.post("/threads/:threadId/messages", requireAuth, async (req: AuthedRequest, res) => {
   const threadId = param(req, "threadId");
-  const body = typeof req.body?.body === "string" ? req.body.body.trim() : "";
-  if (!body) throw new AppError("validation_error", "Message required", 400);
-  const member = await getPool().query(
-    `SELECT 1 FROM chat_thread_members WHERE thread_id = $1 AND user_id = $2`,
-    [threadId, req.userId],
-  );
-  if (!member.rows[0]) throw new AppError("forbidden", "Not in this thread", 403);
-  const inserted = await getPool().query<{
-    id: string;
-    thread_id: string;
-    sender_id: string;
-    body: string;
-    created_at: Date;
-  }>(
-    `INSERT INTO chat_messages (thread_id, sender_id, body)
-     VALUES ($1, $2, $3)
-     RETURNING id, thread_id, sender_id, body, created_at`,
-    [threadId, req.userId, body],
-  );
-  const row = inserted.rows[0];
-  res.status(201).json({
-    message: {
-      id: row.id,
-      threadId: row.thread_id,
-      senderId: row.sender_id,
-      body: row.body,
-      createdAt: row.created_at.toISOString(),
-    },
-  });
+  const rawBody = typeof req.body?.body === "string" ? req.body.body : "";
+  const clientRequestId = typeof req.body?.clientRequestId === "string" ? req.body.clientRequestId : undefined;
+  const result = await sendThreadMessage(req.userId as string, threadId, rawBody, clientRequestId);
+  if (result.created) {
+    try {
+      const { sendToUserGlobal } = await import("../../websocket/index.js");
+      const payloads = dmRealtimePayloads(threadId, result.message, req.userId as string);
+      await sendToUserGlobal(req.userId as string, "dm_message", payloads.message);
+      await sendToUserGlobal(result.otherUserId, "dm_message", payloads.message);
+      await sendToUserGlobal(req.userId as string, "dm_thread_updated", payloads.threadUpdated);
+      await sendToUserGlobal(result.otherUserId, "dm_thread_updated", payloads.threadUpdated);
+    } catch (error) {
+      logger.warn({ err: error, threadId }, "dm fanout skipped");
+    }
+  }
+  res.status(result.created ? 201 : 200).json({ message: result.message });
 });
 
-safetyRouter.get("/blocked", requireAuth, async (req: AuthedRequest, res) => {
-  const { rows } = await getPool().query<{ id: string; username: string; avatar_url: string | null }>(
-    `SELECT u.id, u.username, u.avatar_url
-     FROM blocks b JOIN users u ON u.id = b.blocked_id
-     WHERE b.blocker_id = $1`,
-    [req.userId],
-  );
-  res.json({
-    users: rows.map((row) => ({ id: row.id, username: row.username, avatarUrl: row.avatar_url })),
-  });
-});
-
-safetyRouter.delete("/blocked/:userId", requireAuth, async (req: AuthedRequest, res) => {
-  await getPool().query(`DELETE FROM blocks WHERE blocker_id = $1 AND blocked_id = $2`, [
-    req.userId,
-    param(req, "userId"),
-  ]);
-  res.json({ ok: true });
-});
-
-discoverRouter.get("/discover", async (_req, res) => {
-  const { rows } = await getPool().query<{ tag: string }>(
-    `SELECT DISTINCT unnest(hashtags) AS tag FROM videos WHERE deleted_at IS NULL AND cardinality(hashtags) > 0 LIMIT 40`,
-  );
-  res.json({ tags: rows.map((row) => row.tag) });
-});
-
-discoverRouter.get("/search", async (req, res) => {
+discoverRouter.get("/discover/search", async (req: AuthedRequest, res) => {
   const q = typeof req.query.q === "string" ? req.query.q.trim() : "";
-  if (!q) {
-    res.json({ results: [] });
+  if (q.length < 2) {
+    res.json({ users: [], videos: [] });
     return;
   }
-  const like = `%${q.replaceAll("%", "\\%").replaceAll("_", "\\_")}%`;
-  const users = await getPool().query<{ id: string; username: string; display_name: string; avatar_url: string | null }>(
-    `SELECT id, username, display_name, avatar_url
-     FROM users
-     WHERE deleted_at IS NULL AND (username ILIKE $1 OR display_name ILIKE $1)
-     LIMIT 20`,
-    [like],
-  );
-  const videos = await getPool().query<{ id: string; caption: string }>(
-    `SELECT id, caption FROM videos WHERE deleted_at IS NULL AND caption ILIKE $1 LIMIT 20`,
-    [like],
-  );
-  res.json({
-    results: [
-      ...users.rows.map((row) => ({
-        id: row.id,
-        kind: "user" as const,
-        title: row.display_name,
-        subtitle: `@${row.username}`,
-        avatarUrl: row.avatar_url,
-      })),
-      ...videos.rows.map((row) => ({
-        id: row.id,
-        kind: "video" as const,
-        title: row.caption || "Video",
-        subtitle: "video",
-        avatarUrl: null,
-      })),
-    ],
-  });
+  res.json(await queryDiscoverSearch(req.userId ?? null, q));
+});
+
+discoverRouter.get("/discover", async (req: AuthedRequest, res) => {
+  res.json(await queryDiscoverPage(req.userId ?? null));
+});
+
+discoverRouter.get("/search", async (req: AuthedRequest, res) => {
+  const q = typeof req.query.q === "string" ? req.query.q : "";
+  const category = normalizeSearchCategory(typeof req.query.category === "string" ? req.query.category : "All");
+  res.json(await querySearchPage(req.userId ?? null, q, category));
 });
 
 discoverRouter.get("/activity", requireAuth, async (req: AuthedRequest, res) => {
-  const { rows } = await getPool().query<{ id: string; kind: string; payload: Record<string, unknown>; created_at: Date }>(
-    `SELECT id, kind, payload, created_at FROM notifications WHERE user_id = $1 ORDER BY created_at DESC LIMIT 50`,
-    [req.userId],
-  );
-  res.json({
-    items: rows.map((row) => ({
-      id: row.id,
-      title: row.kind,
-      body: typeof row.payload?.body === "string" ? row.payload.body : "",
-      createdAt: row.created_at.toISOString(),
-    })),
-  });
+  res.json(await listInboxActivity(req.userId as string));
 });
 
-callsRouter.post("/start", requireAuth, async (req: AuthedRequest, res) => {
-  const userId = typeof req.body?.userId === "string" ? req.body.userId : "";
-  if (!userId || userId === req.userId) throw new AppError("validation_error", "Invalid callee", 400);
-  const roomName = `call_${randomUUID()}`;
-  const inserted = await getPool().query<{ id: string }>(
-    `INSERT INTO calls (caller_id, callee_id, room_name, status) VALUES ($1, $2, $3, 'ringing') RETURNING id`,
-    [req.userId, userId, roomName],
-  );
-  const token = await createLivekitToken({
-    identity: req.userId as string,
-    room: roomName,
-    canPublish: true,
-  });
-  res.status(201).json({
-    callId: inserted.rows[0].id,
-    roomName,
-    livekitUrl: token.url,
-    livekitToken: token.token,
-  });
+callsRouter.post("/:callId/token", requireAuth, async (req: AuthedRequest, res) => {
+  res.json(await issueCallToken(req.userId as string, param(req, "callId")));
 });
 
-callsRouter.post("/:callId/:action", requireAuth, async (req: AuthedRequest, res) => {
-  const action = param(req, "action");
-  const callId = param(req, "callId");
-  const { rows } = await getPool().query<{ caller_id: string; callee_id: string; room_name: string; status: string }>(
-    `SELECT caller_id, callee_id, room_name, status FROM calls WHERE id = $1`,
-    [callId],
-  );
-  const call = rows[0];
-  if (!call) throw new AppError("not_found", "Call not found", 404);
-  if (call.caller_id !== req.userId && call.callee_id !== req.userId) {
-    throw new AppError("forbidden", "Not a participant", 403);
-  }
-  if (action === "accept") {
-    if (req.userId !== call.callee_id) throw new AppError("forbidden", "Only the callee can accept", 403);
-    await getPool().query(`UPDATE calls SET status = 'active' WHERE id = $1 AND status = 'ringing'`, [callId]);
-  } else if (action === "reject") {
-    await getPool().query(`UPDATE calls SET status = 'rejected', ended_at = NOW() WHERE id = $1`, [callId]);
-  } else if (action === "end") {
-    await getPool().query(`UPDATE calls SET status = 'ended', ended_at = NOW() WHERE id = $1`, [callId]);
-  } else {
-    throw new AppError("validation_error", "Unknown call action", 400);
-  }
-  res.json({ ok: true });
+extraAdminRouter.get("/dashboard", requireAuth, requireAdmin, (req, res, next) => {
+  void handleAdminDashboard(req, res).catch(next);
 });
 
-payoutsRouter.post("/withdraw", requireAuth, async (req: AuthedRequest, res) => {
-  const body = withdrawalBodySchema.parse(req.body);
-  const account = await getPool().query<{ stripe_account_id: string | null }>(
-    `SELECT stripe_account_id FROM payout_accounts WHERE user_id = $1`,
-    [req.userId],
-  );
-  if (!account.rows[0]?.stripe_account_id) {
-    throw new AppError("validation_error", "Connect your payout account first", 400);
-  }
-  await withTransaction(async (client) => {
-    const wallet = await client.query<{ available_pence: string }>(
-      `SELECT available_pence FROM creator_wallet_gbp WHERE user_id = $1 FOR UPDATE`,
-      [req.userId],
-    );
-    const available = Number(wallet.rows[0]?.available_pence ?? 0);
-    if (available < body.amountPence) {
-      throw new AppError("insufficient_balance", "Not enough available balance", 400);
-    }
-    await client.query(
-      `UPDATE creator_wallet_gbp
-       SET available_pence = available_pence - $2, withdrawn_pence = withdrawn_pence + $2, updated_at = NOW()
-       WHERE user_id = $1`,
-      [req.userId, body.amountPence],
-    );
-    await client.query(
-      `INSERT INTO financial_ledger (account, amount_pence, reason, idempotency_key, ref_type, ref_id)
-       VALUES ($1, $2, 'withdrawal', $3, 'withdrawal', $3)`,
-      [`creator:${req.userId}`, -body.amountPence, body.idempotencyKey],
-    );
-    await client.query(
-      `INSERT INTO withdrawals_gbp (user_id, amount_pence, status, idempotency_key)
-       VALUES ($1, $2, 'pending', $3)`,
-      [req.userId, body.amountPence, body.idempotencyKey],
-    );
-  });
-  res.json({ ok: true });
+extraAdminRouter.get("/stats/dau", requireAuth, requireAdmin, (req, res, next) => {
+  void handleAdminDau(req, res).catch(next);
 });
 
-extraAdminRouter.get("/dashboard", requireAuth, requireAdmin, async (_req, res) => {
-  const { rows } = await getPool().query<{
-    users: string;
-    videos: string;
-    live: string;
-    reports: string;
-    revenue: string;
-    dau: string;
-  }>(
-    `SELECT
-       (SELECT COUNT(*)::text FROM users WHERE deleted_at IS NULL) AS users,
-       (SELECT COUNT(*)::text FROM videos WHERE deleted_at IS NULL) AS videos,
-       (SELECT COUNT(*)::text FROM live_streams WHERE status = 'live') AS live,
-       (SELECT COUNT(*)::text FROM reports WHERE status = 'open') AS reports,
-       (SELECT COALESCE(SUM(coins), 0)::text FROM processed_purchases WHERE status = 'credited') AS revenue,
-       (SELECT COUNT(DISTINCT user_id)::text FROM auth_sessions WHERE created_at > NOW() - INTERVAL '1 day') AS dau`,
-  );
-  const row = rows[0];
-  res.json({
-    dailyActiveUsers: Number(row.dau),
-    totalUsers: Number(row.users),
-    totalVideos: Number(row.videos),
-    liveRooms: Number(row.live),
-    totalRevenueMinor: Number(row.revenue),
-    pendingReports: Number(row.reports),
-  });
+extraAdminRouter.post("/users/:userId/ban", requireAuth, requireAdmin, (req, res, next) => {
+  void handleAdminBan(req, res).catch(next);
 });
 
-extraAdminRouter.post("/users/:userId/ban", requireAuth, requireAdmin, async (req: AuthedRequest, res) => {
-  const banned = req.body?.banned !== false;
-  await getPool().query(
-    `UPDATE users SET banned_until = $2, updated_at = NOW() WHERE id = $1 AND deleted_at IS NULL`,
-    [param(req, "userId"), banned ? new Date("9999-12-31T00:00:00.000Z") : null],
-  );
-  res.json({ ok: true, banned });
+extraAdminRouter.delete("/users/:userId/ban", requireAuth, requireAdmin, (req, res, next) => {
+  void handleAdminUnban(req, res).catch(next);
 });
 
-extraAdminRouter.post("/reports/:reportId/resolve", requireAuth, requireAdmin, async (req: AuthedRequest, res) => {
-  const result = await getPool().query(
-    `UPDATE reports SET status = 'resolved', reviewed_by = $2, reviewed_at = NOW() WHERE id = $1`,
-    [param(req, "reportId"), req.userId],
-  );
-  if (result.rowCount === 0) throw new AppError("not_found", "Report not found", 404);
-  res.json({ ok: true });
+extraAdminRouter.patch("/reports/:reportId", requireAuth, requireAdmin, (req, res, next) => {
+  void handleAdminPatchReport(req, res).catch(next);
 });
 
-extraAdminRouter.get("/users", requireAuth, requireAdmin, async (_req, res) => {
-  const { rows } = await getPool().query<{
-    id: string;
-    username: string;
-    email: string;
-    is_admin: boolean;
-    banned_until: Date | null;
-  }>(
-    `SELECT id, username, email, is_admin, banned_until
-     FROM users WHERE deleted_at IS NULL ORDER BY created_at DESC LIMIT 200`,
-  );
-  res.json({
-    users: rows.map((row) => ({
-      id: row.id,
-      username: row.username,
-      email: row.email,
-      isAdmin: row.is_admin,
-      banned: Boolean(row.banned_until && row.banned_until > new Date()),
-    })),
-  });
+extraAdminRouter.get("/users", requireAuth, requireAdmin, (req, res, next) => {
+  void handleAdminUsers(req, res).catch(next);
 });
 
-extraAdminRouter.get("/reports", requireAuth, requireAdmin, async (_req, res) => {
-  const { rows } = await getPool().query<{
-    id: string;
-    target_kind: string;
-    target_id: string | null;
-    reason: string;
-    status: string;
-  }>(`SELECT id, target_kind, target_id, reason, status FROM reports ORDER BY created_at DESC LIMIT 200`);
-  res.json({
-    reports: rows.map((row) => ({
-      id: row.id,
-      targetKind: row.target_kind,
-      targetId: row.target_id ?? "",
-      reason: row.reason,
-      status: row.status,
-    })),
-  });
+extraAdminRouter.get("/reports", requireAuth, requireAdmin, (req, res, next) => {
+  void handleAdminReports(req, res).catch(next);
 });
 
-extraAdminRouter.get("/withdrawals", requireAuth, requireAdmin, async (_req, res) => {
-  const { rows } = await getPool().query(`SELECT * FROM withdrawals_gbp ORDER BY created_at DESC LIMIT 200`);
-  res.json({ rows });
+extraAdminRouter.get("/withdrawals", requireAuth, requireAdmin, (req, res, next) => {
+  void handleAdminWithdrawals(req, res).catch(next);
 });
 
-extraAdminRouter.get("/purchases", requireAuth, requireAdmin, async (_req, res) => {
-  const { rows } = await getPool().query(`SELECT * FROM processed_purchases ORDER BY created_at DESC LIMIT 200`);
-  res.json({ rows });
+extraAdminRouter.post("/withdrawals/:id/review", requireAuth, requireAdmin, (req, res, next) => {
+  void handleAdminWithdrawalAction(req, res, "review").catch(next);
 });
 
-extraAdminRouter.get("/rising-stars", requireAuth, requireAdmin, async (_req, res) => {
-  const { rows } = await getPool().query(
-    `SELECT c.id, c.title, s.title AS season, c.status, c.closes_at,
-            (SELECT COUNT(*)::int FROM rs_entries e WHERE e.challenge_id = c.id) AS entries
-     FROM rs_challenges c
-     JOIN rs_seasons s ON s.id = c.season_id
-     ORDER BY c.opens_at DESC`,
-  );
-  res.json({ rows });
+extraAdminRouter.post("/withdrawals/:id/approve", requireAuth, requireAdmin, (req, res, next) => {
+  void handleAdminWithdrawalAction(req, res, "approve").catch(next);
 });
 
-extraAdminRouter.get("/progression", requireAuth, requireAdmin, async (_req, res) => {
-  const { rows } = await getPool().query(
-    `SELECT m.id, m.title, COUNT(p.user_id)::int AS progress_rows
-     FROM engagement_missions m
-     LEFT JOIN user_mission_progress p ON p.mission_id = m.id
-     GROUP BY m.id, m.title
-     ORDER BY m.id`,
-  );
-  res.json({ rows });
+extraAdminRouter.post("/withdrawals/:id/reject", requireAuth, requireAdmin, (req, res, next) => {
+  void handleAdminWithdrawalAction(req, res, "reject").catch(next);
 });
 
-extraAdminRouter.get("/monetisation", requireAuth, requireAdmin, async (_req, res) => {
-  const { rows } = await getPool().query(
-    `SELECT provider, COUNT(*)::int AS count, COALESCE(SUM(coins),0)::int AS coins
-     FROM processed_purchases GROUP BY provider`,
-  );
-  res.json({ rows });
+extraAdminRouter.post("/withdrawals/:id/cancel", requireAuth, requireAdmin, (req, res, next) => {
+  void handleAdminWithdrawalAction(req, res, "cancel").catch(next);
 });
 
-extraAdminRouter.get("/economy", requireAuth, requireAdmin, async (_req, res) => {
-  const { rows } = await getPool().query(
-    `SELECT
-       COALESCE(SUM(paid_coins),0)::text AS paid,
-       COALESCE(SUM(promo_coins),0)::text AS promo,
-       COALESCE(SUM(test_coins),0)::text AS test
-     FROM wallet_balances`,
-  );
-  res.json({ rows });
+extraAdminRouter.post("/withdrawals/:id/mark-paid", requireAuth, requireAdmin, (req, res, next) => {
+  void handleAdminWithdrawalAction(req, res, "mark-paid").catch(next);
 });
 
-export async function handleReports(req: AuthedRequest, res: import("express").Response): Promise<void> {
-  const body = reportBodySchema.parse(req.body);
-  await getPool().query(
-    `INSERT INTO reports (reporter_id, target_user_id, target_kind, target_id, reason, details)
-     VALUES ($1, $2, $3, $4, $5, $6)`,
-    [
-      req.userId,
-      body.targetKind === "user" ? body.targetId : null,
-      body.targetKind,
-      body.targetId,
-      body.reason,
-      body.details ?? "",
-    ],
-  );
-  res.json({ ok: true });
-}
+extraAdminRouter.post("/chargeback", requireAuth, requireAdmin, (req, res, next) => {
+  void handleAdminChargeback(req, res).catch(next);
+});
 
-export async function shopCheckout(req: AuthedRequest, res: import("express").Response): Promise<void> {
-  const itemId = typeof req.body?.itemId === "string" ? req.body.itemId : "";
-  const key = env().STRIPE_SECRET_KEY;
-  if (!key) throw new AppError("unavailable", "Shop checkout is not configured", 503);
-  const item = await getPool().query<{ title: string; price_pence: number }>(
-    `SELECT title, price_pence FROM shop_items WHERE id = $1 AND deleted_at IS NULL`,
-    [itemId],
-  );
-  if (!item.rows[0]) throw new AppError("not_found", "Item not found", 404);
-  const stripe = new Stripe(key);
-  const origin = env().CLIENT_URL || "http://localhost:5173";
-  const session = await stripe.checkout.sessions.create({
-    mode: "payment",
-    line_items: [
-      {
-        price_data: {
-          currency: "gbp",
-          product_data: { name: item.rows[0].title },
-          unit_amount: item.rows[0].price_pence,
-        },
-        quantity: 1,
-      },
-    ],
-    success_url: `${origin}/shop?paid=1`,
-    cancel_url: `${origin}/shop`,
-    metadata: { itemId, buyerId: req.userId as string },
-  });
-  if (!session.url || !session.id) throw new AppError("unavailable", "Checkout session was not created", 503);
-  await getPool().query(
-    `INSERT INTO shop_purchases (buyer_id, item_id, stripe_session_id, status) VALUES ($1, $2, $3, 'pending')`,
-    [req.userId, itemId, session.id],
-  );
-  res.json({ url: session.url });
-}
+extraAdminRouter.post("/unfreeze/:userId", requireAuth, requireAdmin, (req, res, next) => {
+  void handleAdminUnfreeze(req, res).catch(next);
+});
+
+extraAdminRouter.get("/purchases", requireAuth, requireAdmin, (req, res, next) => {
+  void handleAdminIapPurchases(req, res).catch(next);
+});
+
+extraAdminRouter.get("/iap-purchases", requireAuth, requireAdmin, (req, res, next) => {
+  void handleAdminIapPurchases(req, res).catch(next);
+});
+
+extraAdminRouter.get("/shop-purchases", requireAuth, requireAdmin, (req, res, next) => {
+  void handleAdminShopPurchases(req, res).catch(next);
+});
+
+extraAdminRouter.get("/rising-stars/seasons", requireAuth, requireAdmin, (req, res, next) => {
+  void handleAdminRisingStarsSeasons(req, res).catch(next);
+});
+
+extraAdminRouter.post("/rising-stars/seasons", requireAuth, requireAdmin, (req, res, next) => {
+  void handleAdminRisingStarsCreateSeason(req, res).catch(next);
+});
+
+extraAdminRouter.post("/rising-stars/categories", requireAuth, requireAdmin, (req, res, next) => {
+  void handleAdminRisingStarsCreateCategory(req, res).catch(next);
+});
+
+extraAdminRouter.post("/rising-stars/regions", requireAuth, requireAdmin, (req, res, next) => {
+  void handleAdminRisingStarsCreateRegion(req, res).catch(next);
+});
+
+extraAdminRouter.get("/rising-stars/challenges", requireAuth, requireAdmin, (req, res, next) => {
+  void handleAdminRisingStarsChallenges(req, res).catch(next);
+});
+
+extraAdminRouter.post("/rising-stars/challenges", requireAuth, requireAdmin, (req, res, next) => {
+  void handleAdminRisingStarsCreateChallenge(req, res).catch(next);
+});
+
+extraAdminRouter.patch("/rising-stars/challenges/:id/status", requireAuth, requireAdmin, (req, res, next) => {
+  void handleAdminRisingStarsSetChallengeStatus(req, res).catch(next);
+});
+
+extraAdminRouter.post("/rising-stars/challenges/:id/freeze", requireAuth, requireAdmin, (req, res, next) => {
+  void handleAdminRisingStarsFreeze(req, res).catch(next);
+});
+
+extraAdminRouter.post("/rising-stars/challenges/:id/snapshot", requireAuth, requireAdmin, (req, res, next) => {
+  void handleAdminRisingStarsSnapshot(req, res).catch(next);
+});
+
+extraAdminRouter.post("/rising-stars/entries/:id/disqualify", requireAuth, requireAdmin, (req, res, next) => {
+  void handleAdminRisingStarsDisqualify(req, res).catch(next);
+});
+
+extraAdminRouter.post("/rising-stars/badges", requireAuth, requireAdmin, (req, res, next) => {
+  void handleAdminRisingStarsCreateBadge(req, res).catch(next);
+});
+
+extraAdminRouter.post("/rising-stars/badges/award", requireAuth, requireAdmin, (req, res, next) => {
+  void handleAdminRisingStarsAwardBadge(req, res).catch(next);
+});
+
+extraAdminRouter.post("/rising-stars/rewards/definitions", requireAuth, requireAdmin, (req, res, next) => {
+  void handleAdminRisingStarsCreateRewardDefinition(req, res).catch(next);
+});
+
+extraAdminRouter.post("/rising-stars/rewards/grants", requireAuth, requireAdmin, (req, res, next) => {
+  void handleAdminRisingStarsGrantReward(req, res).catch(next);
+});
+
+extraAdminRouter.get("/rising-stars/audit", requireAuth, requireAdmin, (req, res, next) => {
+  void handleAdminRisingStarsAudit(req, res).catch(next);
+});
+
+extraAdminRouter.get("/progression/config", requireAuth, requireAdmin, (req, res, next) => {
+  void handleAdminProgressionConfig(req, res).catch(next);
+});
+extraAdminRouter.patch("/progression/config", requireAuth, requireAdmin, (req, res, next) => {
+  void handleAdminProgressionPatchConfig(req, res).catch(next);
+});
+extraAdminRouter.get("/progression/levels", requireAuth, requireAdmin, (req, res, next) => {
+  void handleAdminProgressionLevels(req, res).catch(next);
+});
+extraAdminRouter.put("/progression/levels", requireAuth, requireAdmin, (req, res, next) => {
+  void handleAdminProgressionPutLevel(req, res).catch(next);
+});
+extraAdminRouter.get("/progression/users/:userId", requireAuth, requireAdmin, (req, res, next) => {
+  void handleAdminProgressionUser(req, res).catch(next);
+});
+extraAdminRouter.post("/progression/xp-adjustments", requireAuth, requireAdmin, (req, res, next) => {
+  void handleAdminProgressionXpAdjust(req, res).catch(next);
+});
+extraAdminRouter.post("/progression/starter-adjustments", requireAuth, requireAdmin, (req, res, next) => {
+  void handleAdminProgressionStarterAdjust(req, res).catch(next);
+});
+extraAdminRouter.get("/progression/missions", requireAuth, requireAdmin, (req, res, next) => {
+  void handleAdminProgressionMissions(req, res).catch(next);
+});
+extraAdminRouter.patch("/progression/missions/:id", requireAuth, requireAdmin, (req, res, next) => {
+  void handleAdminProgressionPatchMission(req, res).catch(next);
+});
+extraAdminRouter.post("/progression/missions/:id/archive", requireAuth, requireAdmin, (req, res, next) => {
+  void handleAdminProgressionArchiveMission(req, res).catch(next);
+});
+extraAdminRouter.get("/progression/daily-rewards", requireAuth, requireAdmin, (req, res, next) => {
+  void handleAdminProgressionDailyRewards(req, res).catch(next);
+});
+extraAdminRouter.put("/progression/daily-rewards", requireAuth, requireAdmin, (req, res, next) => {
+  void handleAdminProgressionPutDailyReward(req, res).catch(next);
+});
+extraAdminRouter.put("/progression/daily-rewards/policy", requireAuth, requireAdmin, (req, res, next) => {
+  void handleAdminProgressionPutDailyPolicy(req, res).catch(next);
+});
+extraAdminRouter.get("/progression/battle-energy-caps", requireAuth, requireAdmin, (req, res, next) => {
+  void handleAdminProgressionBattleCaps(req, res).catch(next);
+});
+extraAdminRouter.put("/progression/battle-energy-caps", requireAuth, requireAdmin, (req, res, next) => {
+  void handleAdminProgressionPutBattleCaps(req, res).catch(next);
+});
+extraAdminRouter.get("/progression/feature-flags", requireAuth, requireAdmin, (req, res, next) => {
+  void handleAdminProgressionFeatureFlags(req, res).catch(next);
+});
+extraAdminRouter.patch("/progression/feature-flags", requireAuth, requireAdmin, (req, res, next) => {
+  void handleAdminProgressionPatchFeatureFlags(req, res).catch(next);
+});
+extraAdminRouter.get("/progression/audit-history", requireAuth, requireAdmin, (req, res, next) => {
+  void handleAdminProgressionAudit(req, res).catch(next);
+});
+
+extraAdminRouter.get("/monetisation", requireAuth, requireAdmin, (req, res, next) => {
+  void handleAdminMonetisation(req, res).catch(next);
+});
+
+extraAdminRouter.patch("/monetisation/config", requireAuth, requireAdmin, (req, res, next) => {
+  void handleAdminPatchMonetisationConfig(req, res).catch(next);
+});
+
+extraAdminRouter.get("/economy", requireAuth, requireAdmin, (req, res, next) => {
+  void handleAdminEconomy(req, res).catch(next);
+});
+
+extraAdminRouter.patch("/gifts/catalog/:giftId", requireAuth, requireAdmin, (req, res, next) => {
+  void handleAdminPatchGiftCatalog(req, res).catch(next);
+});
