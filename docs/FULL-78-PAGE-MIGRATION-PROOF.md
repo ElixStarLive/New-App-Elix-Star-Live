@@ -1,4 +1,4 @@
-﻿# FULL 78-PAGE MIGRATION PROOF
+# FULL 78-PAGE MIGRATION PROOF
 
 **Authority:** Owner orders 2026-08-23.  
 **Verdict status:** **NOT READY FOR RELEASE**  
@@ -16,7 +16,7 @@ All 78 rows below are **NOT VERIFIED** until a page completes the full gate with
 | Page | OLD inspected | NEW inspected | Actual migration performed | Contracts aligned | Cleanup complete | Tests | Commit |
 | --- | --- | --- | --- | --- | --- | --- | --- |
 | PAGE-001 | YES | YES | YES | PASS | PASS | PASS | `0bbeedd` |
-| PAGE-002 | YES | YES | YES | PASS | PASS | PASS | — |
+| PAGE-002 | YES | YES | YES | PASS | PASS | PASS | `79ec0ee` |
 | PAGE-003 | NOT VERIFIED | NOT VERIFIED | NOT VERIFIED | NOT VERIFIED | NOT VERIFIED | NOT VERIFIED | — |
 | PAGE-004 | NOT VERIFIED | NOT VERIFIED | NOT VERIFIED | NOT VERIFIED | NOT VERIFIED | NOT VERIFIED | — |
 | PAGE-005 | NOT VERIFIED | NOT VERIFIED | NOT VERIFIED | NOT VERIFIED | NOT VERIFIED | NOT VERIFIED | — |
@@ -121,7 +121,7 @@ All 78 rows below are **NOT VERIFIED** until a page completes the full gate with
 - **Fixed:** AbortError handling via shared `isAbortLike` (DOMException + Error); removed Register-local incomplete abort check.
 - **Tests:** Register + authSession.register (+ Login regression) → **39 passed** across related files; Register suite **11/11**
 - **Runtime POST /api/auth/register:** **BLOCKED** — local API DOWN
-- **Commit:** (this commit)
+- **Commit:** `79ec0ee`
 
 ## Release blockers (remaining)
 
