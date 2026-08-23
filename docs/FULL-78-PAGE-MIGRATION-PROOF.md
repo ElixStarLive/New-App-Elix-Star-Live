@@ -1,173 +1,123 @@
-# FULL 78-PAGE MIGRATION PROOF
+﻿# FULL 78-PAGE MIGRATION PROOF
 
-**Authority:** Owner order 2026-08-23 — FULL migration PAGE-001→078, one page at a time.  
-**Rule:** `Actual migration performed = YES` only after THIS pass: OLD file inspect + NEW file inspect + compare + rebuild gaps + cleanup + page tests + commit.  
-**Prior YES / CODE PARITY / ownership-only scans do NOT count. Restarted from PAGE-001 on 2026-08-23.**  
-**Gate:** all page tests must PASS before that page's commit.
+**Authority:** Owner orders 2026-08-23.  
+**Verdict status:** **NOT READY FOR RELEASE**  
+**Rule:** `PASS` only after INSPECT → FIND → FIX → CLEAN → TEST → VERIFY → COMMIT with per-page evidence.  
+**OLD app:** frozen reference only — never copy OLD source into NEW.  
+**NO EVIDENCE = NOT VERIFIED.**
+
+**Rejected / void:**
+- Any claim of **78/78 PASS**
+- Prior PAGE-001→009 YES/`PASS` hashes (`7c692ca`…`950a4a3`) — unsupported under the evidence standard
+- Ledger / ownership-only / filename-scan / “CODE PARITY” claims as PASS evidence
+
+All 78 rows below are **NOT VERIFIED** until a page completes the full gate with recorded evidence + commit.
 
 | Page | OLD inspected | NEW inspected | Actual migration performed | Contracts aligned | Cleanup complete | Tests | Commit |
 | --- | --- | --- | --- | --- | --- | --- | --- |
-| PAGE-001 | YES | YES | YES | PASS | PASS | PASS | `7c692ca` |
-| PAGE-002 | YES | YES | YES | PASS | PASS | PASS | `db689b1` |
-| PAGE-003 | YES | YES | YES | PASS | PASS | PASS | `30e75f3` |
-| PAGE-004 | YES | YES | YES | PASS | PASS | PASS | `e4912e4` |
-| PAGE-005 | YES | YES | YES | PASS | PASS | PASS | `6c0bb7c` |
-| PAGE-006 | YES | YES | YES | PASS | PASS | PASS | `cce6b69` |
-| PAGE-007 | YES | YES | YES | PASS | PASS | PASS | `d3a8967` |
-| PAGE-008 | YES | YES | YES | PASS | PASS | PASS | `d0a79ac` |
-| PAGE-009 | YES | YES | YES | PASS | PASS | PASS | `950a4a3` |
-| PAGE-010 | NO | NO | NO | — | — | — | — |
-| PAGE-011 | NO | NO | NO | — | — | — | — |
-| PAGE-012 | NO | NO | NO | — | — | — | — |
-| PAGE-013 | NO | NO | NO | — | — | — | — |
-| PAGE-014 | NO | NO | NO | — | — | — | — |
-| PAGE-015 | NO | NO | NO | — | — | — | — |
-| PAGE-016 | NO | NO | NO | — | — | — | — |
-| PAGE-017 | NO | NO | NO | — | — | — | — |
-| PAGE-018 | NO | NO | NO | — | — | — | — |
-| PAGE-019 | NO | NO | NO | — | — | — | — |
-| PAGE-020 | NO | NO | NO | — | — | — | — |
-| PAGE-021 | NO | NO | NO | — | — | — | — |
-| PAGE-022 | NO | NO | NO | — | — | — | — |
-| PAGE-023 | NO | NO | NO | — | — | — | — |
-| PAGE-024 | NO | NO | NO | — | — | — | — |
-| PAGE-025 | NO | NO | NO | — | — | — | — |
-| PAGE-026 | NO | NO | NO | — | — | — | — |
-| PAGE-027 | NO | NO | NO | — | — | — | — |
-| PAGE-028 | NO | NO | NO | — | — | — | — |
-| PAGE-029 | NO | NO | NO | — | — | — | — |
-| PAGE-030 | NO | NO | NO | — | — | — | — |
-| PAGE-031 | NO | NO | NO | — | — | — | — |
-| PAGE-032 | NO | NO | NO | — | — | — | — |
-| PAGE-033 | NO | NO | NO | — | — | — | — |
-| PAGE-034 | NO | NO | NO | — | — | — | — |
-| PAGE-035 | NO | NO | NO | — | — | — | — |
-| PAGE-036 | NO | NO | NO | — | — | — | — |
-| PAGE-037 | NO | NO | NO | — | — | — | — |
-| PAGE-038 | NO | NO | NO | — | — | — | — |
-| PAGE-039 | NO | NO | NO | — | — | — | — |
-| PAGE-040 | NO | NO | NO | — | — | — | — |
-| PAGE-041 | NO | NO | NO | — | — | — | — |
-| PAGE-042 | NO | NO | NO | — | — | — | — |
-| PAGE-043 | NO | NO | NO | — | — | — | — |
-| PAGE-044 | NO | NO | NO | — | — | — | — |
-| PAGE-045 | NO | NO | NO | — | — | — | — |
-| PAGE-046 | NO | NO | NO | — | — | — | — |
-| PAGE-047 | NO | NO | NO | — | — | — | — |
-| PAGE-048 | NO | NO | NO | — | — | — | — |
-| PAGE-049 | NO | NO | NO | — | — | — | — |
-| PAGE-050 | NO | NO | NO | — | — | — | — |
-| PAGE-051 | NO | NO | NO | — | — | — | — |
-| PAGE-052 | NO | NO | NO | — | — | — | — |
-| PAGE-053 | NO | NO | NO | — | — | — | — |
-| PAGE-054 | NO | NO | NO | — | — | — | — |
-| PAGE-055 | NO | NO | NO | — | — | — | — |
-| PAGE-056 | NO | NO | NO | — | — | — | — |
-| PAGE-057 | NO | NO | NO | — | — | — | — |
-| PAGE-058 | NO | NO | NO | — | — | — | — |
-| PAGE-059 | NO | NO | NO | — | — | — | — |
-| PAGE-060 | NO | NO | NO | — | — | — | — |
-| PAGE-061 | NO | NO | NO | — | — | — | — |
-| PAGE-062 | NO | NO | NO | — | — | — | — |
-| PAGE-063 | NO | NO | NO | — | — | — | — |
-| PAGE-064 | NO | NO | NO | — | — | — | — |
-| PAGE-065 | NO | NO | NO | — | — | — | — |
-| PAGE-066 | NO | NO | NO | — | — | — | — |
-| PAGE-067 | NO | NO | NO | — | — | — | — |
-| PAGE-068 | NO | NO | NO | — | — | — | — |
-| PAGE-069 | NO | NO | NO | — | — | — | — |
-| PAGE-070 | NO | NO | NO | — | — | — | — |
-| PAGE-071 | NO | NO | NO | — | — | — | — |
-| PAGE-072 | NO | NO | NO | — | — | — | — |
-| PAGE-073 | NO | NO | NO | — | — | — | — |
-| PAGE-074 | NO | NO | NO | — | — | — | — |
-| PAGE-075 | NO | NO | NO | — | — | — | — |
-| PAGE-076 | NO | NO | NO | — | — | — | — |
-| PAGE-077 | NO | NO | NO | — | — | — | — |
-| PAGE-078 | NO | NO | NO | — | — | — | — |
+| PAGE-001 | YES | YES | YES | PASS | PASS | PASS | — |
+| PAGE-002 | NOT VERIFIED | NOT VERIFIED | NOT VERIFIED | NOT VERIFIED | NOT VERIFIED | NOT VERIFIED | — |
+| PAGE-003 | NOT VERIFIED | NOT VERIFIED | NOT VERIFIED | NOT VERIFIED | NOT VERIFIED | NOT VERIFIED | — |
+| PAGE-004 | NOT VERIFIED | NOT VERIFIED | NOT VERIFIED | NOT VERIFIED | NOT VERIFIED | NOT VERIFIED | — |
+| PAGE-005 | NOT VERIFIED | NOT VERIFIED | NOT VERIFIED | NOT VERIFIED | NOT VERIFIED | NOT VERIFIED | — |
+| PAGE-006 | NOT VERIFIED | NOT VERIFIED | NOT VERIFIED | NOT VERIFIED | NOT VERIFIED | NOT VERIFIED | — |
+| PAGE-007 | NOT VERIFIED | NOT VERIFIED | NOT VERIFIED | NOT VERIFIED | NOT VERIFIED | NOT VERIFIED | — |
+| PAGE-008 | NOT VERIFIED | NOT VERIFIED | NOT VERIFIED | NOT VERIFIED | NOT VERIFIED | NOT VERIFIED | — |
+| PAGE-009 | NOT VERIFIED | NOT VERIFIED | NOT VERIFIED | NOT VERIFIED | NOT VERIFIED | NOT VERIFIED | — |
+| PAGE-010 | NOT VERIFIED | NOT VERIFIED | NOT VERIFIED | NOT VERIFIED | NOT VERIFIED | NOT VERIFIED | — |
+| PAGE-011 | NOT VERIFIED | NOT VERIFIED | NOT VERIFIED | NOT VERIFIED | NOT VERIFIED | NOT VERIFIED | — |
+| PAGE-012 | NOT VERIFIED | NOT VERIFIED | NOT VERIFIED | NOT VERIFIED | NOT VERIFIED | NOT VERIFIED | — |
+| PAGE-013 | NOT VERIFIED | NOT VERIFIED | NOT VERIFIED | NOT VERIFIED | NOT VERIFIED | NOT VERIFIED | — |
+| PAGE-014 | NOT VERIFIED | NOT VERIFIED | NOT VERIFIED | NOT VERIFIED | NOT VERIFIED | NOT VERIFIED | — |
+| PAGE-015 | NOT VERIFIED | NOT VERIFIED | NOT VERIFIED | NOT VERIFIED | NOT VERIFIED | NOT VERIFIED | — |
+| PAGE-016 | NOT VERIFIED | NOT VERIFIED | NOT VERIFIED | NOT VERIFIED | NOT VERIFIED | NOT VERIFIED | — |
+| PAGE-017 | NOT VERIFIED | NOT VERIFIED | NOT VERIFIED | NOT VERIFIED | NOT VERIFIED | NOT VERIFIED | — |
+| PAGE-018 | NOT VERIFIED | NOT VERIFIED | NOT VERIFIED | NOT VERIFIED | NOT VERIFIED | NOT VERIFIED | — |
+| PAGE-019 | NOT VERIFIED | NOT VERIFIED | NOT VERIFIED | NOT VERIFIED | NOT VERIFIED | NOT VERIFIED | — |
+| PAGE-020 | NOT VERIFIED | NOT VERIFIED | NOT VERIFIED | NOT VERIFIED | NOT VERIFIED | NOT VERIFIED | — |
+| PAGE-021 | NOT VERIFIED | NOT VERIFIED | NOT VERIFIED | NOT VERIFIED | NOT VERIFIED | NOT VERIFIED | — |
+| PAGE-022 | NOT VERIFIED | NOT VERIFIED | NOT VERIFIED | NOT VERIFIED | NOT VERIFIED | NOT VERIFIED | — |
+| PAGE-023 | NOT VERIFIED | NOT VERIFIED | NOT VERIFIED | NOT VERIFIED | NOT VERIFIED | NOT VERIFIED | — |
+| PAGE-024 | NOT VERIFIED | NOT VERIFIED | NOT VERIFIED | NOT VERIFIED | NOT VERIFIED | NOT VERIFIED | — |
+| PAGE-025 | NOT VERIFIED | NOT VERIFIED | NOT VERIFIED | NOT VERIFIED | NOT VERIFIED | NOT VERIFIED | — |
+| PAGE-026 | NOT VERIFIED | NOT VERIFIED | NOT VERIFIED | NOT VERIFIED | NOT VERIFIED | NOT VERIFIED | — |
+| PAGE-027 | NOT VERIFIED | NOT VERIFIED | NOT VERIFIED | NOT VERIFIED | NOT VERIFIED | NOT VERIFIED | — |
+| PAGE-028 | NOT VERIFIED | NOT VERIFIED | NOT VERIFIED | NOT VERIFIED | NOT VERIFIED | NOT VERIFIED | — |
+| PAGE-029 | NOT VERIFIED | NOT VERIFIED | NOT VERIFIED | NOT VERIFIED | NOT VERIFIED | NOT VERIFIED | — |
+| PAGE-030 | NOT VERIFIED | NOT VERIFIED | NOT VERIFIED | NOT VERIFIED | NOT VERIFIED | NOT VERIFIED | — |
+| PAGE-031 | NOT VERIFIED | NOT VERIFIED | NOT VERIFIED | NOT VERIFIED | NOT VERIFIED | NOT VERIFIED | — |
+| PAGE-032 | NOT VERIFIED | NOT VERIFIED | NOT VERIFIED | NOT VERIFIED | NOT VERIFIED | NOT VERIFIED | — |
+| PAGE-033 | NOT VERIFIED | NOT VERIFIED | NOT VERIFIED | NOT VERIFIED | NOT VERIFIED | NOT VERIFIED | — |
+| PAGE-034 | NOT VERIFIED | NOT VERIFIED | NOT VERIFIED | NOT VERIFIED | NOT VERIFIED | NOT VERIFIED | — |
+| PAGE-035 | NOT VERIFIED | NOT VERIFIED | NOT VERIFIED | NOT VERIFIED | NOT VERIFIED | NOT VERIFIED | — |
+| PAGE-036 | NOT VERIFIED | NOT VERIFIED | NOT VERIFIED | NOT VERIFIED | NOT VERIFIED | NOT VERIFIED | — |
+| PAGE-037 | NOT VERIFIED | NOT VERIFIED | NOT VERIFIED | NOT VERIFIED | NOT VERIFIED | NOT VERIFIED | — |
+| PAGE-038 | NOT VERIFIED | NOT VERIFIED | NOT VERIFIED | NOT VERIFIED | NOT VERIFIED | NOT VERIFIED | — |
+| PAGE-039 | NOT VERIFIED | NOT VERIFIED | NOT VERIFIED | NOT VERIFIED | NOT VERIFIED | NOT VERIFIED | — |
+| PAGE-040 | NOT VERIFIED | NOT VERIFIED | NOT VERIFIED | NOT VERIFIED | NOT VERIFIED | NOT VERIFIED | — |
+| PAGE-041 | NOT VERIFIED | NOT VERIFIED | NOT VERIFIED | NOT VERIFIED | NOT VERIFIED | NOT VERIFIED | — |
+| PAGE-042 | NOT VERIFIED | NOT VERIFIED | NOT VERIFIED | NOT VERIFIED | NOT VERIFIED | NOT VERIFIED | — |
+| PAGE-043 | NOT VERIFIED | NOT VERIFIED | NOT VERIFIED | NOT VERIFIED | NOT VERIFIED | NOT VERIFIED | — |
+| PAGE-044 | NOT VERIFIED | NOT VERIFIED | NOT VERIFIED | NOT VERIFIED | NOT VERIFIED | NOT VERIFIED | — |
+| PAGE-045 | NOT VERIFIED | NOT VERIFIED | NOT VERIFIED | NOT VERIFIED | NOT VERIFIED | NOT VERIFIED | — |
+| PAGE-046 | NOT VERIFIED | NOT VERIFIED | NOT VERIFIED | NOT VERIFIED | NOT VERIFIED | NOT VERIFIED | — |
+| PAGE-047 | NOT VERIFIED | NOT VERIFIED | NOT VERIFIED | NOT VERIFIED | NOT VERIFIED | NOT VERIFIED | — |
+| PAGE-048 | NOT VERIFIED | NOT VERIFIED | NOT VERIFIED | NOT VERIFIED | NOT VERIFIED | NOT VERIFIED | — |
+| PAGE-049 | NOT VERIFIED | NOT VERIFIED | NOT VERIFIED | NOT VERIFIED | NOT VERIFIED | NOT VERIFIED | — |
+| PAGE-050 | NOT VERIFIED | NOT VERIFIED | NOT VERIFIED | NOT VERIFIED | NOT VERIFIED | NOT VERIFIED | — |
+| PAGE-051 | NOT VERIFIED | NOT VERIFIED | NOT VERIFIED | NOT VERIFIED | NOT VERIFIED | NOT VERIFIED | — |
+| PAGE-052 | NOT VERIFIED | NOT VERIFIED | NOT VERIFIED | NOT VERIFIED | NOT VERIFIED | NOT VERIFIED | — |
+| PAGE-053 | NOT VERIFIED | NOT VERIFIED | NOT VERIFIED | NOT VERIFIED | NOT VERIFIED | NOT VERIFIED | — |
+| PAGE-054 | NOT VERIFIED | NOT VERIFIED | NOT VERIFIED | NOT VERIFIED | NOT VERIFIED | NOT VERIFIED | — |
+| PAGE-055 | NOT VERIFIED | NOT VERIFIED | NOT VERIFIED | NOT VERIFIED | NOT VERIFIED | NOT VERIFIED | — |
+| PAGE-056 | NOT VERIFIED | NOT VERIFIED | NOT VERIFIED | NOT VERIFIED | NOT VERIFIED | NOT VERIFIED | — |
+| PAGE-057 | NOT VERIFIED | NOT VERIFIED | NOT VERIFIED | NOT VERIFIED | NOT VERIFIED | NOT VERIFIED | — |
+| PAGE-058 | NOT VERIFIED | NOT VERIFIED | NOT VERIFIED | NOT VERIFIED | NOT VERIFIED | NOT VERIFIED | — |
+| PAGE-059 | NOT VERIFIED | NOT VERIFIED | NOT VERIFIED | NOT VERIFIED | NOT VERIFIED | NOT VERIFIED | — |
+| PAGE-060 | NOT VERIFIED | NOT VERIFIED | NOT VERIFIED | NOT VERIFIED | NOT VERIFIED | NOT VERIFIED | — |
+| PAGE-061 | NOT VERIFIED | NOT VERIFIED | NOT VERIFIED | NOT VERIFIED | NOT VERIFIED | NOT VERIFIED | — |
+| PAGE-062 | NOT VERIFIED | NOT VERIFIED | NOT VERIFIED | NOT VERIFIED | NOT VERIFIED | NOT VERIFIED | — |
+| PAGE-063 | NOT VERIFIED | NOT VERIFIED | NOT VERIFIED | NOT VERIFIED | NOT VERIFIED | NOT VERIFIED | — |
+| PAGE-064 | NOT VERIFIED | NOT VERIFIED | NOT VERIFIED | NOT VERIFIED | NOT VERIFIED | NOT VERIFIED | — |
+| PAGE-065 | NOT VERIFIED | NOT VERIFIED | NOT VERIFIED | NOT VERIFIED | NOT VERIFIED | NOT VERIFIED | — |
+| PAGE-066 | NOT VERIFIED | NOT VERIFIED | NOT VERIFIED | NOT VERIFIED | NOT VERIFIED | NOT VERIFIED | — |
+| PAGE-067 | NOT VERIFIED | NOT VERIFIED | NOT VERIFIED | NOT VERIFIED | NOT VERIFIED | NOT VERIFIED | — |
+| PAGE-068 | NOT VERIFIED | NOT VERIFIED | NOT VERIFIED | NOT VERIFIED | NOT VERIFIED | NOT VERIFIED | — |
+| PAGE-069 | NOT VERIFIED | NOT VERIFIED | NOT VERIFIED | NOT VERIFIED | NOT VERIFIED | NOT VERIFIED | — |
+| PAGE-070 | NOT VERIFIED | NOT VERIFIED | NOT VERIFIED | NOT VERIFIED | NOT VERIFIED | NOT VERIFIED | — |
+| PAGE-071 | NOT VERIFIED | NOT VERIFIED | NOT VERIFIED | NOT VERIFIED | NOT VERIFIED | NOT VERIFIED | — |
+| PAGE-072 | NOT VERIFIED | NOT VERIFIED | NOT VERIFIED | NOT VERIFIED | NOT VERIFIED | NOT VERIFIED | — |
+| PAGE-073 | NOT VERIFIED | NOT VERIFIED | NOT VERIFIED | NOT VERIFIED | NOT VERIFIED | NOT VERIFIED | — |
+| PAGE-074 | NOT VERIFIED | NOT VERIFIED | NOT VERIFIED | NOT VERIFIED | NOT VERIFIED | NOT VERIFIED | — |
+| PAGE-075 | NOT VERIFIED | NOT VERIFIED | NOT VERIFIED | NOT VERIFIED | NOT VERIFIED | NOT VERIFIED | — |
+| PAGE-076 | NOT VERIFIED | NOT VERIFIED | NOT VERIFIED | NOT VERIFIED | NOT VERIFIED | NOT VERIFIED | — |
+| PAGE-077 | NOT VERIFIED | NOT VERIFIED | NOT VERIFIED | NOT VERIFIED | NOT VERIFIED | NOT VERIFIED | — |
+| PAGE-078 | NOT VERIFIED | NOT VERIFIED | NOT VERIFIED | NOT VERIFIED | NOT VERIFIED | NOT VERIFIED | — |
 
-## Restart note
+---
 
-All prior YES rows voided. Migration restarted at PAGE-001. One page per commit. Tests must PASS before commit.
+## Release blockers (current)
 
-## PAGE-001 evidence
+1. **0 / 78 pages** have a completed evidence → fix → clean → test → verify → commit chain under this standard.
+2. **No release gate proven** this session: full typecheck, lint, full test suite, production build.
+3. **No production/runtime E2E proven** this session (local API was DOWN when last checked).
+4. **No physical-device verification** recorded for pages that require it (e.g. live/IAP).
+5. **Working tree not a clean release snapshot** (many uncommitted changes present).
 
-- **OLD inspected:** `Elix Star Live/src/pages/Login.tsx`, `authFeatures.ts`, login session body (`access_token` + `accessToken`).
-- **NEW inspected:** `src/pages/Login.tsx`, `src/lib/authFeatures.ts` (`__ELIX_ENV`), `authSession.ts`, `POST /api/auth/login`, `App.tsx` bounce `/login` → `/feed`.
-- **Gaps fixed:** none — chrome, remember-email-only, dual-submit, Apple/forgot flags, no Google/guest/TOTP, 401 copy, dual token already aligned.
-- **Tests:** 28/28 PASS.
-- **Commit:** `7c692ca`
+## Evidence sections
 
-## PAGE-002 evidence
+## PAGE-001 Login
 
-- **OLD inspected:** `Elix Star Live/src/pages/Register.tsx` (terms, consent POST, welcome toast, navigate `from`).
-- **NEW inspected:** `src/pages/Register.tsx`, `authRegister` / `authSaveConsent`, `POST /api/auth/register` + `/consent`.
-- **Gaps fixed:** none this pass (Terms/Privacy `returnTo: /register` already present vs OLD which lacked it — keep).
-- **Tests:** Register + authSession.register → **11/11 PASS**.
-- **Commit:** `db689b1`
+- **Fixed:** single remember-email write on success (incl. unmount-before-nav); AbortError no longer shown as unexpected failure; Apple success navigates `from` (same as password).
+- **Tests:** `npx vitest run src/pages/Login.test.tsx src/features/auth/authSession.login.test.ts src/features/auth/page001Ownership.test.ts` → **28 passed / 0 failed / 0 skipped**
+- **Lint:** eslint Login.tsx + Login.test.tsx → clean
+- **tsc:** `tsc --noEmit` → exit 0
+- **Runtime POST /api/auth/login:** **BLOCKED** — local API DOWN (`127.0.0.1:8080`)
+- **Apple device:** **NOT VERIFIED** (needs iOS device)
+- **Commit:** (this commit)
 
-## PAGE-003 evidence
+## Release blockers (remaining)
 
-- **OLD inspected:** `Elix Star Live/src/pages/AuthCallback.tsx` (token verify → session → `/profile`).
-- **NEW inspected:** `src/pages/AuthCallback.tsx`, `authVerifyEmail`, session seed + `checkUser` → `/profile`.
-- **Gaps fixed:** none — same chrome/messages/flow; NEW uses `setSessionToken` + `session.token` (store shape).
-- **Tests:** AuthCallback + authSession.verify → **6/6 PASS**.
-- **Commit:** `30e75f3`
-
-## PAGE-004 evidence
-
-- **OLD inspected:** `ForgotPassword.tsx` (flag gate, success chrome, back to login).
-- **NEW inspected:** `src/pages/ForgotPassword.tsx`, `authForgotPassword`, server always-200 anti-enumeration.
-- **Gaps fixed:** none — aligned (NEW adds empty-email client check + submit lock).
-- **Tests:** ForgotPassword.test → **8/8 PASS**.
-- **Commit:** `e4912e4`
-
-## PAGE-005 evidence
-
-- **OLD inspected:** `Elix Star Live/src/pages/ResetPassword.tsx` (token query, ≥8 chars, mismatch, success → login 3s, AuthFormErrorAndSubmit).
-- **NEW inspected:** `src/pages/ResetPassword.tsx`, `authResetPassword`, `POST /api/auth/reset-password`.
-- **Gaps fixed:** none — same chrome/flow; NEW inlines error+submit (same classes as OLD AuthFormErrorAndSubmit), submit lock + mounted guard. HTML minLength 6 vs JS ≥8 matches OLD.
-- **Tests:** ResetPassword + authSession.reset → **10/10 PASS**.
-- **Commit:** `6c0bb7c`
-
-## PAGE-006 evidence
-
-- **OLD inspected:** `App.tsx`, `TopNav`, `BottomNav`, `websocket.ts` + `websocketOwnership.test.ts`, RequireAuth.
-- **NEW inspected:** `App.tsx`, `appShell.ts`, `TopNav`/`BottomNav`, `wsClient.ts`, RequireAuth/Admin, shell chrome.
-- **Gaps fixed:** wsClient — pending room-switch flush leak, pending cap 50, foreground/backoff fresh token via `getSessionToken`, `disconnect()` without owner force-clears; ported ownership/lifecycle tests.
-- **Keep:** single `/creator/login-details` public (PAGE-029); `appShell` hide matrix; feed presence + live-session release.
-- **Tests:** App + appShell + Top/BottomNav + RequireAuth/Admin + LiveNotifyBanner + NativeDialog + settingsNav + deepLinks + toast + page029 + wsClient → **170/170 PASS**.
-- **Commit:** `cce6b69`
-
-## PAGE-007 evidence
-
-- **OLD inspected:** `VideoFeed.tsx`, `EnhancedVideoPlayer`, `InlineLiveViewer`, feed presence / live reconcile.
-- **NEW inspected:** `VideoFeed.tsx`, `ForYouPlayer`, `ForYouLiveCard`, `useForYouFeed`, `feedApi`, feed server ownership.
-- **Gaps fixed:** VideoFeed tests — mock `apiLiveStatus` + `wsClient.connect/disconnect` after live-card status path; query `[data-elix-watch-id]` (div role=button, not `<button>`).
-- **Keep:** battle/cohost/offline LiveKit preview, engagement rail, empty/error Retry, nearby mount window. Device LiveKit host return gate stays PAGE-018.
-- **Tests:** VideoFeed + foryou feed/api/presence/viewGuard + liveCard/promote ownership + comments + server page007/voiceOnly → **50/50 PASS**.
-- **Commit:** `d3a8967`
-
-## PAGE-008 evidence
-
-- **OLD inspected:** `StemFeed.tsx`, client stem rank (40+20/cap 55), FeedStoryCirclesOverlay STEM chrome.
-- **NEW inspected:** `StemFeed.tsx`, `StemFeedOverlay`, `useStemFeed` / `GET /api/feed/stem`, `shared/stemEligibility.ts`.
-- **Gaps fixed:** StemFeed.test mock — add `apiFetchProfiles` for overlay suggested reload.
-- **Keep:** server-authoritative ranking; empty/error Refresh; no live cards on STEM. Device playback deferred with PAGE-007 media gate.
-- **Tests:** StemFeed + page008Ownership + stemRank + feedApi.stem + useStemFeed + query.cursor → **18/18 PASS**.
-- **Commit:** `d0a79ac`
-
-## PAGE-009 evidence
-
-- **OLD inspected:** `FollowingFeed.tsx`, `GET /api/feed/following`, FeedStoryCirclesOverlay Following chrome.
-- **NEW inspected:** `FollowingFeed.tsx`, `FollowingFeedOverlay`, `useFollowingFeed`, relation LIMIT 80.
-- **Gaps fixed:** FollowingFeed.test — mock `apiFetchProfiles` for overlay. Server IT page-size assertion deferred (needs server-file permission).
-- **Keep:** unfollow removes creator rows; empty → Discover; no For You fallback. Runtime media shared defer with PAGE-008.
-- **Tests:** FollowingFeed + page009Ownership + feedApi.following + useFollowingFeed → **13/13 PASS**.
-- **Commit:** `950a4a3`
-
-
-
-
-
-
+1. PAGE-002→078 not completed under this gate.
+2. Live HTTP login E2E blocked while local API is down.
+3. Full production build / device gates still open for later pages.

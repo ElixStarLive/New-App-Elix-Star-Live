@@ -6,6 +6,13 @@ import { isAppleSignInEnabled, isPasswordResetEnabled } from "@/lib/authFeatures
 import { useIsMountedRef } from "@/hooks/useIsMountedRef";
 import { AuthPasswordField } from "@/components/AuthPasswordField";
 
+function isAbortLike(err: unknown): boolean {
+  if (err instanceof DOMException && err.name === "AbortError") return true;
+  if (!err || typeof err !== "object") return false;
+  const rec = err as { name?: unknown; message?: unknown };
+  if (rec.name === "AbortError") return true;
+  return typeof rec.message === "string" && rec.message.toLowerCase().includes("aborted");
+}
 const REMEMBER_EMAIL_KEY = "login_saved_email";
 const REMEMBER_FLAG_KEY = "login_save_details";
 const LEGACY_PASSWORD_KEY = "login_saved_password";
@@ -67,12 +74,11 @@ export default function Login() {
     if (isMounted.current) setIsSubmitting(false);
   }, [isMounted]);
 
-  const finishAuthenticated = useCallback(() => {
-    writeRememberedEmail(saveDetails, email.trim());
+  const goAfterAuth = useCallback(() => {
     if (isMounted.current) {
       navigate(from, { replace: true });
     }
-  }, [email, from, isMounted, navigate, saveDetails]);
+  }, [from, isMounted, navigate]);
 
   const onSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -82,11 +88,8 @@ export default function Login() {
     setIsSubmitting(true);
     try {
       const res = await signInWithPassword(email.trim(), password);
-      if (!res.error) {
-        writeRememberedEmail(saveDetails, email.trim());
-      }
-      if (!isMounted.current) return;
       if (res.error) {
+        if (!isMounted.current) return;
         if (res.error === "aborted" || res.error.toLowerCase().includes("aborted")) {
           unlockSubmit();
           return;
@@ -99,8 +102,14 @@ export default function Login() {
         unlockSubmit();
         return;
       }
-      finishAuthenticated();
-    } catch {
+      // Persist email on success even if this screen unmounts before navigation.
+      writeRememberedEmail(saveDetails, email.trim());
+      goAfterAuth();
+    } catch (err) {
+      if (isAbortLike(err)) {
+        unlockSubmit();
+        return;
+      }
       if (isMounted.current) {
         setError("An unexpected error occurred. Please try again.");
         unlockSubmit();
@@ -115,16 +124,14 @@ export default function Login() {
     setIsSubmitting(true);
     try {
       const { error: err } = await signInWithApple();
-      if (!err) {
-        writeRememberedEmail(saveDetails, email.trim());
-      }
-      if (!isMounted.current) return;
       if (err) {
+        if (!isMounted.current) return;
         setError(err);
         unlockSubmit();
         return;
       }
-      finishAuthenticated();
+      writeRememberedEmail(saveDetails, email.trim());
+      goAfterAuth();
     } catch {
       if (isMounted.current) {
         setError("Apple sign-in failed. Please try again.");

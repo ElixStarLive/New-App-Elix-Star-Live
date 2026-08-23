@@ -209,6 +209,36 @@ describe("PAGE-001 Login", () => {
     expect(page.textContent).toContain("inbox-destination");
   });
 
+  it("navigates to from after a successful Apple sign-in", async () => {
+    signInWithApple.mockResolvedValue({ error: null });
+    const mounted = renderLogin("/inbox");
+    root = mounted.root;
+    container = mounted.container;
+    const page = mounted.container;
+    const apple = [...page.querySelectorAll("button")].find((button) =>
+      button.textContent?.includes("Sign in with Apple"),
+    ) as HTMLButtonElement;
+    await act(async () => {
+      apple.click();
+    });
+    expect(signInWithApple).toHaveBeenCalledTimes(1);
+    expect(page.textContent).toContain("inbox-destination");
+  });
+
+  it("does not treat AbortError as a visible login failure", async () => {
+    signInWithPassword.mockRejectedValue(new DOMException("aborted", "AbortError"));
+    const mounted = renderLogin();
+    root = mounted.root;
+    container = mounted.container;
+    const page = mounted.container;
+    fillCredentials(page, "andrei", "secret-password");
+    await act(async () => {
+      submitForm(page);
+    });
+    expect(page.textContent).not.toContain("An unexpected error occurred. Please try again.");
+    expect(page.textContent).toContain("Sign in");
+  });
+
   it("opens Sign up with the current from state", () => {
     const mounted = renderLogin("/inbox");
     root = mounted.root;
