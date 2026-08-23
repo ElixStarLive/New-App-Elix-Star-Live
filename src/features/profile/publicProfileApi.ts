@@ -1,4 +1,5 @@
 import type { FeedItem, FeedPage, UserPublic } from "@shared/contracts";
+import { userPublicSchema } from "@shared/contracts";
 import { apiRequest } from "@/lib/apiClient";
 import { isRecord } from "@/lib/isRecord";
 import {
@@ -11,7 +12,6 @@ import {
   apiUnfollow,
 } from "@/features/feed/feedApi";
 import { apiListShopItems, type ShopItem } from "@/features/shop/shopApi";
-import { mapUserPublicPayload } from "@/features/profile/mapUserPublic";
 
 export type PublicProfileTab = "videos" | "shop" | "reposts" | "saved" | "liked";
 
@@ -23,7 +23,8 @@ export function isProfileUserId(value: string): boolean {
 }
 
 function parseProfile(data: unknown): UserPublic | null {
-  return mapUserPublicPayload(data);
+  const parsed = userPublicSchema.safeParse(isRecord(data) ? data.user : null);
+  return parsed.success ? parsed.data : null;
 }
 
 export async function apiFetchPublicProfileById(userId: string): Promise<{

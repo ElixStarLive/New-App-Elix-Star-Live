@@ -47,35 +47,13 @@ describe("PAGE-010 friends feed API", () => {
     expect(res.page?.items).toHaveLength(1);
   });
 
-  it("maps production videos[] friends pages", async () => {
+  it("rejects an old videos[] body instead of mapping it", async () => {
     apiRequestMock.mockResolvedValue({
-      data: {
-        videos: [
-          {
-            id: "vid-friends",
-            url: "https://cdn.example.com/f.mp4",
-            user: { id: "user-1", username: "maya", name: "Maya", avatar: null },
-            stats: { views: 1, likes: 0, comments: 0, shares: 0, saves: 0 },
-            isLiked: false,
-            isSaved: false,
-            isFollowing: true,
-          },
-        ],
-        page: 1,
-        limit: 20,
-        hasMore: false,
-      },
+      data: { videos: [{ id: "vid-friends", url: "https://cdn.example.com/f.mp4" }] },
       error: null,
     });
     const res = await apiFetchFriendsFeed();
-    expect(res.error).toBeNull();
-    expect(res.page?.items[0]).toEqual(
-      expect.objectContaining({
-        id: "vid-friends",
-        kind: "video",
-        mediaUrl: "https://cdn.example.com/f.mp4",
-        username: "maya",
-      }),
-    );
+    expect(res.page).toBeNull();
+    expect(res.error).toBe("Invalid feed response");
   });
 });

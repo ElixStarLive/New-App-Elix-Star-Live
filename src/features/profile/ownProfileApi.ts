@@ -1,4 +1,5 @@
 import type { FeedItem, FeedPage, UserPublic } from "@shared/contracts";
+import { userPublicSchema } from "@shared/contracts";
 import { apiRequest, apiUploadForm } from "@/lib/apiClient";
 import { isRecord } from "@/lib/isRecord";
 import {
@@ -9,8 +10,6 @@ import {
   apiFetchUserVideos,
 } from "@/features/feed/feedApi";
 import { apiListShopItems, type ShopItem } from "@/features/shop/shopApi";
-import { mapUserPublicPayload } from "@/features/profile/mapUserPublic";
-import { useAuthStore } from "@/store/useAuthStore";
 
 export type OwnProfileTab = "videos" | "shop" | "private" | "reposts" | "saved" | "liked";
 
@@ -26,20 +25,11 @@ export async function apiFetchOwnProfile(): Promise<{
   error: string | null;
   status?: number;
 }> {
-  // Live OLD production: GET /api/profiles/:userId (not /me stub userId:"me").
-  const sessionUserId = useAuthStore.getState().user?.id?.trim() || "";
-  if (sessionUserId) {
-    const { data, error } = await apiRequest<unknown>(`/api/profiles/${encodeURIComponent(sessionUserId)}`);
-    if (error) return { profile: null, error: error.message, status: error.status };
-    const profile = mapUserPublicPayload(data);
-    if (!profile) return { profile: null, error: "Invalid profile" };
-    return { profile, error: null };
-  }
   const { data, error } = await apiRequest<unknown>("/api/profiles/me");
   if (error) return { profile: null, error: error.message, status: error.status };
-  const profile = mapUserPublicPayload(data);
-  if (!profile) return { profile: null, error: "Invalid profile" };
-  return { profile, error: null };
+  const parsed = userPublicSchema.safeParse(isRecord(data) ? data.user : null);
+  if (!parsed.success) return { profile: null, error: "Invalid profile" };
+  return { profile: parsed.data, error: null };
 }
 
 export async function apiUploadOwnAvatar(file: Blob, filename = "avatar.jpg"): Promise<{

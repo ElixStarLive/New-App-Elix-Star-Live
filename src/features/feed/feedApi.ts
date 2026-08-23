@@ -4,7 +4,9 @@ import {
   followListResponseSchema,
   liveStartResponseSchema,
   liveStreamCardSchema,
+  liveStreamsResponseSchema,
   liveTokenResponseSchema,
+  userPublicSchema,
   type FeedItem,
   type FeedPage,
   type LiveStartResponse,
@@ -16,109 +18,12 @@ import { Capacitor } from "@capacitor/core";
 import { apiRequest } from "@/lib/apiClient";
 import { apiUrl } from "@/lib/api";
 import { getSessionToken } from "@/lib/sessionToken";
-import { asNonNegInt, isRecord } from "@/lib/isRecord";
+import { isRecord } from "@/lib/isRecord";
 import { normalizeHashtag } from "@shared/hashtag";
 
-const FOR_YOU_PAGE_SIZE = 20;
-const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
-
-function asText(value: unknown): string {
-  return typeof value === "string" ? value.trim() : "";
-}
-
-function asUuid(value: unknown): string {
-  const text = asText(value);
-  return UUID_RE.test(text) ? text : "";
-}
-
-/** Map live OLD production For You video rows into the NEW FeedItem contract. */
-function mapProductionFeedVideo(raw: Record<string, unknown>): FeedItem | null {
-  const nested = isRecord(raw.user) ? raw.user : null;
-  const stats = isRecord(raw.stats) ? raw.stats : null;
-  const music = isRecord(raw.music) ? raw.music : null;
-  const id = asText(raw.id);
-  const userId = asText(nested?.id) || asText(raw.userId) || asText(raw.user_id);
-  const username = asText(nested?.username) || asText(raw.username);
-  if (!id || !userId || !username) return null;
-  const displayName =
-    asText(nested?.name) ||
-    asText(nested?.displayName) ||
-    asText(nested?.display_name) ||
-    asText(raw.displayName) ||
-    username;
-  const mediaUrl = asText(raw.mediaUrl) || asText(raw.url) || asText(raw.video_url);
-  const thumbnail =
-    asText(raw.thumbnailUrl) || asText(raw.thumbnail) || asText(raw.thumbnail_url) || asText(raw.thumb_url);
-  const parsed = feedItemSchema.safeParse({
-    id,
-    kind: raw.kind === "live" ? "live" : "video",
-    userId,
-    username,
-    displayName,
-    avatarUrl: asText(nested?.avatar) || asText(nested?.avatarUrl) || asText(raw.avatarUrl) || null,
-    caption: asText(raw.caption) || asText(raw.description) || undefined,
-    mediaUrl: mediaUrl || undefined,
-    thumbnailUrl: thumbnail || null,
-    streamId: asText(raw.streamId) || asText(raw.stream_id) || undefined,
-    likeCount: asNonNegInt(raw.likeCount ?? stats?.likes),
-    commentCount: asNonNegInt(raw.commentCount ?? stats?.comments),
-    saveCount: asNonNegInt(raw.saveCount ?? stats?.saves),
-    viewCount: asNonNegInt(raw.viewCount ?? stats?.views),
-    soundId: asText(raw.soundId) || asText(music?.id) || null,
-    isLive: raw.isLive === true || nested?.isLive === true,
-    liked: raw.liked === true || raw.isLiked === true,
-    saved: raw.saved === true || raw.isSaved === true,
-    isFollowing: raw.isFollowing === true,
-    hashtags: Array.isArray(raw.hashtags)
-      ? raw.hashtags.filter((tag): tag is string => typeof tag === "string" && tag.length > 0)
-      : [],
-    createdAt: asText(raw.createdAt) || asText(raw.created_at) || undefined,
-  });
-  return parsed.success ? parsed.data : null;
-}
-
 export function parseForYouPage(data: unknown): FeedPage | null {
-  const direct = feedPageSchema.safeParse(data);
-  if (direct.success) return direct.data;
-  if (!isRecord(data)) return null;
-  const rows = Array.isArray(data.items) ? data.items : Array.isArray(data.videos) ? data.videos : null;
-  if (!rows) return null;
-  const items: FeedItem[] = [];
-  for (const row of rows) {
-    const directItem = feedItemSchema.safeParse(row);
-    if (directItem.success) {
-      items.push(directItem.data);
-      continue;
-    }
-    if (!isRecord(row)) continue;
-    const mapped = mapProductionFeedVideo(row);
-    if (mapped) items.push(mapped);
-  }
-  if (rows.length > 0 && items.length === 0) return null;
-  let nextCursor = typeof data.nextCursor === "string" && data.nextCursor ? data.nextCursor : null;
-  if (!nextCursor && data.hasMore === true) {
-    const page = Math.max(1, asNonNegInt(data.page, 1));
-    const limit = Math.max(1, asNonNegInt(data.limit, FOR_YOU_PAGE_SIZE));
-    nextCursor = `off:${page * limit}`;
-  }
-  return { items, nextCursor };
-}
-
-/** NEW cursor + live OLD page/limit so production foryou pagination keeps working. */
-function forYouQuery(cursor?: string | null): string {
-  const params = new URLSearchParams();
-  if (cursor) {
-    params.set("cursor", cursor);
-    if (cursor.startsWith("off:")) {
-      const offset = Number(cursor.slice(4));
-      if (Number.isFinite(offset) && offset >= 0) {
-        params.set("page", String(Math.floor(offset / FOR_YOU_PAGE_SIZE) + 1));
-        params.set("limit", String(FOR_YOU_PAGE_SIZE));
-      }
-    }
-  }
-  const qs = params.toString();
-  return qs ? `?${qs}` : "";
+  const parsed = feedPageSchema.safeParse(data);
+  return parsed.success ? parsed.data : null;
 }
 
 function feedCursorQuery(cursor?: string | null): string {
@@ -130,7 +35,7 @@ export async function apiFetchForYouFeed(cursor?: string | null): Promise<{
   error: string | null;
   status?: number;
 }> {
-  const { data, error } = await apiRequest<unknown>(`/api/feed/foryou${forYouQuery(cursor)}`);
+  const { data, error } = await apiRequest<unknown>(`/api/feed/foryou${feedCursorQuery(cursor)}`);
   if (error) return { page: null, error: error.message, status: error.status };
   const parsed = parseForYouPage(data);
   if (!parsed) return { page: null, error: "Invalid feed response" };
@@ -271,7 +176,7 @@ export async function apiFetchFollowingFeed(cursor?: string | null): Promise<{
   error: string | null;
   status?: number;
 }> {
-  const qs = forYouQuery(cursor);
+  const qs = feedCursorQuery(cursor);
   const { data, error } = await apiRequest<unknown>(`/api/feed/following${qs}`);
   if (error) return { page: null, error: error.message, status: error.status };
   const parsed = parseForYouPage(data);
@@ -290,7 +195,7 @@ export async function apiFetchFriendsFeed(cursor?: string | null): Promise<{
   error: string | null;
   status?: number;
 }> {
-  const qs = forYouQuery(cursor);
+  const qs = feedCursorQuery(cursor);
   const { data, error } = await apiRequest<unknown>(`/api/feed/friends${qs}`);
   if (error) return { page: null, error: error.message, status: error.status };
   const parsed = parseForYouPage(data);
@@ -332,20 +237,14 @@ export async function apiFetchVideoById(videoId: string): Promise<{
   if (!id) return { item: null, error: "Video not found", status: 404 };
   const { data, error } = await apiRequest<unknown>(`/api/videos/${encodeURIComponent(id)}`);
   if (error) return { item: null, error: error.message, status: error.status };
-  const direct = feedItemSchema.safeParse(data);
-  const item =
-    direct.success && direct.data.kind === "video"
-      ? direct.data
-      : isRecord(data)
-        ? mapProductionFeedVideo(data)
-        : null;
-  if (!item || item.kind !== "video") {
+  const parsed = feedItemSchema.safeParse(data);
+  if (!parsed.success || parsed.data.kind !== "video") {
     return { item: null, error: "Invalid video", status: 502 };
   }
-  if (!item.mediaUrl?.trim()) {
+  if (!parsed.data.mediaUrl?.trim()) {
     return { item: null, error: "Video not found", status: 404 };
   }
-  return { item, error: null };
+  return { item: parsed.data, error: null };
 }
 
 export async function apiLikeVideo(videoId: string): Promise<{ ok: true } | { ok: false; error: string }> {
@@ -411,10 +310,9 @@ export async function apiFetchProfile(userId: string): Promise<{
 }> {
   const { data, error } = await apiRequest<unknown>(`/api/profiles/${encodeURIComponent(userId)}`);
   if (error) return { profile: null, error: error.message };
-  const { mapUserPublicPayload } = await import("@/features/profile/mapUserPublic");
-  const profile = mapUserPublicPayload(data);
-  if (!profile) return { profile: null, error: "Invalid profile" };
-  return { profile, error: null };
+  const parsed = userPublicSchema.safeParse(isRecord(data) ? data.user : null);
+  if (!parsed.success) return { profile: null, error: "Invalid profile" };
+  return { profile: parsed.data, error: null };
 }
 
 export async function apiFollow(userId: string): Promise<{ ok: true } | { ok: false; error: string }> {
@@ -447,38 +345,13 @@ export async function apiFollowList(
 }
 
 export function mapLiveStreamCard(raw: unknown): LiveStreamCard | null {
-  const direct = liveStreamCardSchema.safeParse(raw);
-  if (direct.success) return direct.data;
-  if (!isRecord(raw)) return null;
-  const hostId = asUuid(raw.hostId) || asUuid(raw.host_id) || asUuid(raw.user_id) || asUuid(raw.userId);
-  if (!hostId) return null;
-  const roomId =
-    asText(raw.roomId) || asText(raw.room_id) || asText(raw.stream_key) || asText(raw.streamKey) || hostId;
-  const streamId = asUuid(raw.streamId) || asUuid(raw.stream_id) || asUuid(raw.id) || asUuid(roomId) || hostId;
-  const avatar = asText(raw.avatarUrl) || asText(raw.avatar_url) || asText(raw.avatar);
-  const parsed = liveStreamCardSchema.safeParse({
-    streamId,
-    roomId,
-    hostId,
-    displayName: asText(raw.displayName) || asText(raw.display_name) || asText(raw.title) || "LIVE",
-    username: asText(raw.username),
-    avatarUrl: avatar || null,
-    title: asText(raw.title),
-    viewerCount: asNonNegInt(raw.viewerCount ?? raw.viewer_count ?? raw.viewers),
-    startedAt: asText(raw.startedAt) || asText(raw.started_at),
-  });
+  const parsed = liveStreamCardSchema.safeParse(raw);
   return parsed.success ? parsed.data : null;
 }
 
 export function parseLiveStreamsResponse(data: unknown): LiveStreamCard[] | null {
-  if (!isRecord(data) || !Array.isArray(data.streams)) return null;
-  const streams: LiveStreamCard[] = [];
-  for (const row of data.streams) {
-    const mapped = mapLiveStreamCard(row);
-    if (mapped) streams.push(mapped);
-  }
-  if (data.streams.length > 0 && streams.length === 0) return null;
-  return streams;
+  const parsed = liveStreamsResponseSchema.safeParse(data);
+  return parsed.success ? parsed.data.streams : null;
 }
 
 export async function apiLiveStreams(): Promise<{
