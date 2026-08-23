@@ -41,18 +41,19 @@ export async function queryDiscoverPage(viewerId: string | null): Promise<{
 }
 
 export async function queryDiscoverTrending(viewerId: string | null): Promise<FeedVideo[]> {
+  const patterns = exploreIndecentLikePatterns();
   if (await isLiveNeonSchema()) {
     const { rows } = await getPool().query(
       `${liveFeedSelectSql(1)}
        ${livePublicVideoFilter()}
        ${viewerId ? liveBlockedVideoFilter(1) : ""}
+       AND lower(COALESCE(v.description, '') || ' ' || COALESCE(v.hashtags::text, '')) LIKE ANY ($2::text[])
        ORDER BY COALESCE(v.views, 0) DESC, v.created_at DESC, v.id DESC
        LIMIT 30`,
-      [viewerId],
+      [viewerId, patterns],
     );
     return rows.map(mapFeedRow);
   }
-  const patterns = exploreIndecentLikePatterns();
   const params: unknown[] = [viewerId];
   const viewerSql = viewerId ? blockSql("v.user_id", 1) : "";
   const likeSql = patterns
@@ -127,6 +128,7 @@ export async function queryDiscoverRankings(viewerId: string | null): Promise<Di
       params.push(viewerId);
       viewerSql = liveBlockedActorFilter("p.user_id", 1);
     }
+    // OLD /rankings/weekly: sum elix_creator_earnings (kind=gift), not gift room_id→profile join.
     const { rows } = await getPool().query<{
       id: string;
       username: string;
@@ -135,15 +137,18 @@ export async function queryDiscoverRankings(viewerId: string | null): Promise<Di
       total_coins: string;
     }>(
       `SELECT p.user_id AS id, p.username, p.display_name, p.avatar_url,
-              COALESCE(SUM(gt.coins), 0)::text AS total_coins
-         FROM elix_gift_transactions gt
-         JOIN profiles p ON p.user_id = gt.room_id
-        WHERE gt.created_at > NOW() - interval '7 days'
-          AND COALESCE(gt.gift_source, 'paid_coins') <> 'test_coins'
-          AND (p.banned_until IS NULL OR p.banned_until < NOW())
+              COALESCE(e.total_received, 0)::text AS total_coins
+         FROM profiles p
+         JOIN (
+           SELECT creator_id, SUM(coins) AS total_received
+             FROM elix_creator_earnings
+            WHERE kind = 'gift'
+              AND created_at > NOW() - interval '7 days'
+            GROUP BY creator_id
+         ) e ON e.creator_id = p.user_id
+        WHERE (p.banned_until IS NULL OR p.banned_until < NOW())
           ${viewerSql}
-        GROUP BY p.user_id, p.username, p.display_name, p.avatar_url
-        ORDER BY COALESCE(SUM(gt.coins), 0) DESC, p.username ASC
+        ORDER BY COALESCE(e.total_received, 0) DESC, COALESCE(p.followers, 0) DESC, p.username ASC
         LIMIT 50`,
       params,
     );

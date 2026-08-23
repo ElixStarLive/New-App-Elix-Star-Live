@@ -1,6 +1,8 @@
 export type Keyset = { createdAt: string; id: string };
 
 export const FEED_PAGE_SIZE = 20;
+/** Frozen OLD Following/Friends single-load cap (not inventing cursor pagination). */
+export const RELATION_FEED_LIMIT = 80;
 
 export function encodeKeyset(createdAt: Date | string, id: string): string {
   const t = createdAt instanceof Date ? createdAt.toISOString() : createdAt;

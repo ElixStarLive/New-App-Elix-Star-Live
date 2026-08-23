@@ -7,7 +7,7 @@ import {
   liveOwnerVideoFilter,
   livePublicVideoFilter,
 } from "../../infra/liveSchema.js";
-import { decodeKeyset, encodeKeyset, FEED_PAGE_SIZE, keysetWhere, type Keyset } from "../../lib/cursor.js";
+import { decodeKeyset, encodeKeyset, FEED_PAGE_SIZE, RELATION_FEED_LIMIT, keysetWhere, type Keyset } from "../../lib/cursor.js";
 import type { FeedVideo, ForYouFeedResponse } from "../../../shared/contracts/social.js";
 import {
   STEM_EXTRA_SLOTS,
@@ -79,13 +79,12 @@ export async function queryVideoPage(params: {
   };
 }
 
-/** OLD Following: followed creators only, newest first, public + media, not self. */
+/** OLD Following: followed creators only, newest first, public + media, not self. Single load up to 80. */
 export async function queryFollowingPage(params: {
   viewerId: string;
   cursor: Keyset | null;
 }): Promise<{ videos: FeedVideo[]; nextCursor: string | null }> {
-  const keyset = keysetWhere("v", params.cursor, 2);
-  const limitIndex = 2 + keyset.params.length;
+  void params.cursor;
   if (await isLiveNeonSchema()) {
     const { rows } = await getPool().query(
       `${liveFeedSelectSql(1)}
@@ -93,18 +92,11 @@ export async function queryFollowingPage(params: {
        ${liveBlockedVideoFilter(1)}
        AND v.user_id <> $1
        AND v.user_id IN (SELECT following_id FROM follows WHERE follower_id = $1)
-       ${keyset.sql}
        ORDER BY v.created_at DESC, v.id DESC
-       LIMIT $${limitIndex}`,
-      [params.viewerId, ...keyset.params, FEED_PAGE_SIZE + 1],
+       LIMIT $2`,
+      [params.viewerId, RELATION_FEED_LIMIT],
     );
-    const hasMore = rows.length > FEED_PAGE_SIZE;
-    const page = hasMore ? rows.slice(0, FEED_PAGE_SIZE) : rows;
-    const last = page[page.length - 1] as { created_at?: Date; id?: string } | undefined;
-    return {
-      videos: page.map(mapFeedRow),
-      nextCursor: hasMore && last?.created_at && last.id ? encodeKeyset(last.created_at, last.id) : null,
-    };
+    return { videos: rows.map(mapFeedRow), nextCursor: null };
   }
   const { rows } = await getPool().query(
     `SELECT v.id, 'video'::text AS kind, v.user_id, u.username, u.display_name, u.avatar_url,
@@ -128,27 +120,19 @@ export async function queryFollowingPage(params: {
        AND (u.banned_until IS NULL OR u.banned_until < NOW())
        AND v.user_id NOT IN (SELECT blocked_id FROM blocks WHERE blocker_id = $1)
        AND v.user_id NOT IN (SELECT blocker_id FROM blocks WHERE blocked_id = $1)
-       ${keyset.sql}
      ORDER BY v.created_at DESC, v.id DESC
-     LIMIT $${limitIndex}`,
-    [params.viewerId, ...keyset.params, FEED_PAGE_SIZE + 1],
+     LIMIT $2`,
+    [params.viewerId, RELATION_FEED_LIMIT],
   );
-  const hasMore = rows.length > FEED_PAGE_SIZE;
-  const page = hasMore ? rows.slice(0, FEED_PAGE_SIZE) : rows;
-  const last = page[page.length - 1] as { created_at?: Date; id?: string } | undefined;
-  return {
-    videos: page.map(mapFeedRow),
-    nextCursor: hasMore && last?.created_at && last.id ? encodeKeyset(last.created_at, last.id) : null,
-  };
+  return { videos: rows.map(mapFeedRow), nextCursor: null };
 }
 
-/** OLD Friends: follow OR follower union (not mutual-only), newest first, not self. */
+/** OLD Friends: follow OR follower union (not mutual-only), newest first, not self. Single load up to 80. */
 export async function queryFriendsPage(params: {
   viewerId: string;
   cursor: Keyset | null;
 }): Promise<{ videos: FeedVideo[]; nextCursor: string | null }> {
-  const keyset = keysetWhere("v", params.cursor, 2);
-  const limitIndex = 2 + keyset.params.length;
+  void params.cursor;
   if (await isLiveNeonSchema()) {
     const { rows } = await getPool().query(
       `${liveFeedSelectSql(1)}
@@ -159,18 +143,11 @@ export async function queryFriendsPage(params: {
          v.user_id IN (SELECT following_id FROM follows WHERE follower_id = $1)
          OR v.user_id IN (SELECT follower_id FROM follows WHERE following_id = $1)
        )
-       ${keyset.sql}
        ORDER BY v.created_at DESC, v.id DESC
-       LIMIT $${limitIndex}`,
-      [params.viewerId, ...keyset.params, FEED_PAGE_SIZE + 1],
+       LIMIT $2`,
+      [params.viewerId, RELATION_FEED_LIMIT],
     );
-    const hasMore = rows.length > FEED_PAGE_SIZE;
-    const page = hasMore ? rows.slice(0, FEED_PAGE_SIZE) : rows;
-    const last = page[page.length - 1] as { created_at?: Date; id?: string } | undefined;
-    return {
-      videos: page.map(mapFeedRow),
-      nextCursor: hasMore && last?.created_at && last.id ? encodeKeyset(last.created_at, last.id) : null,
-    };
+    return { videos: rows.map(mapFeedRow), nextCursor: null };
   }
   const { rows } = await getPool().query(
     `SELECT v.id, 'video'::text AS kind, v.user_id, u.username, u.display_name, u.avatar_url,
@@ -197,18 +174,11 @@ export async function queryFriendsPage(params: {
        AND (u.banned_until IS NULL OR u.banned_until < NOW())
        AND v.user_id NOT IN (SELECT blocked_id FROM blocks WHERE blocker_id = $1)
        AND v.user_id NOT IN (SELECT blocker_id FROM blocks WHERE blocked_id = $1)
-       ${keyset.sql}
      ORDER BY v.created_at DESC, v.id DESC
-     LIMIT $${limitIndex}`,
-    [params.viewerId, ...keyset.params, FEED_PAGE_SIZE + 1],
+     LIMIT $2`,
+    [params.viewerId, RELATION_FEED_LIMIT],
   );
-  const hasMore = rows.length > FEED_PAGE_SIZE;
-  const page = hasMore ? rows.slice(0, FEED_PAGE_SIZE) : rows;
-  const last = page[page.length - 1] as { created_at?: Date; id?: string } | undefined;
-  return {
-    videos: page.map(mapFeedRow),
-    nextCursor: hasMore && last?.created_at && last.id ? encodeKeyset(last.created_at, last.id) : null,
-  };
+  return { videos: rows.map(mapFeedRow), nextCursor: null };
 }
 
 export function encodeOffsetCursor(offset: number): string {
