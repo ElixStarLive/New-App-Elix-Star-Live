@@ -1,4 +1,4 @@
-﻿# FULL 78-PAGE MIGRATION PROOF
+# FULL 78-PAGE MIGRATION PROOF
 
 **Authority:** Owner order 2026-08-23 — FULL migration PAGE-001→078, one page at a time.  
 **Rule:** `Actual migration performed = YES` only after THIS pass: OLD file inspect + NEW file inspect + compare + rebuild gaps + cleanup + page tests + commit.  
@@ -9,7 +9,7 @@
 | --- | --- | --- | --- | --- | --- | --- | --- |
 | PAGE-001 | YES | YES | YES | PASS | PASS | PASS | `7c692ca` |
 | PAGE-002 | YES | YES | YES | PASS | PASS | PASS | `db689b1` |
-| PAGE-003 | YES | YES | YES | PASS | PASS | PASS | — |
+| PAGE-003 | YES | YES | YES | PASS | PASS | PASS | `30e75f3` |
 | PAGE-004 | NO | NO | NO | — | — | — | — |
 | PAGE-005 | NO | NO | NO | — | — | — | — |
 | PAGE-006 | NO | NO | NO | — | — | — | — |
@@ -112,5 +112,5 @@ All prior YES rows voided. Migration restarted at PAGE-001. One page per commit.
 - **NEW inspected:** `src/pages/AuthCallback.tsx`, `authVerifyEmail`, session seed + `checkUser` → `/profile`.
 - **Gaps fixed:** none — same chrome/messages/flow; NEW uses `setSessionToken` + `session.token` (store shape).
 - **Tests:** AuthCallback + authSession.verify → **6/6 PASS**.
-- **Commit:** (this commit)
+- **Commit:** `30e75f3`
 
