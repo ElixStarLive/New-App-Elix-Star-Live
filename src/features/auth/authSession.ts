@@ -183,7 +183,10 @@ export async function authForgotPassword(email: string): Promise<{ ok: true } | 
 
 export async function authVerifyEmail(
   token: string,
-): Promise<{ ok: true; alreadyConfirmed: boolean } | { ok: false; error: string }> {
+): Promise<
+  | { ok: true; kind: "session"; accessToken: string; user: SessionUser; alreadyConfirmed: boolean }
+  | { ok: false; error: string }
+> {
   const trimmed = token.trim();
   if (!trimmed) return { ok: false, error: "This verification link is missing a token." };
   const { data, error } = await apiRequest<unknown>("/api/auth/verify-email", {
@@ -193,7 +196,15 @@ export async function authVerifyEmail(
   if (error) return { ok: false, error: error.message || "Email confirmation failed. Please try again." };
   const parsed = verifyEmailSuccessSchema.safeParse(data);
   if (!parsed.success) return { ok: false, error: "Invalid verification response from server." };
-  return { ok: true, alreadyConfirmed: parsed.data.alreadyConfirmed };
+  const user = sessionUserFromProductionLogin(parsed.data);
+  if (!user) return { ok: false, error: "Invalid verification response from server." };
+  return {
+    ok: true,
+    kind: "session",
+    accessToken: parsed.data.session.access_token,
+    user,
+    alreadyConfirmed: parsed.data.already_confirmed,
+  };
 }
 
 export async function authResetPassword(

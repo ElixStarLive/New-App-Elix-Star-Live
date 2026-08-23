@@ -27,7 +27,7 @@ import { env } from "../../infra/env.js";
 import { sendMail } from "../../infra/mail.js";
 import { logger } from "../../infra/logger.js";
 import { encryptSecret, decryptSecret } from "../../infra/secretBox.js";
-import { requireValkey } from "../../infra/valkey.js";
+import { requireValkey, valkeyTrySetNx, valkeyDel } from "../../infra/valkey.js";
 import { AppError } from "../../middleware/errors.js";
 import { requireAuth, type AuthedRequest } from "../../middleware/auth.js";
 import { consumeEmailVerifyToken, emailVerifyCallbackUrl, issueEmailVerifyToken } from "./emailVerify.js";
@@ -351,19 +351,41 @@ function derivedUsernameFromEmail(email: string): string {
   return parsed.success ? parsed.data : "user";
 }
 
-async function sendConfirmationEmail(email: string, userId: string): Promise<boolean> {
+async function sendConfirmationEmail(
+  email: string,
+  user: UserRow & { password_hash?: string | null },
+): Promise<boolean> {
   if (!mailIsConfigured()) return false;
   try {
-    const verifyToken = await issueEmailVerifyToken(userId);
+    let passwordHash = user.password_hash ?? null;
+    if (!passwordHash) {
+      const { rows } = (await isLiveNeonSchema())
+        ? await getPool().query<{ password_hash: string | null }>(
+            `SELECT password_hash FROM elix_auth_users WHERE id = $1 LIMIT 1`,
+            [user.id],
+          )
+        : await getPool().query<{ password_hash: string | null }>(
+            `SELECT password_hash FROM users WHERE id = $1 LIMIT 1`,
+            [user.id],
+          );
+      passwordHash = rows[0]?.password_hash ?? null;
+    }
+    if (!passwordHash) return false;
+    const verifyToken = await issueEmailVerifyToken({
+      id: user.id,
+      email: user.email,
+      email_confirmed_at: user.email_confirmed_at,
+      password_hash: passwordHash,
+    });
     const origin = env().CLIENT_URL || "http://localhost:5173";
     await sendMail(
       email,
-      "Confirm your Elix Star Live email",
-      `Confirm your email: ${emailVerifyCallbackUrl(origin, verifyToken)}`,
+      "Confirm your Elix Star account",
+      `Confirm your email by opening this link:\n\n${emailVerifyCallbackUrl(origin, verifyToken)}\n\nThis link expires in 24 hours. If you did not create an account, ignore this email.`,
     );
     return true;
   } catch (error) {
-    logger.error({ err: error, userId }, "register confirmation email failed");
+    logger.error({ err: error, userId: user.id }, "register confirmation email failed");
     return false;
   }
 }
@@ -421,7 +443,7 @@ router.post("/register", async (req: Request, res: Response) => {
         return loaded.rows[0];
       });
       if (requireConfirm) {
-        const confirmationEmailSent = await sendConfirmationEmail(body.email, user.id);
+        const confirmationEmailSent = await sendConfirmationEmail(body.email, user);
         await writeProductionRegister(res, user, {
           needsEmailConfirmation: true,
           confirmationEmailSent,
@@ -476,7 +498,7 @@ router.post("/register", async (req: Request, res: Response) => {
       return row;
     });
     if (requireConfirm) {
-      const confirmationEmailSent = await sendConfirmationEmail(body.email, user.id);
+      const confirmationEmailSent = await sendConfirmationEmail(body.email, user);
       await writeProductionRegister(res, user, {
         needsEmailConfirmation: true,
         confirmationEmailSent,
@@ -699,28 +721,99 @@ router.post("/reset-password", async (req: Request, res: Response) => {
 
 router.post("/resend-confirmation", async (req: Request, res: Response) => {
   const email = typeof req.body?.email === "string" ? req.body.email.trim() : "";
-  if (!email) throw new AppError("validation_error", "Email is required.", 400);
+  if (!email) {
+    res.status(400).json({ error: "Email is required." });
+    return;
+  }
+  if (!mailIsConfigured()) {
+    res.status(501).json({ error: "Email service is not configured. Please contact support." });
+    return;
+  }
+
+  const normalized = normalizeEmail(email);
   const { rows } = (await isLiveNeonSchema())
-    ? await getPool().query<{ id: string; email_confirmed_at: Date | null }>(
-        `SELECT id, email_confirmed_at FROM elix_auth_users WHERE email_lower = $1 LIMIT 1`,
-        [normalizeEmail(email)],
+    ? await getPool().query<UserRow & { password_hash: string | null }>(
+        `${LIVE_AUTH_USER_SELECT} WHERE u.email_lower = $1 LIMIT 1`,
+        [normalized],
       )
-    : await getPool().query<{ id: string; email_confirmed_at: Date | null }>(
-        `SELECT id, email_confirmed_at FROM users WHERE email_normalized = $1 AND deleted_at IS NULL LIMIT 1`,
-        [normalizeEmail(email)],
+    : await getPool().query<UserRow & { password_hash: string | null }>(
+        `SELECT id, email, username, display_name, avatar_url, bio, is_verified, is_admin,
+                email_confirmed_at, created_at, banned_until, password_hash
+         FROM users WHERE email_normalized = $1 AND deleted_at IS NULL LIMIT 1`,
+        [normalized],
       );
   const user = rows[0];
-  if (user && !user.email_confirmed_at) {
-    const sent = await sendConfirmationEmail(email, user.id);
-    if (!sent) throw new AppError("unavailable", "Could not send confirmation email.", 503);
+  // Always 200 for unknown / already confirmed — no enumeration (frozen OLD).
+  if (!user) {
+    res.json({ success: true });
+    return;
   }
-  res.json({ ok: true });
+  if (user.email_confirmed_at) {
+    res.json({ success: true, already_confirmed: true });
+    return;
+  }
+
+  if (env().valkeyUrl) {
+    const sentKey = `email_confirm_sent:${normalized}`;
+    const claimed = await valkeyTrySetNx(sentKey, "1", 60_000).catch(() => false);
+    if (!claimed) {
+      res.json({ success: true });
+      return;
+    }
+  }
+
+  const sent = await sendConfirmationEmail(user.email, user);
+  if (!sent) {
+    if (env().valkeyUrl) {
+      await valkeyDel(`email_confirm_sent:${normalized}`).catch(() => undefined);
+    }
+    res.status(500).json({ error: "Failed to send email. Please try again later." });
+    return;
+  }
+  res.json({ success: true });
 });
 
 router.post("/verify-email", async (req: Request, res: Response) => {
   const body = verifyEmailBodySchema.parse(req.body);
-  const result = await consumeEmailVerifyToken(body.token);
-  res.json({ ok: true, alreadyConfirmed: result.alreadyConfirmed });
+  try {
+    const result = await consumeEmailVerifyToken(body.token);
+    const sessionUser: UserRow = {
+      id: result.user.id,
+      email: result.user.email,
+      username: result.user.username,
+      display_name: result.user.display_name,
+      avatar_url: result.user.avatar_url,
+      bio: result.user.bio ?? "",
+      is_verified: Boolean(result.user.is_verified),
+      is_admin: Boolean(result.user.is_admin),
+      email_confirmed_at:
+        result.user.email_confirmed_at instanceof Date
+          ? result.user.email_confirmed_at
+          : result.user.email_confirmed_at
+            ? new Date(result.user.email_confirmed_at)
+            : new Date(),
+      created_at: result.user.created_at ?? null,
+      banned_until: result.user.banned_until
+        ? result.user.banned_until instanceof Date
+          ? result.user.banned_until
+          : new Date(result.user.banned_until)
+        : null,
+    };
+    const session = await issueSession(sessionUser);
+    setAuthSessionCookie(res, session.token);
+    res.json({
+      user: productionAuthUser(sessionUser),
+      session: { access_token: session.token, accessToken: session.token },
+      profile_meta: await loadLoginProfileMeta(sessionUser),
+      already_confirmed: result.alreadyConfirmed,
+    });
+  } catch (error) {
+    if (error instanceof AppError) {
+      res.status(error.status).json({ error: error.message });
+      return;
+    }
+    throw error;
+  }
 });
 
 router.post("/consent", requireAuth, async (req: AuthedRequest, res: Response) => {

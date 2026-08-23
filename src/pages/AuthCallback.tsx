@@ -1,7 +1,13 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { authVerifyEmail } from "@/features/auth/authSession";
+import { useAuthStore } from "@/store/useAuthStore";
+import { setSessionToken } from "@/lib/sessionToken";
 
+/**
+ * Email-confirmation links: /auth/callback?token=<purpose-bound JWT>
+ * Frozen OLD behaviour: verify → session + cookie → hydrate /me → /profile.
+ */
 export default function AuthCallback() {
   const navigate = useNavigate();
   const goLogin = useCallback(() => navigate("/login", { replace: true }), [navigate]);
@@ -35,27 +41,43 @@ export default function AuthCallback() {
           return;
         }
 
-        if (!token || !token.trim()) {
-          if (!cancelled) {
+        if (token) {
+          const verifyResult = await authVerifyEmail(token);
+          if (cancelled) return;
+          if (!verifyResult.ok) {
             setStatus("error");
-            setMessage("No confirmation token found. Try signing in again.");
+            setMessage(verifyResult.error || "Invalid or expired confirmation link.");
+            return;
           }
+          if (verifyResult.kind !== "session" || !verifyResult.accessToken) {
+            setStatus("error");
+            setMessage("Confirmation succeeded but no session was returned. Please sign in.");
+            return;
+          }
+          setSessionToken(verifyResult.accessToken);
+          useAuthStore.setState({
+            session: { token: verifyResult.accessToken },
+            user: verifyResult.user,
+            isAuthenticated: true,
+            isLoading: true,
+          });
+          await useAuthStore.getState().checkUser();
+          if (cancelled) return;
+          setStatus("ok");
+          setMessage("Email confirmed. Redirecting...");
+          navigate("/profile", { replace: true });
           return;
         }
 
-        const verifyResult = await authVerifyEmail(token);
-        if (cancelled) return;
-        if (!verifyResult.ok) {
-          setStatus("error");
-          setMessage(verifyResult.error || "Invalid or expired confirmation link.");
+        if (useAuthStore.getState().session?.token) {
+          navigate("/profile", { replace: true });
           return;
         }
-        setStatus("ok");
-        setMessage(
-          verifyResult.alreadyConfirmed
-            ? "Email already confirmed. You can sign in now."
-            : "Email confirmed. You can sign in now.",
-        );
+
+        if (!cancelled) {
+          setStatus("error");
+          setMessage("No confirmation token found. Try signing in again.");
+        }
       } catch (error) {
         if (!cancelled) {
           setStatus("error");
@@ -68,7 +90,7 @@ export default function AuthCallback() {
     return () => {
       cancelled = true;
     };
-  }, []);
+  }, [navigate]);
 
   return (
     <div className="min-h-[100dvh] bg-transparent text-white p-4 flex justify-center">

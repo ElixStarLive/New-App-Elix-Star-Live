@@ -209,9 +209,8 @@ export const verifyEmailBodySchema = z.object({
   token: z.string().trim().min(10),
 });
 
-export const verifyEmailSuccessSchema = z.object({
-  ok: z.literal(true),
-  alreadyConfirmed: z.boolean(),
+export const verifyEmailSuccessSchema = productionLoginSuccessSchema.extend({
+  already_confirmed: z.boolean(),
 });
 
 /** OLD production Apple native body. Owns the `idToken` field with optional name parts. */

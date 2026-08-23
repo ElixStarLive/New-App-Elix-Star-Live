@@ -20,6 +20,25 @@ import {
 
 const TEST_JWT = "integration-test-jwt-secret-key-32chars";
 
+async function issueVerifyJwtForUser(userId: string): Promise<string> {
+  const { rows } = await getPool().query<{
+    email: string;
+    email_confirmed_at: Date | null;
+    password_hash: string;
+  }>(`SELECT email, email_confirmed_at, password_hash FROM users WHERE id = $1`, [userId]);
+  const row = rows[0];
+  if (!row?.password_hash) throw new Error(`missing user ${userId}`);
+  if (row.email_confirmed_at) {
+    await getPool().query(`UPDATE users SET email_confirmed_at = NULL WHERE id = $1`, [userId]);
+  }
+  return issueEmailVerifyToken({
+    id: userId,
+    email: row.email,
+    email_confirmed_at: null,
+    password_hash: row.password_hash,
+  });
+}
+
 async function startEmbeddedDatabase(): Promise<{ url: string; stop: () => Promise<void> } | null> {
   if (process.env.TEST_DATABASE_URL) {
     return { url: process.env.TEST_DATABASE_URL, stop: async () => undefined };
@@ -330,8 +349,8 @@ describe("http integration", () => {
       method: "POST",
       body: JSON.stringify({ token: "a".repeat(64) }),
     });
-    expect(verifyGarbage.status).toBe(400);
-    expect(verifyGarbage.body.message).toBe("Invalid or expired confirmation link.");
+    expect(verifyGarbage.status).toBe(401);
+    expect(verifyGarbage.body.error).toBe("Invalid or expired confirmation link.");
 
     await getPool().query(`UPDATE users SET email_confirmed_at = NULL WHERE id = $1`, [userId]);
     process.env.SMTP_URL = "smtp://127.0.0.1:9";
@@ -353,22 +372,18 @@ describe("http integration", () => {
     expect(unconfirmedReset.rows[0]?.n).toBeGreaterThan(0);
     delete process.env.SMTP_URL;
 
-    const raw = await issueEmailVerifyToken(userId);
+    const raw = await issueVerifyJwtForUser(userId);
     expect(emailVerifyCallbackUrl("https://app.example", raw)).toContain("/auth/callback?token=");
-    const storedHash = await getPool().query<{ token_hash: string }>(
-      `SELECT token_hash FROM email_verify_tokens WHERE user_id = $1 ORDER BY created_at DESC LIMIT 1`,
-      [userId],
-    );
-    expect(storedHash.rows[0]?.token_hash).toBe(sha256(raw));
-    expect(storedHash.rows[0]?.token_hash).not.toBe(raw);
+    expect(raw.split(".").length).toBe(3);
 
     const verified = await json("/api/auth/verify-email", {
       method: "POST",
       body: JSON.stringify({ token: raw }),
     });
     expect(verified.status).toBe(200);
-    expect(verified.body.ok).toBe(true);
-    expect(verified.body.alreadyConfirmed).toBe(false);
+    expect(verified.body.already_confirmed).toBe(false);
+    expect((verified.body as { session?: { access_token?: string } }).session?.access_token).toBeTruthy();
+    expect((verified.body as { user?: { email_confirmed_at?: string } }).user?.email_confirmed_at).toBeTruthy();
 
     const confirmed = await getPool().query<{ email_confirmed_at: Date | null }>(
       `SELECT email_confirmed_at FROM users WHERE id = $1`,
@@ -381,26 +396,16 @@ describe("http integration", () => {
       body: JSON.stringify({ token: raw }),
     });
     expect(reused.status).toBe(200);
-    expect(reused.body.alreadyConfirmed).toBe(true);
+    expect(reused.body.already_confirmed).toBe(true);
+    expect((reused.body as { session?: { access_token?: string } }).session?.access_token).toBeTruthy();
 
-    const raceRaw = await issueEmailVerifyToken(userId);
+    const raceRaw = await issueVerifyJwtForUser(userId);
     const [firstRace, secondRace] = await Promise.all([
       json("/api/auth/verify-email", { method: "POST", body: JSON.stringify({ token: raceRaw }) }),
       json("/api/auth/verify-email", { method: "POST", body: JSON.stringify({ token: raceRaw }) }),
     ]);
     expect(firstRace.status).toBe(200);
     expect(secondRace.status).toBe(200);
-
-    const expiredRaw = await issueEmailVerifyToken(userId);
-    await getPool().query(`UPDATE email_verify_tokens SET expires_at = NOW() - INTERVAL '1 second' WHERE token_hash = $1`, [
-      sha256(expiredRaw),
-    ]);
-    const expired = await json("/api/auth/verify-email", {
-      method: "POST",
-      body: JSON.stringify({ token: expiredRaw }),
-    });
-    expect(expired.status).toBe(400);
-    expect(expired.body.message).toBe("This confirmation link has expired.");
 
     const afterVerifyLogin = await json("/api/auth/login", {
       method: "POST",
@@ -535,7 +540,7 @@ describe("http integration", () => {
     );
     expect(hashAfterExpiredReset.rows[0]?.password_hash).toBe(hashBeforeExpiredReset.rows[0]?.password_hash);
 
-    const verifyAsReset = await issueEmailVerifyToken(userId);
+    const verifyAsReset = await issueVerifyJwtForUser(userId);
     const verifyCannotReset = await json("/api/auth/reset-password", {
       method: "POST",
       body: JSON.stringify({ token: verifyAsReset, password: "password99xx" }),
@@ -757,7 +762,7 @@ describe("http integration", () => {
     expect(deletedReset.status).toBe(400);
     expect(deletedReset.body.message).toBe("Invalid or expired reset link.");
 
-    const bannedRaw = await issueEmailVerifyToken(userId);
+    const bannedRaw = await issueVerifyJwtForUser(userId);
     await getPool().query(`UPDATE users SET banned_until = $2 WHERE id = $1`, [userId, new Date("9999-12-31T00:00:00.000Z")]);
     const banned = await json("/api/auth/verify-email", {
       method: "POST",
@@ -766,7 +771,7 @@ describe("http integration", () => {
     expect(banned.status).toBe(403);
     await getPool().query(`UPDATE users SET banned_until = NULL WHERE id = $1`, [userId]);
 
-    const deletedRaw = await issueEmailVerifyToken(userId);
+    const deletedRaw = await issueVerifyJwtForUser(userId);
     await getPool().query(`UPDATE users SET deleted_at = NOW() WHERE id = $1`, [userId]);
     const unusedBeforeDeletedForgot = await getPool().query<{ n: number }>(
       `SELECT COUNT(*)::int AS n FROM password_reset_tokens WHERE user_id = $1 AND used_at IS NULL`,
@@ -789,7 +794,7 @@ describe("http integration", () => {
       method: "POST",
       body: JSON.stringify({ token: deletedRaw }),
     });
-    expect(deleted.status).toBe(400);
+    expect(deleted.status).toBe(404);
   }, 60_000);
 
   it("PAGE-007 foryou ranking, unique views, blocks, and live cards", async ({ skip }) => {
