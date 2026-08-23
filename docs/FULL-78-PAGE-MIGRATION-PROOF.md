@@ -1,4 +1,4 @@
-﻿# FULL 78-PAGE MIGRATION PROOF
+# FULL 78-PAGE MIGRATION PROOF
 
 **Authority:** Owner orders 2026-08-23.  
 **Verdict status:** **NOT READY FOR RELEASE**  
@@ -15,7 +15,7 @@ All 78 rows below are **NOT VERIFIED** until a page completes the full gate with
 
 | Page | OLD inspected | NEW inspected | Actual migration performed | Contracts aligned | Cleanup complete | Tests | Commit |
 | --- | --- | --- | --- | --- | --- | --- | --- |
-| PAGE-001 | YES | YES | YES | PASS | PASS | PASS | — |
+| PAGE-001 | YES | YES | YES | PASS | PASS | PASS | `0bbeedd` |
 | PAGE-002 | NOT VERIFIED | NOT VERIFIED | NOT VERIFIED | NOT VERIFIED | NOT VERIFIED | NOT VERIFIED | — |
 | PAGE-003 | NOT VERIFIED | NOT VERIFIED | NOT VERIFIED | NOT VERIFIED | NOT VERIFIED | NOT VERIFIED | — |
 | PAGE-004 | NOT VERIFIED | NOT VERIFIED | NOT VERIFIED | NOT VERIFIED | NOT VERIFIED | NOT VERIFIED | — |
@@ -114,7 +114,7 @@ All 78 rows below are **NOT VERIFIED** until a page completes the full gate with
 - **tsc:** `tsc --noEmit` → exit 0
 - **Runtime POST /api/auth/login:** **BLOCKED** — local API DOWN (`127.0.0.1:8080`)
 - **Apple device:** **NOT VERIFIED** (needs iOS device)
-- **Commit:** (this commit)
+- **Commit:** `0bbeedd`
 
 ## Release blockers (remaining)
 
