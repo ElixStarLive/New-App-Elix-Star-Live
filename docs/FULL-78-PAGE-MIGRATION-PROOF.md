@@ -1,4 +1,4 @@
-# FULL 78-PAGE MIGRATION PROOF
+﻿# FULL 78-PAGE MIGRATION PROOF
 
 **Authority:** Owner order 2026-08-23 — FULL migration PAGE-001→078, one page at a time.  
 **Rule:** `Actual migration performed = YES` only after THIS pass: OLD file inspect + NEW file inspect + compare + rebuild gaps + cleanup + page tests + commit.  
@@ -11,7 +11,7 @@
 | PAGE-002 | YES | YES | YES | PASS | PASS | PASS | `db689b1` |
 | PAGE-003 | YES | YES | YES | PASS | PASS | PASS | `30e75f3` |
 | PAGE-004 | YES | YES | YES | PASS | PASS | PASS | `e4912e4` |
-| PAGE-005 | NO | NO | NO | — | — | — | — |
+| PAGE-005 | YES | YES | YES | PASS | PASS | PASS | — |
 | PAGE-006 | NO | NO | NO | — | — | — | — |
 | PAGE-007 | NO | NO | NO | — | — | — | — |
 | PAGE-008 | NO | NO | NO | — | — | — | — |
@@ -121,5 +121,13 @@ All prior YES rows voided. Migration restarted at PAGE-001. One page per commit.
 - **Gaps fixed:** none — aligned (NEW adds empty-email client check + submit lock).
 - **Tests:** ForgotPassword.test → **8/8 PASS**.
 - **Commit:** `e4912e4`
+
+## PAGE-005 evidence
+
+- **OLD inspected:** `Elix Star Live/src/pages/ResetPassword.tsx` (token query, ≥8 chars, mismatch, success → login 3s, AuthFormErrorAndSubmit).
+- **NEW inspected:** `src/pages/ResetPassword.tsx`, `authResetPassword`, `POST /api/auth/reset-password`.
+- **Gaps fixed:** none — same chrome/flow; NEW inlines error+submit (same classes as OLD AuthFormErrorAndSubmit), submit lock + mounted guard. HTML minLength 6 vs JS ≥8 matches OLD.
+- **Tests:** ResetPassword + authSession.reset → **10/10 PASS**.
+- **Commit:** (this commit)
 
 
