@@ -12,8 +12,8 @@
 | PAGE-004 | YES | YES | YES | PASS | PASS | PASS | `85014e1` |
 | PAGE-005 | YES | YES | YES | PASS | PASS | PASS | `843d9f9` |
 | PAGE-006 | YES | YES | YES | PASS | PASS | PASS | `319c394` |
-| PAGE-007 | YES | YES | IN PROGRESS | — | — | — | backend `pending` |
-| PAGE-008 | NO | NO | NO | — | — | — | — |
+| PAGE-007 | YES | YES | IN PROGRESS | — | — | PASS* | `b7d0a2b` backend |
+| PAGE-008 | YES | YES | YES | PASS | PASS | PASS | `f4d9a47` |
 | PAGE-009 | NO | NO | NO | — | — | — | — |
 | PAGE-010 | NO | NO | NO | — | — | — | — |
 | PAGE-011 | NO | NO | NO | — | — | — | — |
@@ -84,6 +84,18 @@
 | PAGE-076 | NO | NO | NO | — | — | — | — |
 | PAGE-077 | NO | NO | NO | — | — | — | — |
 | PAGE-078 | NO | NO | NO | — | — | — | — |
+
+## PAGE-008 evidence
+
+- **OLD inspected:** `StemFeed.tsx`, `FeedStoryCirclesOverlay` suggested users, `GET /api/profiles` list, STEM ranking.
+- **NEW inspected:** `StemFeed.tsx`, `StemFeedOverlay`, `queryStemRanked`, `shared/stemEligibility.ts`.
+- **Gaps fixed:** restore suggested-user circles (`apiFetchProfiles` + `GET /api/profiles`); live → `/watch/{roomId}`, else `/profile/{id}`; live-first sort; exclude users already in story strip.
+- **Already aligned:** STEM ranking 40+20/cap 55, no live cards in snap feed, overlay Search/title/back, empty copy, shared ForYouPlayer + 3s views.
+
+## PAGE-007 evidence (partial)
+
+- **Backend done (`b7d0a2b`):** unique `video_views` track-view; share counter bump; foryou lifecycle enroll/sweep + migration; publish enroll.
+- **Still open:** `ForYouLiveCard` battle/cohost + offline status vs OLD `InlineLiveViewer` — PAGE-007 not YES until that lands.
 
 ## PAGE-006 evidence
 
