@@ -1,4 +1,4 @@
-﻿# FULL 78-PAGE MIGRATION PROOF
+# FULL 78-PAGE MIGRATION PROOF
 
 **Authority:** Owner order 2026-08-23 — FULL migration PAGE-001→078, one page at a time.  
 **Rule:** `Actual migration performed = YES` only after THIS pass: OLD file inspect + NEW file inspect + compare + rebuild gaps + cleanup + page tests + commit.  
@@ -8,7 +8,7 @@
 | Page | OLD inspected | NEW inspected | Actual migration performed | Contracts aligned | Cleanup complete | Tests | Commit |
 | --- | --- | --- | --- | --- | --- | --- | --- |
 | PAGE-001 | YES | YES | YES | PASS | PASS | PASS | `7c692ca` |
-| PAGE-002 | YES | YES | YES | PASS | PASS | PASS | — |
+| PAGE-002 | YES | YES | YES | PASS | PASS | PASS | `db689b1` |
 | PAGE-003 | NO | NO | NO | — | — | — | — |
 | PAGE-004 | NO | NO | NO | — | — | — | — |
 | PAGE-005 | NO | NO | NO | — | — | — | — |
@@ -104,4 +104,4 @@ All prior YES rows voided. Migration restarted at PAGE-001. One page per commit.
 - **NEW inspected:** `src/pages/Register.tsx`, `authRegister` / `authSaveConsent`, `POST /api/auth/register` + `/consent`.
 - **Gaps fixed:** none this pass (Terms/Privacy `returnTo: /register` already present vs OLD which lacked it — keep).
 - **Tests:** Register + authSession.register → **11/11 PASS**.
-- **Commit:** (this commit)
+- **Commit:** `db689b1`
