@@ -1,4 +1,4 @@
-﻿# FULL 78-PAGE MIGRATION PROOF
+# FULL 78-PAGE MIGRATION PROOF
 
 **Authority:** Owner order 2026-08-23 — FULL migration PAGE-001→078, one page at a time.  
 **Rule:** `Actual migration performed = YES` only after THIS pass: OLD file inspect + NEW file inspect + compare + rebuild gaps + cleanup + page tests + commit.  
@@ -12,7 +12,7 @@
 | PAGE-003 | YES | YES | YES | PASS | PASS | PASS | `30e75f3` |
 | PAGE-004 | YES | YES | YES | PASS | PASS | PASS | `e4912e4` |
 | PAGE-005 | YES | YES | YES | PASS | PASS | PASS | `6c0bb7c` |
-| PAGE-006 | YES | YES | YES | PASS | PASS | PASS | — |
+| PAGE-006 | YES | YES | YES | PASS | PASS | PASS | `cce6b69` |
 | PAGE-007 | NO | NO | NO | — | — | — | — |
 | PAGE-008 | NO | NO | NO | — | — | — | — |
 | PAGE-009 | NO | NO | NO | — | — | — | — |
@@ -137,7 +137,7 @@ All prior YES rows voided. Migration restarted at PAGE-001. One page per commit.
 - **Gaps fixed:** wsClient — pending room-switch flush leak, pending cap 50, foreground/backoff fresh token via `getSessionToken`, `disconnect()` without owner force-clears; ported ownership/lifecycle tests.
 - **Keep:** single `/creator/login-details` public (PAGE-029); `appShell` hide matrix; feed presence + live-session release.
 - **Tests:** App + appShell + Top/BottomNav + RequireAuth/Admin + LiveNotifyBanner + NativeDialog + settingsNav + deepLinks + toast + page029 + wsClient → **170/170 PASS**.
-- **Commit:** (this commit)
+- **Commit:** `cce6b69`
 
 
 
