@@ -20,7 +20,7 @@ import {
 } from "../../../shared/contracts/auth.js";
 import { REGISTER_STARTER_COINS } from "../../../shared/contracts/money.js";
 import { getPool, withTransaction } from "../../infra/postgres.js";
-import { LIVE_AUTH_USER_SELECT, isLiveNeonSchema } from "../../infra/liveSchema.js";
+import { LIVE_AUTH_USER_SELECT, isLiveNeonSchema, publicTableExists } from "../../infra/liveSchema.js";
 import { hashPassword, verifyPassword } from "../../infra/password.js";
 import { randomToken, sha256, signAccessToken } from "../../infra/tokens.js";
 import { env } from "../../infra/env.js";
@@ -316,8 +316,17 @@ async function clearLoginFailure(identifier: string): Promise<void> {
   await requireValkey().del(loginFailKey(identifier));
 }
 
+/** Live Neon: use user_two_factor only when present; never pretend 2FA is off if table is missing. */
+async function requireTwoFactorTable(): Promise<void> {
+  if (!(await isLiveNeonSchema())) return;
+  if (await publicTableExists("user_two_factor")) return;
+  throw new AppError("SCHEMA_UNAVAILABLE", "SCHEMA_UNAVAILABLE", 503);
+}
+
 async function assertTotpIfEnabled(userId: string, totpCode: string | undefined): Promise<void> {
-  if (await isLiveNeonSchema()) return;
+  if (await isLiveNeonSchema()) {
+    if (!(await publicTableExists("user_two_factor"))) return;
+  }
   const { rows } = await getPool().query<{ secret_encrypted: string; enabled_at: Date | null }>(
     `SELECT secret_encrypted, enabled_at FROM user_two_factor WHERE user_id = $1`,
     [userId],
@@ -1027,11 +1036,7 @@ router.post("/apple/native", (req, res, next) => {
 });
 
 router.get("/2fa/status", requireAuth, async (req: AuthedRequest, res) => {
-  if (await isLiveNeonSchema()) {
-    res.setHeader("Cache-Control", "private, no-store");
-    res.json({ enabled: false });
-    return;
-  }
+  await requireTwoFactorTable();
   res.setHeader("Cache-Control", "private, no-store");
   const { rows } = await getPool().query<{ enabled_at: Date | null }>(
     `SELECT enabled_at FROM user_two_factor WHERE user_id = $1`,
@@ -1041,6 +1046,7 @@ router.get("/2fa/status", requireAuth, async (req: AuthedRequest, res) => {
 });
 
 router.post("/2fa/enroll", requireAuth, async (req: AuthedRequest, res) => {
+  await requireTwoFactorTable();
   const userId = req.userId as string;
   const existing = await getPool().query<{ enabled_at: Date | null }>(
     `SELECT enabled_at FROM user_two_factor WHERE user_id = $1`,
@@ -1061,6 +1067,7 @@ router.post("/2fa/enroll", requireAuth, async (req: AuthedRequest, res) => {
 });
 
 router.post("/2fa/verify", requireAuth, async (req: AuthedRequest, res) => {
+  await requireTwoFactorTable();
   const userId = req.userId as string;
   const body = twoFactorCodeBodySchema.parse(req.body ?? {});
   const { verifyTotp } = await import("../../infra/totp.js");
@@ -1079,6 +1086,7 @@ router.post("/2fa/verify", requireAuth, async (req: AuthedRequest, res) => {
 });
 
 router.post("/2fa/disable", requireAuth, async (req: AuthedRequest, res) => {
+  await requireTwoFactorTable();
   const userId = req.userId as string;
   const body = twoFactorCodeBodySchema.parse(req.body ?? {});
   const { rows } = await getPool().query<{ enabled_at: Date | null }>(

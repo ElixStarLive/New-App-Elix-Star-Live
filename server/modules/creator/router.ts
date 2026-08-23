@@ -1,99 +1,57 @@
 import { Router } from "express";
-import Stripe from "stripe";
-import { getPool, withTransaction } from "../../infra/postgres.js";
 import { requireAuth, type AuthedRequest } from "../../middleware/auth.js";
-import { AppError } from "../../middleware/errors.js";
-import { env } from "../../infra/env.js";
-import { withdrawalBodySchema } from "../../../shared/contracts/money.js";
+import {
+  getCreatorBalance,
+  listCreatorLedger,
+  listCreatorWithdrawals,
+  listPayoutMethods,
+  requestCreatorWithdrawal,
+  savePayoutMethod,
+} from "../payouts/service.js";
+import { createConnectOnboardingLink, getPayoutAccountStatus } from "../payouts/stripeConnect.js";
 
 const router = Router();
 
+function noStore(res: { setHeader: (name: string, value: string) => void }) {
+  res.setHeader("Cache-Control", "private, no-store");
+}
+
 router.get("/balance", requireAuth, async (req: AuthedRequest, res) => {
-  const { rows } = await getPool().query<{
-    pending_pence: string;
-    available_pence: string;
-    withdrawn_pence: string;
-  }>(
-    `SELECT pending_pence, available_pence, withdrawn_pence FROM creator_wallet_gbp WHERE user_id = $1`,
-    [req.userId],
-  );
-  res.json({
-    pendingPence: Number(rows[0]?.pending_pence ?? 0),
-    availablePence: Number(rows[0]?.available_pence ?? 0),
-    withdrawnPence: Number(rows[0]?.withdrawn_pence ?? 0),
-  });
+  noStore(res);
+  res.json(await getCreatorBalance(req.userId as string));
+});
+
+router.get("/ledger", requireAuth, async (req: AuthedRequest, res) => {
+  noStore(res);
+  res.json(await listCreatorLedger(req.userId as string));
+});
+
+router.get("/withdrawals-gbp", requireAuth, async (req: AuthedRequest, res) => {
+  noStore(res);
+  res.json(await listCreatorWithdrawals(req.userId as string));
+});
+
+router.get("/payout-methods", requireAuth, async (req: AuthedRequest, res) => {
+  noStore(res);
+  res.json(await listPayoutMethods(req.userId as string));
+});
+
+router.post("/payout-method", requireAuth, async (req: AuthedRequest, res) => {
+  res.json(await savePayoutMethod(req.userId as string, req.body));
+});
+
+router.get("/payout-account", requireAuth, async (req: AuthedRequest, res) => {
+  noStore(res);
+  res.json(await getPayoutAccountStatus(req.userId as string));
 });
 
 router.post("/payout-account/onboard", requireAuth, async (req: AuthedRequest, res) => {
-  const key = env().STRIPE_SECRET_KEY;
-  if (!key) throw new AppError("unavailable", "Stripe Connect is not configured", 503);
-  const stripe = new Stripe(key);
-  const existing = await getPool().query<{ stripe_account_id: string | null }>(
-    `SELECT stripe_account_id FROM payout_accounts WHERE user_id = $1`,
-    [req.userId],
-  );
-  let accountId = existing.rows[0]?.stripe_account_id ?? null;
-  if (!accountId) {
-    const account = await stripe.accounts.create({
-      type: "express",
-      country: "GB",
-      capabilities: { transfers: { requested: true } },
-    });
-    accountId = account.id;
-    await getPool().query(
-      `INSERT INTO payout_accounts (user_id, stripe_account_id)
-       VALUES ($1, $2)
-       ON CONFLICT (user_id) DO UPDATE SET stripe_account_id = EXCLUDED.stripe_account_id`,
-      [req.userId, accountId],
-    );
-  }
-  const origin = env().CLIENT_URL || "http://localhost:5173";
-  const link = await stripe.accountLinks.create({
-    account: accountId,
-    refresh_url: `${origin}/settings/payout`,
-    return_url: `${origin}/settings/payout`,
-    type: "account_onboarding",
-  });
-  if (!link.url) throw new AppError("unavailable", "Connect onboarding was not created", 503);
-  res.json({ url: link.url });
+  void req.body;
+  res.json(await createConnectOnboardingLink(req.userId as string));
 });
 
 router.post("/withdraw-gbp", requireAuth, async (req: AuthedRequest, res) => {
-  const body = withdrawalBodySchema.parse(req.body);
-  const account = await getPool().query<{ stripe_account_id: string | null; onboarded_at: Date | null }>(
-    `SELECT stripe_account_id, onboarded_at FROM payout_accounts WHERE user_id = $1`,
-    [req.userId],
-  );
-  if (!account.rows[0]?.stripe_account_id) {
-    throw new AppError("validation_error", "Connect your payout account first", 400);
-  }
-  await withTransaction(async (client) => {
-    const wallet = await client.query<{ available_pence: string }>(
-      `SELECT available_pence FROM creator_wallet_gbp WHERE user_id = $1 FOR UPDATE`,
-      [req.userId],
-    );
-    const available = Number(wallet.rows[0]?.available_pence ?? 0);
-    if (available < body.amountPence) {
-      throw new AppError("insufficient_balance", "Not enough available balance", 400);
-    }
-    await client.query(
-      `UPDATE creator_wallet_gbp
-       SET available_pence = available_pence - $2, withdrawn_pence = withdrawn_pence + $2, updated_at = NOW()
-       WHERE user_id = $1`,
-      [req.userId, body.amountPence],
-    );
-    await client.query(
-      `INSERT INTO financial_ledger (account, amount_pence, reason, idempotency_key, ref_type, ref_id)
-       VALUES ($1, $2, 'withdrawal', $3, 'withdrawal', $3)`,
-      [`creator:${req.userId}`, -body.amountPence, body.idempotencyKey],
-    );
-    await client.query(
-      `INSERT INTO withdrawals_gbp (user_id, amount_pence, status, idempotency_key)
-       VALUES ($1, $2, 'pending', $3)`,
-      [req.userId, body.amountPence, body.idempotencyKey],
-    );
-  });
-  res.json({ ok: true });
+  res.json(await requestCreatorWithdrawal(req.userId as string, req.body));
 });
 
 export default router;
