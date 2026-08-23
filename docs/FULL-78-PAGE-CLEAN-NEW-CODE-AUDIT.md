@@ -164,4 +164,4 @@ Remaining environment-only blockers:
 **ZERO COPIED OLD SOURCE: PASS** (no proven remaining copies; OLD binary re-compare deferred)  
 **ZERO DUPLICATES/RUBBISH LEFT BEHIND: PASS**
 
-Commit: *(filled at commit)*
+Commit: `a6eb61c`
