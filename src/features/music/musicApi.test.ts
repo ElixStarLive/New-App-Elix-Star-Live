@@ -55,12 +55,21 @@ describe("PAGE-016 music API client", () => {
     expect(result.tracks).toHaveLength(1);
   });
 
-  it("maps empty-term local sounds items into MusicTrack rows", async () => {
+  it("maps empty-term local sounds tracks into MusicTrack rows", async () => {
     apiRequestMock.mockResolvedValue({
       data: {
         configured: false,
-        tracks: [],
-        items: [{ id: "local-1", title: "Local Beat", artist: "Studio", cover_url: null }],
+        tracks: [
+          {
+            id: "local-1",
+            title: "Local Beat",
+            artist: "Studio",
+            duration: "",
+            coverUrl: null,
+            clipStartSeconds: 0,
+            clipEndSeconds: 60,
+          },
+        ],
       },
       error: null,
     });

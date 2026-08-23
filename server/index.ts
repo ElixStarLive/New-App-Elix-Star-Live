@@ -159,8 +159,6 @@ export async function createApp() {
   app.use("/api/membership", membershipRouter);
   app.use("/api/creator", creatorRouter);
   app.use("/api/inbox", inboxRouter);
-  /** OLD contract alias — same handlers as /api/inbox/* */
-  app.use("/api/chat", inboxRouter);
   app.use("/api/shop", shopRouter);
   app.use("/api/notifications", notifyRouter);
   app.use("/api/device-tokens", deviceTokensRouter);

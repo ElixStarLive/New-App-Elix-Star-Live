@@ -114,7 +114,6 @@ export const productionLoginUserSchema = z.object({
 
 export const productionLoginSessionSchema = z.object({
   access_token: z.string().min(1),
-  accessToken: z.string().min(1).optional(),
 });
 
 export const productionLoginProfileMetaSchema = z.object({

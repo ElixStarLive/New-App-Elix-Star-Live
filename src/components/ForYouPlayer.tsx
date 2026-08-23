@@ -694,7 +694,7 @@ export function ForYouPlayer({
           description: item.user.name,
           thumbnail: item.thumbnail,
           username: item.user.username,
-          postedAt: item.createdAt,
+          postedAt: item.createdAt ?? undefined,
         }}
       />
     </div>

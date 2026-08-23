@@ -44,13 +44,5 @@ export async function loadCoinPackages(provider: "apple" | "google" | null): Pro
 
 export async function handleGetCoinPackages(req: Request, res: Response): Promise<void> {
   const packages = await loadCoinPackages(requestedProvider(req.query.provider));
-  res.json({
-    packages,
-    products: packages.map((row) => ({
-      productId: row.productId,
-      coins: row.coins,
-      label: row.label,
-      provider: row.provider,
-    })),
-  });
+  res.json({ packages });
 }

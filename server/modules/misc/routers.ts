@@ -59,9 +59,23 @@ notifyRouter.get("/prefs", requireAuth, async (req: AuthedRequest, res) => {
       battle: boolean;
       system: boolean;
     }>(`SELECT live, follow, gift, cohost, battle, system FROM notification_prefs WHERE user_id = $1`, [req.userId]);
-    res.json(
-      rows[0] ?? { live: true, follow: true, gift: true, cohost: true, battle: true, system: true },
-    );
+    if (!rows[0]) {
+      await getPool().query(`INSERT INTO notification_prefs (user_id) VALUES ($1) ON CONFLICT DO NOTHING`, [req.userId]);
+      const inserted = await getPool().query<{
+        live: boolean;
+        follow: boolean;
+        gift: boolean;
+        cohost: boolean;
+        battle: boolean;
+        system: boolean;
+      }>(`SELECT live, follow, gift, cohost, battle, system FROM notification_prefs WHERE user_id = $1`, [req.userId]);
+      if (!inserted.rows[0]) {
+        throw new AppError("SCHEMA_UNAVAILABLE", "SCHEMA_UNAVAILABLE", 503);
+      }
+      res.json(inserted.rows[0]);
+      return;
+    }
+    res.json(rows[0]);
   } catch (error) {
     if (error instanceof AppError) throw error;
     if (isSchemaUnavailable(error)) {

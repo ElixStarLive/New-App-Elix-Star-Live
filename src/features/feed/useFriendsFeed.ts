@@ -1,7 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import type { FeedVideo } from "@shared/contracts";
 import { apiFetchFriendsFeed } from "@/features/feed/feedApi";
-import { showToast } from "@/lib/toast";
 import { useAuthStore } from "@/store/useAuthStore";
 
 export function useFriendsFeed() {

@@ -7,7 +7,6 @@ import path from "node:path";
 import { applyPendingMigrations, closePool, getPool, withTransaction } from "./infra/postgres.js";
 import { resetEnvCache } from "./infra/env.js";
 import { closeValkey } from "./infra/valkey.js";
-import { sha256 } from "./infra/tokens.js";
 import { emailVerifyCallbackUrl, issueEmailVerifyToken } from "./modules/auth/emailVerify.js";
 import { issuePasswordResetToken, passwordResetCallbackUrl } from "./modules/auth/passwordReset.js";
 import { bumpAchievement } from "./modules/engagement/achievements.js";
@@ -338,7 +337,7 @@ describe("http integration", () => {
     const testBalance = await json("/api/test-coins/balance");
     expect(testBalance.status).toBe(503);
 
-    const iap = await json("/api/iap/verify", {
+    const iap = await json("/api/verify-purchase", {
       method: "POST",
       body: JSON.stringify({ provider: "apple", productId: "coins100", receipt: "not-a-jws" }),
     });

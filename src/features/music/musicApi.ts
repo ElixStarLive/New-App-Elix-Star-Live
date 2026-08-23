@@ -81,29 +81,12 @@ export async function apiSearchMusicTracks(term: string): Promise<{
   if (!isRecord(data)) return { tracks: [], error: "Invalid music search" };
 
   const tracks: MusicTrack[] = [];
-  if (Array.isArray(data.tracks)) {
-    for (const row of data.tracks) {
-      const track = parseTrack(row);
-      if (track) tracks.push(track);
-    }
-  }
-  // Empty-term (and unconfigured) responses expose local Neon `sounds` as `items`.
-  if (tracks.length === 0 && Array.isArray(data.items)) {
-    for (const row of data.items) {
-      if (!isRecord(row) || typeof row.id !== "string" || !row.id.trim()) continue;
-      tracks.push({
-        id: row.id,
-        title: typeof row.title === "string" && row.title ? row.title : "Sound",
-        artist: typeof row.artist === "string" ? row.artist : "",
-        duration: "",
-        coverUrl: typeof row.cover_url === "string" ? row.cover_url : typeof row.coverUrl === "string" ? row.coverUrl : null,
-        clipStartSeconds: 0,
-        clipEndSeconds: 60,
-      });
-    }
-  }
-  if (!Array.isArray(data.tracks) && !Array.isArray(data.items)) {
+  if (!Array.isArray(data.tracks)) {
     return { tracks: [], error: "Invalid music search" };
+  }
+  for (const row of data.tracks) {
+    const track = parseTrack(row);
+    if (track) tracks.push(track);
   }
   return { tracks, error: null };
 }
