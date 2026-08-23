@@ -1,4 +1,4 @@
-# FULL 78-PAGE MIGRATION PROOF
+﻿# FULL 78-PAGE MIGRATION PROOF
 
 **Authority:** Owner order 2026-08-23 — FULL migration PAGE-001→078, one page at a time.  
 **Rule:** `Actual migration performed = YES` only after THIS pass: OLD file inspect + NEW file inspect + compare + rebuild gaps + cleanup + page tests + commit.  
@@ -13,7 +13,7 @@
 | PAGE-004 | YES | YES | YES | PASS | PASS | PASS | `e4912e4` |
 | PAGE-005 | YES | YES | YES | PASS | PASS | PASS | `6c0bb7c` |
 | PAGE-006 | YES | YES | YES | PASS | PASS | PASS | `cce6b69` |
-| PAGE-007 | NO | NO | NO | — | — | — | — |
+| PAGE-007 | YES | YES | YES | PASS | PASS | PASS | — |
 | PAGE-008 | NO | NO | NO | — | — | — | — |
 | PAGE-009 | NO | NO | NO | — | — | — | — |
 | PAGE-010 | NO | NO | NO | — | — | — | — |
@@ -138,6 +138,16 @@ All prior YES rows voided. Migration restarted at PAGE-001. One page per commit.
 - **Keep:** single `/creator/login-details` public (PAGE-029); `appShell` hide matrix; feed presence + live-session release.
 - **Tests:** App + appShell + Top/BottomNav + RequireAuth/Admin + LiveNotifyBanner + NativeDialog + settingsNav + deepLinks + toast + page029 + wsClient → **170/170 PASS**.
 - **Commit:** `cce6b69`
+
+## PAGE-007 evidence
+
+- **OLD inspected:** `VideoFeed.tsx`, `EnhancedVideoPlayer`, `InlineLiveViewer`, feed presence / live reconcile.
+- **NEW inspected:** `VideoFeed.tsx`, `ForYouPlayer`, `ForYouLiveCard`, `useForYouFeed`, `feedApi`, feed server ownership.
+- **Gaps fixed:** VideoFeed tests — mock `apiLiveStatus` + `wsClient.connect/disconnect` after live-card status path; query `[data-elix-watch-id]` (div role=button, not `<button>`).
+- **Keep:** battle/cohost/offline LiveKit preview, engagement rail, empty/error Retry, nearby mount window. Device LiveKit host return gate stays PAGE-018.
+- **Tests:** VideoFeed + foryou feed/api/presence/viewGuard + liveCard/promote ownership + comments + server page007/voiceOnly → **50/50 PASS**.
+- **Commit:** (this commit)
+
 
 
 

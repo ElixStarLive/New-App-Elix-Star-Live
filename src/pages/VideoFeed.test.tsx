@@ -23,11 +23,17 @@ const feedApi = vi.hoisted(() => ({
   apiDownloadVoiceOnlyVideo: vi.fn(),
   apiFollowList: vi.fn(),
   apiLiveToken: vi.fn(),
+  apiLiveStatus: vi.fn(),
 }));
 
 const ws = vi.hoisted(() => ({
   on: vi.fn(),
   off: vi.fn(),
+  connect: vi.fn(),
+  disconnect: vi.fn(),
+  getCurrentRoomId: vi.fn(() => null),
+  isConnected: vi.fn(() => false),
+  reconnectOnForeground: vi.fn(),
 }));
 
 vi.mock("@/features/feed/feedApi", () => feedApi);
@@ -132,10 +138,18 @@ describe("PAGE-007 For You", () => {
     Object.values(feedApi).forEach((fn) => fn.mockReset());
     ws.on.mockReset();
     ws.off.mockReset();
+    ws.connect.mockReset();
+    ws.disconnect.mockReset();
+    ws.getCurrentRoomId.mockReset();
+    ws.getCurrentRoomId.mockReturnValue(null);
+    ws.isConnected.mockReset();
+    ws.isConnected.mockReturnValue(false);
+    ws.reconnectOnForeground.mockReset();
     feedApi.apiFetchStories.mockResolvedValue({ users: [], error: null });
     feedApi.apiFollowList.mockResolvedValue({ users: [], error: null });
     feedApi.apiLiveStreams.mockResolvedValue({ streams: [], error: null });
     feedApi.apiLiveToken.mockResolvedValue({ token: null, error: null });
+    feedApi.apiLiveStatus.mockResolvedValue({ status: { active: true, roomId: null }, error: null });
     feedApi.apiMusicPreview.mockResolvedValue({ url: null, error: "none" });
     feedApi.apiFetchVideoComments.mockResolvedValue({ comments: [], error: null });
     feedApi.apiLikeVideo.mockResolvedValue({ ok: true });
@@ -262,7 +276,7 @@ describe("PAGE-007 For You", () => {
     await flush();
     expect(mounted.container.textContent).toContain("LIVE");
     expect(mounted.container.textContent).toContain("Live Creator");
-    const live = mounted.container.querySelector('button[aria-label="Watch Live Creator live"]') as HTMLButtonElement;
+    const live = mounted.container.querySelector('[data-elix-watch-id][aria-label="Watch Live Creator live"]') as HTMLElement;
     expect(live).toBeTruthy();
     const ended = ws.on.mock.calls.find((call) => call[0] === "stream_ended")?.[1] as (data: unknown) => void;
     await act(async () => {
@@ -306,7 +320,7 @@ describe("PAGE-007 For You", () => {
     root = mounted.root;
     container = mounted.container;
     await flush();
-    const live = mounted.container.querySelector('button[data-elix-watch-id]') as HTMLButtonElement;
+    const live = mounted.container.querySelector("[data-elix-watch-id]") as HTMLElement;
     expect(live?.getAttribute("data-elix-watch-id")).toBe(stream.roomId);
     expect(mounted.container.textContent).toContain("Tap to join live");
   });
