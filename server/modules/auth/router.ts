@@ -990,8 +990,6 @@ async function appleNative(req: Request, res: Response): Promise<void> {
     payload.email_verified === true || String(payload.email_verified).toLowerCase() === "true";
   const tokenEmail =
     emailVerified && typeof payload.email === "string" ? payload.email.trim().toLowerCase() : "";
-  const fallbackEmail = `${createHash("sha256").update(sub).digest("hex").slice(0, 16)}@apple.invalid`;
-  const email = tokenEmail || fallbackEmail;
   if (await isLiveNeonSchema()) {
     const existing = await getPool().query<UserRow>(
       `${LIVE_AUTH_USER_SELECT} WHERE u.apple_sub = $1 LIMIT 1`,
@@ -1018,7 +1016,7 @@ async function appleNative(req: Request, res: Response): Promise<void> {
         `INSERT INTO elix_auth_users
            (id, email, email_lower, username, display_name, apple_sub, email_confirmed_at, created_at)
          VALUES ($1, $2, $3, $4, $5, $6, NOW(), NOW())`,
-        [id, email, normalizeEmail(email), username, displayName, sub],
+        [id, tokenEmail, normalizeEmail(tokenEmail), username, displayName, sub],
       );
       await client.query(
         `INSERT INTO profiles (user_id, username, display_name, level, created_at, updated_at)
@@ -1064,7 +1062,7 @@ async function appleNative(req: Request, res: Response): Promise<void> {
       `INSERT INTO users (email, email_normalized, username, username_normalized, display_name, apple_sub, email_confirmed_at)
        VALUES ($1, $2, $3, $4, $5, $6, NOW())
        RETURNING id, email, username, display_name, avatar_url, bio, is_verified, is_admin, email_confirmed_at, created_at`,
-      [email, normalizeEmail(email), username, username.toLowerCase(), displayName, sub],
+      [tokenEmail, normalizeEmail(tokenEmail), username, username.toLowerCase(), displayName, sub],
     );
     const row = inserted.rows[0];
     await client.query(`INSERT INTO wallet_balances (user_id) VALUES ($1)`, [row.id]);
@@ -1075,10 +1073,7 @@ async function appleNative(req: Request, res: Response): Promise<void> {
   await writeProductionLogin(res, user);
 }
 
-router.post("/apple/start", (_req: Request, res: Response) => {
-  // Frozen OLD stub — web clients must use native Sign in with Apple.
-  res.status(400).json({ error: "Update the app to use native Sign in with Apple." });
-});
+
 router.post("/apple", (req, res, next) => {
   void appleNative(req, res).catch(next);
 });

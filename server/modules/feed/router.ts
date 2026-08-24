@@ -1,6 +1,7 @@
 import { Router } from "express";
 import { getPool } from "../../infra/postgres.js";
 import { isLiveNeonSchema } from "../../infra/liveSchema.js";
+import { logger } from "../../infra/logger.js";
 import { requireAuth, type AuthedRequest } from "../../middleware/auth.js";
 import { AppError } from "../../middleware/errors.js";
 import { trackInteractionBodySchema, trackViewBodySchema } from "../../../shared/contracts/social.js";
@@ -177,8 +178,8 @@ router.post("/track-view", requireAuth, async (req: AuthedRequest, res) => {
     try {
       const { onQualifiedUniqueViewForFeed } = await import("./foryouLifecycle.js");
       await onQualifiedUniqueViewForFeed({ videoId, creatorUserId: video.user_id });
-    } catch {
-      /* lifecycle optional until tables exist */
+    } catch (error) {
+      logger.warn({ err: error, videoId }, "for-you lifecycle hook failed");
     }
   }
   res.json({ accepted: true, counted });

@@ -72,7 +72,8 @@ async function loadForYouConfig(): Promise<ForYouConfig> {
       weightCreatorQuality: Number(row.weight_creator_quality) || DEFAULT_CFG.weightCreatorQuality,
       weightGuidelines: Number(row.weight_guidelines) || DEFAULT_CFG.weightGuidelines,
     };
-  } catch {
+  } catch (error) {
+    logger.warn({ err: error }, "loadForYouConfig failed; using defaults");
     return DEFAULT_CFG;
   }
 }

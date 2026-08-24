@@ -1,4 +1,5 @@
 import { env } from "../../infra/env.js";
+import { logger } from "../../infra/logger.js";
 import { requireValkey, valkeyDel, valkeyTrySetNx } from "../../infra/valkey.js";
 import { AppError } from "../../middleware/errors.js";
 
@@ -22,9 +23,14 @@ function valkeyConfigured(): boolean {
   return Boolean(env().valkeyUrl);
 }
 
+function assertTotpValkeyConfigured(): void {
+  if (valkeyConfigured()) return;
+  throw new AppError("unavailable", "Authenticator verification is unavailable", 503);
+}
+
 /** Refuses the attempt when the counter is unreadable rather than opening the door. */
 export async function assertTotpAttemptAllowed(userId: string): Promise<void> {
-  if (!valkeyConfigured()) return;
+  assertTotpValkeyConfigured();
   let count: number;
   try {
     count = Number((await requireValkey().hget(attemptKey(userId), "n")) ?? "0");
@@ -37,32 +43,28 @@ export async function assertTotpAttemptAllowed(userId: string): Promise<void> {
 }
 
 export async function recordTotpFailure(userId: string): Promise<void> {
-  if (!valkeyConfigured()) return;
+  assertTotpValkeyConfigured();
   try {
     const key = attemptKey(userId);
     await requireValkey().hincrby(key, "n", 1);
     await requireValkey().expire(key, ATTEMPT_WINDOW_SEC);
-  } catch {
-    /* the attempt already failed; a missing counter must not mask that */
+  } catch (error) {
+    logger.warn({ err: error, userId }, "totp failure counter update failed");
   }
 }
 
 export async function clearTotpFailures(userId: string): Promise<void> {
-  if (!valkeyConfigured()) return;
+  assertTotpValkeyConfigured();
   try {
     await valkeyDel(attemptKey(userId));
-  } catch {
-    /* best effort — a stale counter only ever costs the user a retry window */
+  } catch (error) {
+    logger.warn({ err: error, userId }, "totp failure counter clear failed");
   }
 }
 
-/**
- * True when this user has not already spent this time step. Without Valkey there
- * is no shared store to burn the step in, and a process-local set would be a lie
- * across replicas, so single-use is only claimed when Valkey is configured.
- */
+/** True when this user has not already spent this time step. */
 export async function consumeTotpCounter(userId: string, counter: number): Promise<boolean> {
-  if (!valkeyConfigured()) return true;
+  assertTotpValkeyConfigured();
   try {
     return await valkeyTrySetNx(replayKey(userId, counter), "1", REPLAY_TTL_MS);
   } catch {

@@ -155,10 +155,7 @@ inboxRouter.post("/threads", requireAuth, async (req: AuthedRequest, res) => {
   await ensureInboxThread(req, res);
 });
 
-/** OLD contract alias — same handler as POST /threads. */
-inboxRouter.post("/threads/ensure", requireAuth, async (req: AuthedRequest, res) => {
-  await ensureInboxThread(req, res);
-});
+
 
 inboxRouter.delete("/threads/:threadId", requireAuth, async (req: AuthedRequest, res) => {
   const threadId = param(req, "threadId");
@@ -323,9 +320,6 @@ extraAdminRouter.post("/unfreeze/:userId", requireAuth, requireAdmin, (req, res,
   void handleAdminUnfreeze(req, res).catch(next);
 });
 
-extraAdminRouter.get("/purchases", requireAuth, requireAdmin, (req, res, next) => {
-  void handleAdminIapPurchases(req, res).catch(next);
-});
 
 extraAdminRouter.get("/iap-purchases", requireAuth, requireAdmin, (req, res, next) => {
   void handleAdminIapPurchases(req, res).catch(next);

@@ -7849,8 +7849,7 @@ describe("http integration", () => {
       expect(loggedOutShop.status).toBe(401);
       assertNoPurchases(loggedOutShop.body);
       const loggedOutAlias = await authJson("/api/admin/purchases", null);
-      expect(loggedOutAlias.status).toBe(401);
-      assertNoPurchases(loggedOutAlias.body);
+      expect(loggedOutAlias.status).toBe(404);
 
       const attacker = await registerIsolated("b75");
       expect(attacker.isAdmin).toBe(false);
@@ -7891,9 +7890,7 @@ describe("http integration", () => {
       expect(JSON.stringify(iap.body)).not.toMatch(/raw_payload|purchaseToken|do-not-leak|receipt/);
 
       const alias = await authJson("/api/admin/purchases", admin.token);
-      expect(alias.status).toBe(200);
-      expect(alias.body.source).toBe("iap");
-      expect(JSON.stringify(alias.body)).not.toMatch(/raw_payload|purchaseToken|do-not-leak/);
+      expect(alias.status).toBe(404);
 
       const shopList = await authJson("/api/admin/shop-purchases", admin.token);
       expect(shopList.status).toBe(200);
