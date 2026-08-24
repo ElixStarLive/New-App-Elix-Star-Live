@@ -1,6 +1,6 @@
 import type { FeedVideo, UserPublic } from "@shared/contracts";
 import type { FeedVideoPage } from "@/features/feed/feedApi";
-import { userPublicSchema } from "@shared/contracts";
+import { decodeUserPublicFromPayload } from "@/lib/decodeUserPublic";
 import { apiRequest, apiUploadForm } from "@/lib/apiClient";
 import { isRecord } from "@/lib/isRecord";
 import {
@@ -28,9 +28,9 @@ export async function apiFetchOwnProfile(): Promise<{
 }> {
   const { data, error } = await apiRequest<unknown>("/api/profiles/me");
   if (error) return { profile: null, error: error.message, status: error.status };
-  const parsed = userPublicSchema.safeParse(isRecord(data) ? data.user : null);
-  if (!parsed.success) return { profile: null, error: "Invalid profile" };
-  return { profile: parsed.data, error: null };
+  const profile = decodeUserPublicFromPayload(data);
+  if (!profile) return { profile: null, error: "Invalid profile" };
+  return { profile, error: null };
 }
 
 export async function apiUploadOwnAvatar(file: Blob, filename = "avatar.jpg"): Promise<{

@@ -1,6 +1,6 @@
 import type { FeedVideo, UserPublic } from "@shared/contracts";
 import type { FeedVideoPage } from "@/features/feed/feedApi";
-import { userPublicSchema } from "@shared/contracts";
+import { decodeUserPublicFromPayload } from "@/lib/decodeUserPublic";
 import { apiRequest } from "@/lib/apiClient";
 import { isRecord } from "@/lib/isRecord";
 import {
@@ -24,8 +24,7 @@ export function isProfileUserId(value: string): boolean {
 }
 
 function parseProfile(data: unknown): UserPublic | null {
-  const parsed = userPublicSchema.safeParse(isRecord(data) ? data.user : null);
-  return parsed.success ? parsed.data : null;
+  return decodeUserPublicFromPayload(data);
 }
 
 export async function apiFetchPublicProfileById(userId: string): Promise<{

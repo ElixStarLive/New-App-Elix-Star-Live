@@ -1,5 +1,17 @@
 apply plugin: 'com.android.application'
 
+import java.util.Properties
+
+final def keystorePropsFile = rootProject.file('keystore.properties')
+final def keystoreProps = new Properties()
+if (keystorePropsFile.exists()) {
+    keystoreProps.load(new FileInputStream(keystorePropsFile))
+}
+final def releaseTaskRequested = gradle.startParameter.taskNames.any { it.toLowerCase().contains('release') }
+if (releaseTaskRequested && !keystorePropsFile.exists()) {
+    throw new GradleException('Missing android/keystore.properties for signed release build')
+}
+
 android {
     namespace = "com.elixstarlive.app"
     compileSdk = rootProject.ext.compileSdkVersion
@@ -16,8 +28,22 @@ android {
             ignoreAssetsPattern = '!.svn:!.git:!.ds_store:!*.scc:.*:!CVS:!thumbs.db:!picasa.ini:!*~'
         }
     }
+    signingConfigs {
+        if (keystorePropsFile.exists()) {
+            release {
+                storeFile file(keystoreProps['storeFile'])
+                storePassword keystoreProps['storePassword']
+                keyAlias keystoreProps['keyAlias']
+                keyPassword keystoreProps['keyPassword']
+            }
+        }
+    }
+
     buildTypes {
         release {
+            if (keystorePropsFile.exists()) {
+                signingConfig signingConfigs.release
+            }
             minifyEnabled false
             proguardFiles getDefaultProguardFile('proguard-android.txt'), 'proguard-rules.pro'
         }

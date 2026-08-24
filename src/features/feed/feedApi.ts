@@ -7,7 +7,6 @@ import {
   liveStreamsResponseSchema,
   liveTokenResponseSchema,
   relationFeedResponseSchema,
-  userPublicSchema,
   type FeedVideo,
   type ForYouFeedResponse,
   type LiveStartResponse,
@@ -18,6 +17,7 @@ import {
 } from "@shared/contracts";
 import { Capacitor } from "@capacitor/core";
 import { apiRequest } from "@/lib/apiClient";
+import { decodeUserPublicFromPayload } from "@/lib/decodeUserPublic";
 import { apiUrl } from "@/lib/api";
 import { getSessionToken } from "@/lib/sessionToken";
 import { isRecord } from "@/lib/isRecord";
@@ -294,9 +294,9 @@ export async function apiFetchProfile(userId: string): Promise<{
 }> {
   const { data, error } = await apiRequest<unknown>(`/api/profiles/${encodeURIComponent(userId)}`);
   if (error) return { profile: null, error: error.message };
-  const parsed = userPublicSchema.safeParse(isRecord(data) ? data.user : null);
-  if (!parsed.success) return { profile: null, error: "Invalid profile" };
-  return { profile: parsed.data, error: null };
+  const profile = decodeUserPublicFromPayload(data);
+  if (!profile) return { profile: null, error: "Invalid profile" };
+  return { profile, error: null };
 }
 
 export async function apiFetchProfiles(): Promise<{
