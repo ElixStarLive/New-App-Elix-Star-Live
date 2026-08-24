@@ -90,7 +90,8 @@ export async function getCreatorBalance(userId: string): Promise<CreatorBalanceP
   try {
     await assertNewPayoutTables();
     const pool = getPool();
-    const [wallet, gifts, subscriptions, rewards, reversals, subscribers] = await Promise.all([
+    const account = creatorAccount(userId);
+    const [wallet, ledgerTotals, creatorTotals] = await Promise.all([
       pool.query<{
         pending_pence: string;
         available_pence: string;
@@ -101,44 +102,44 @@ export async function getCreatorBalance(userId: string): Promise<CreatorBalanceP
          FROM creator_wallet_gbp WHERE user_id = $1`,
         [userId],
       ),
-      pool.query<{ n: string }>(
-        `SELECT COALESCE(SUM(amount_pence), 0)::text AS n
+      pool.query<{
+        gifts_pence: string;
+        subscriptions_pence: string;
+        rewards_pence: string;
+      }>(
+        `SELECT
+           COALESCE(SUM(amount_pence) FILTER (WHERE reason IN ('gift_creator_pending', 'gift_creator')), 0)::text AS gifts_pence,
+           COALESCE(SUM(amount_pence) FILTER (WHERE reason LIKE 'subscription%'), 0)::text AS subscriptions_pence,
+           COALESCE(SUM(amount_pence) FILTER (WHERE reason LIKE 'reward%'), 0)::text AS rewards_pence
          FROM financial_ledger
-         WHERE account = $1 AND reason IN ('gift_creator_pending', 'gift_creator')`,
-        [creatorAccount(userId)],
+         WHERE account = $1`,
+        [account],
       ),
-      pool.query<{ n: string }>(
-        `SELECT COALESCE(SUM(amount_pence), 0)::text AS n
-         FROM financial_ledger
-         WHERE account = $1 AND reason LIKE 'subscription%'`,
-        [creatorAccount(userId)],
-      ),
-      pool.query<{ n: string }>(
-        `SELECT COALESCE(SUM(amount_pence), 0)::text AS n
-         FROM financial_ledger
-         WHERE account = $1 AND reason LIKE 'reward%'`,
-        [creatorAccount(userId)],
-      ),
-      pool.query<{ n: string }>(
-        `SELECT COALESCE(SUM(amount_pence), 0)::text AS n
-         FROM creator_earnings
-         WHERE creator_id = $1 AND status = 'reversed'`,
-        [userId],
-      ),
-      pool.query<{ n: string }>(
-        `SELECT COUNT(*)::text AS n
-         FROM memberships
-         WHERE creator_id = $1 AND status = 'active'
-           AND (expires_at IS NULL OR expires_at > NOW())`,
+      pool.query<{
+        reversed_pence: string;
+        active_subscribers: string;
+      }>(
+        `SELECT
+           COALESCE((
+             SELECT SUM(amount_pence)
+             FROM creator_earnings
+             WHERE creator_id = $1 AND status = 'reversed'
+           ), 0)::text AS reversed_pence,
+           COALESCE((
+             SELECT COUNT(*)
+             FROM memberships
+             WHERE creator_id = $1 AND status = 'active'
+               AND (expires_at IS NULL OR expires_at > NOW())
+           ), 0)::text AS active_subscribers`,
         [userId],
       ),
     ]);
 
-    const giftsPence = penceFromDb(gifts.rows[0]?.n ?? "0");
-    const subscriptionsPence = penceFromDb(subscriptions.rows[0]?.n ?? "0");
-    const rewardsPence = penceFromDb(rewards.rows[0]?.n ?? "0");
-    const reversedPence = penceFromDb(reversals.rows[0]?.n ?? "0");
-    const activeSubscribers = penceFromDb(subscribers.rows[0]?.n ?? "0");
+    const giftsPence = penceFromDb(ledgerTotals.rows[0]?.gifts_pence ?? "0");
+    const subscriptionsPence = penceFromDb(ledgerTotals.rows[0]?.subscriptions_pence ?? "0");
+    const rewardsPence = penceFromDb(ledgerTotals.rows[0]?.rewards_pence ?? "0");
+    const reversedPence = penceFromDb(creatorTotals.rows[0]?.reversed_pence ?? "0");
+    const activeSubscribers = penceFromDb(creatorTotals.rows[0]?.active_subscribers ?? "0");
     const row = wallet.rows[0];
     if (!row) {
       return {
