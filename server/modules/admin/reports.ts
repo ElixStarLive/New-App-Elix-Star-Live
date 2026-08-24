@@ -309,7 +309,7 @@ export async function applyAdminReportPatch(
   });
   const report = await loadAdminReportById(reportId);
   if (!report) throw new AppError("not_found", "Report not found", 404);
-  logger.info({ reportId, status, action, by: actorId, actionApplied: result.actionApplied }, "admin report patched");
+  logger.info({ reportId, status, action, by: actorId, actionApplied: result.actionApplied }, "admin report updated");
   return { report, actionApplied: result.actionApplied };
 }
 

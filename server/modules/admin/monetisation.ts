@@ -284,7 +284,7 @@ export async function applyAdminMonetisationPatch(
       next: config,
       reason: patch.reason,
     },
-    "admin monetisation config patched",
+    "admin monetisation config updated",
   );
   return config;
 }

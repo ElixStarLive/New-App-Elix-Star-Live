@@ -1,14 +1,7 @@
 import { env } from "./env.js";
 import { AppError } from "../middleware/errors.js";
 
-const testBucket = new Map<string, Buffer>();
-
-function isTestStorage(): boolean {
-  return env().NODE_ENV === "test";
-}
-
 export function isBunnyConfigured(): boolean {
-  if (isTestStorage()) return true;
   const e = env();
   return Boolean(e.BUNNY_STORAGE_ZONE && e.BUNNY_STORAGE_API_KEY && e.BUNNY_CDN_HOSTNAME);
 }
@@ -21,10 +14,6 @@ export function assertBunnyConfigured(): void {
 
 export async function bunnyUpload(path: string, body: Buffer, contentType: string): Promise<string> {
   assertBunnyConfigured();
-  if (isTestStorage()) {
-    testBucket.set(path, Buffer.from(body));
-    return `https://cdn.test/${path}`;
-  }
   const zone = env().BUNNY_STORAGE_ZONE;
   const key = env().BUNNY_STORAGE_API_KEY;
   const cdn = env().BUNNY_CDN_HOSTNAME;
@@ -43,10 +32,6 @@ export async function bunnyUpload(path: string, body: Buffer, contentType: strin
 }
 
 export async function bunnyDelete(objectPath: string): Promise<void> {
-  if (isTestStorage()) {
-    testBucket.delete(objectPath);
-    return;
-  }
   const zone = env().BUNNY_STORAGE_ZONE;
   const key = env().BUNNY_STORAGE_API_KEY;
   if (!zone || !key) return;
@@ -59,10 +44,4 @@ export async function bunnyDelete(objectPath: string): Promise<void> {
   }
 }
 
-export function bunnyTestObject(path: string): Buffer | undefined {
-  return testBucket.get(path);
-}
 
-export function clearBunnyTestBucket(): void {
-  testBucket.clear();
-}

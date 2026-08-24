@@ -107,6 +107,7 @@ describe("http integration", () => {
   let base = "";
   let server: http.Server | undefined;
   let token = "";
+  let originalFetch: typeof fetch | null = null;
 
   beforeAll(async () => {
     db = await startEmbeddedDatabase();
@@ -122,6 +123,9 @@ describe("http integration", () => {
     process.env.DATABASE_URL = db.url;
     process.env.JWT_SECRET = TEST_JWT;
     process.env.TEST_COINS_ISSUE_PASSWORD = "qa-test-coins";
+    process.env.BUNNY_STORAGE_ZONE = "integration-zone";
+    process.env.BUNNY_STORAGE_API_KEY = "integration-key";
+    process.env.BUNNY_CDN_HOSTNAME = "cdn.test";
     delete process.env.VALKEY_URL;
     delete process.env.REDIS_URL;
     delete process.env.SMTP_URL;
@@ -136,6 +140,24 @@ describe("http integration", () => {
     delete process.env.LIVEKIT_API_KEY;
     delete process.env.LIVEKIT_API_SECRET;
     resetEnvCache();
+    if (!originalFetch) {
+      originalFetch = globalThis.fetch;
+      globalThis.fetch = ((input: Parameters<typeof fetch>[0], init?: Parameters<typeof fetch>[1]) => {
+        const target = typeof input === "string" ? input : input instanceof URL ? input.toString() : input.url;
+        if (target.startsWith("https://storage.bunnycdn.com/")) {
+          const method = (init?.method || "GET").toUpperCase();
+          if (method === "PUT") {
+            return Promise.resolve(new Response("", { status: 201 }));
+          }
+          if (method === "DELETE") {
+            return Promise.resolve(new Response("", { status: 204 }));
+          }
+          return Promise.resolve(new Response("", { status: 405 }));
+        }
+        return originalFetch!(input, init);
+      }) as typeof fetch;
+    }
+
     const app = await createApp();
     server = await new Promise<http.Server>((resolve) => {
       const started = app.listen(0, "127.0.0.1");
@@ -156,6 +178,10 @@ describe("http integration", () => {
     await closePool();
     await closeValkey().catch(() => undefined);
     await db?.stop();
+    if (originalFetch) {
+      globalThis.fetch = originalFetch;
+      originalFetch = null;
+    }
     resetEnvCache();
   });
 

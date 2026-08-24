@@ -173,7 +173,7 @@ export async function applyAdminGiftPatch(
       coin_cost: patch.coin_cost,
       is_active: patch.is_active,
     },
-    "admin gift catalog patched",
+    "admin gift catalog updated",
   );
   return mapGiftRow(updated.rows[0]);
 }
