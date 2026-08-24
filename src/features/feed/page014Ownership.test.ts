@@ -12,7 +12,7 @@ describe("PAGE-014 Video View ownership", () => {
     expect(page).toMatch(/ForYouPlayer/);
     expect(page).toMatch(/Loading…/);
     expect(page).toMatch(/Video not found or unavailable\./);
-    expect(page).toMatch(/Couldn(?:'|\&apos;)t load this video\./);
+    expect(page).toMatch(/Couldn(?:'|&apos;)t load this video\./);
     expect(page).toMatch(/VIDEO_EXIT_TO|returnToFromLocationState/);
     expect(feedApi).toMatch(/export async function apiFetchVideoById/);
     expect(videosRouter).toMatch(/router\.get\("\/:videoId"/);

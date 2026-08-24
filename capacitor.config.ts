@@ -8,8 +8,12 @@ const config: CapacitorConfig = {
     androidScheme: "https",
   },
   plugins: {
+    CapacitorHttp: { enabled: true },
     Keyboard: { resize: "none" },
     PushNotifications: { presentationOptions: ["badge", "sound", "alert"] },
+  },
+  ios: {
+    contentInset: "never",
   },
 };
 

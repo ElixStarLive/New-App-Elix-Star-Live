@@ -22,36 +22,27 @@ import {
   RefreshCw,
 } from "lucide-react";
 import { CaptureShutterButton } from "@/components/CaptureShutterButton";
+import { apiFetchCameraFilters, apiFetchSpeedOptions, apiFetchStickerOptions } from "@/features/camera/cameraOptionsApi";
 import { platform } from "@/lib/platform";
+import {
+  CAMERA_FILTER_OPTIONS,
+  CAMERA_SPEED_OPTIONS,
+  CAMERA_STICKER_OPTIONS,
+  type CameraFilterOption,
+  type CameraSpeedOption,
+} from "@shared/cameraOptions";
 
 export type CreateTab = "post" | "create" | "live";
 export type CameraDuration = "10m" | "60s" | "15s" | "PHOTO" | "TEXT";
 
-type FilterSwatch = { id: string; name: string; color: string; css: string };
+type FilterSwatch = CameraFilterOption;
 
 const DURATIONS: CameraDuration[] = ["10m", "60s", "15s", "PHOTO", "TEXT"];
 const DURATION_CELL_PX = 64;
 
-const FILTERS: FilterSwatch[] = [
-  { id: "none", name: "Normal", color: "#3A3A3A", css: "none" },
-  { id: "warm", name: "Warm", color: "#E8A87C", css: "sepia(0.3) saturate(1.3) brightness(1.05)" },
-  { id: "cool", name: "Cool", color: "#7CB5E8", css: "saturate(1.2) hue-rotate(-10deg) brightness(1.03)" },
-  { id: "vivid", name: "Vivid", color: "#E85C7A", css: "saturate(1.6) contrast(1.1)" },
-  { id: "vintage", name: "Vintage", color: "#C7A96B", css: "sepia(0.5) contrast(0.95) brightness(1.05) saturate(1.1)" },
-  { id: "fade", name: "Fade", color: "#B8B0A8", css: "contrast(0.85) brightness(1.1) saturate(0.85)" },
-  { id: "mono", name: "Mono", color: "#9A9A9A", css: "grayscale(1) contrast(1.1)" },
-  { id: "noir", name: "Noir", color: "#4A4A4A", css: "grayscale(1) contrast(1.4) brightness(0.95)" },
-];
-
-const SPEEDS = [
-  { value: 0.3, label: "0.3x" },
-  { value: 0.5, label: "0.5x" },
-  { value: 1, label: "1x" },
-  { value: 2, label: "2x" },
-  { value: 3, label: "3x" },
-];
-
-const STICKERS = ["😀", "😍", "🔥", "❤️", "😂", "🎉", "👍", "💯", "✨", "🥳", "😎", "🙌", "💖", "🌟", "👀", "💪", "🎶", "🌈", "⭐", "😭", "🥰", "😳", "👑", "💎"];
+const FILTERS: FilterSwatch[] = CAMERA_FILTER_OPTIONS;
+const SPEEDS: CameraSpeedOption[] = CAMERA_SPEED_OPTIONS;
+const STICKERS = CAMERA_STICKER_OPTIONS.map((item) => item.emoji);
 
 const ICON = "text-[#F5F5F7]";
 
@@ -190,6 +181,24 @@ export function ElixCameraLayout({
   const [textOpen, setTextOpen] = useState(false);
   const [overlayText, setOverlayText] = useState("");
   const [stickers, setStickers] = useState<string[]>([]);
+  const [filters, setFilters] = useState<FilterSwatch[]>(FILTERS);
+  const [speeds, setSpeeds] = useState<CameraSpeedOption[]>(SPEEDS);
+  const [stickerChoices, setStickerChoices] = useState<string[]>(STICKERS);
+
+  useEffect(() => {
+    let cancelled = false;
+    void Promise.all([apiFetchCameraFilters(), apiFetchSpeedOptions(), apiFetchStickerOptions()]).then(
+      ([nextFilters, nextSpeeds, nextStickers]) => {
+        if (cancelled) return;
+        if (nextFilters.length) setFilters(nextFilters);
+        if (nextSpeeds.length) setSpeeds(nextSpeeds);
+        if (nextStickers.length) setStickerChoices(nextStickers.map((item) => item.emoji));
+      },
+    );
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   const closeSheets = useCallback(() => {
     setFiltersOpen(false);
@@ -205,14 +214,14 @@ export function ElixCameraLayout({
     if (beautyOn) {
       parts.push(`brightness(${1 + beauty * 0.15}) contrast(${1 - beauty * 0.05}) saturate(${1 + beauty * 0.08})`);
     }
-    const swatch = FILTERS.find((item) => item.id === filterId);
+    const swatch = filters.find((item) => item.id === filterId);
     if (swatch && swatch.css !== "none") parts.push(swatch.css);
     if (enhance) parts.push("brightness(1.05) contrast(1.08) saturate(1.12)");
     el.style.filter = parts.length ? parts.join(" ") : "none";
     return () => {
       el.style.filter = "none";
     };
-  }, [beautyOn, beauty, filterId, enhance, videoRef]);
+  }, [beautyOn, beauty, filterId, enhance, videoRef, filters]);
 
   useEffect(() => {
     if (textOpen) textFieldRef.current?.focus();
@@ -220,7 +229,7 @@ export function ElixCameraLayout({
 
   useEffect(() => {
     const idx = Math.max(0, DURATIONS.indexOf(duration));
-    durationRef.current?.scrollTo({ left: idx * DURATION_CELL_PX, behavior: "auto" });
+    durationRef.current?.scrollTo?.({ left: idx * DURATION_CELL_PX, behavior: "auto" });
   }, [duration]);
 
   const toggleFocus = async () => {
@@ -251,7 +260,7 @@ export function ElixCameraLayout({
     : "calc(max(3.5rem, env(safe-area-inset-bottom, 0px)) + 8mm)";
   const tabBottom = platform.isAndroid ? "calc(1rem + 9mm)" : "calc(1rem + 5mm)";
   const sheetsOpen = filtersOpen || toolsOpen || stickersOpen;
-  const activeFilter = FILTERS.find((item) => item.id === filterId);
+  const activeFilter = filters.find((item) => item.id === filterId);
 
   return (
     <div className="absolute inset-0 w-full h-full pointer-events-none">
@@ -403,7 +412,7 @@ export function ElixCameraLayout({
         <Sheet title="Filters & Effects" onClose={closeSheets}>
           <div className="px-3 pb-3 pt-3">
             <div className="flex gap-2 overflow-x-auto pb-2 no-scrollbar">
-              {FILTERS.map((item) => (
+              {filters.map((item) => (
                 <button
                   key={item.id}
                   type="button"
@@ -452,7 +461,7 @@ export function ElixCameraLayout({
               Recording Speed
             </p>
             <div className="flex items-center gap-2">
-              {SPEEDS.map((opt) => (
+              {speeds.map((opt) => (
                 <button
                   key={opt.value}
                   type="button"
@@ -588,7 +597,7 @@ export function ElixCameraLayout({
             <div className="bg-[#09090B]/90 rounded-t-2xl">
               <h3 className="text-[#F5F5F7] text-xs font-bold text-center px-4 pt-3 pb-2">Stickers</h3>
               <div className="grid grid-cols-8 gap-2 px-4 pb-4">
-                {STICKERS.map((mark) => (
+                {stickerChoices.map((mark) => (
                   <button
                     key={mark}
                     type="button"
@@ -622,7 +631,7 @@ export function ElixCameraLayout({
                       type="button"
                       onClick={() => {
                         onDuration(item);
-                        durationRef.current?.scrollTo({ left: index * DURATION_CELL_PX, behavior: "smooth" });
+                        durationRef.current?.scrollTo?.({ left: index * DURATION_CELL_PX, behavior: "smooth" });
                         if (item === "TEXT") setTextOpen(true);
                       }}
                       className={`flex-shrink-0 snap-center elix-silver-red-text text-xs font-bold py-1.5 text-center ${duration === item ? "" : "opacity-40"}`}

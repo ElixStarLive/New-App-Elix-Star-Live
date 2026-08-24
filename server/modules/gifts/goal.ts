@@ -1,5 +1,6 @@
 import { env } from "../../infra/env.js";
 import { requireValkey } from "../../infra/valkey.js";
+import { AppError } from "../../middleware/errors.js";
 
 export type StoredGiftGoal = {
   giftId: string;
@@ -10,7 +11,12 @@ export type StoredGiftGoal = {
 };
 
 const GIFT_GOAL_TTL_MS = 24 * 60 * 60 * 1000;
-const localGoals = new Map<string, StoredGiftGoal>();
+
+function requireRealtime(): void {
+  if (!env().valkeyUrl) {
+    throw new AppError("unavailable", "Live state is unavailable", 503);
+  }
+}
 
 function key(roomId: string): string {
   return `gift_goal:${roomId}`;
@@ -31,7 +37,7 @@ function normalizeGoal(raw: Record<string, unknown>): StoredGiftGoal | null {
 }
 
 export async function getGiftGoal(roomId: string): Promise<StoredGiftGoal | null> {
-  if (!env().valkeyUrl) return localGoals.get(roomId) ?? null;
+  requireRealtime();
   const raw = await requireValkey().get(key(roomId));
   if (!raw) return null;
   try {
@@ -44,19 +50,13 @@ export async function getGiftGoal(roomId: string): Promise<StoredGiftGoal | null
 export async function setGiftGoal(roomId: string, goal: StoredGiftGoal): Promise<StoredGiftGoal | null> {
   const normalized = normalizeGoal(goal);
   if (!normalized) return null;
-  if (!env().valkeyUrl) {
-    localGoals.set(roomId, normalized);
-    return normalized;
-  }
+  requireRealtime();
   await requireValkey().set(key(roomId), JSON.stringify(normalized), "PX", GIFT_GOAL_TTL_MS);
   return normalized;
 }
 
 export async function clearGiftGoal(roomId: string): Promise<void> {
-  if (!env().valkeyUrl) {
-    localGoals.delete(roomId);
-    return;
-  }
+  requireRealtime();
   await requireValkey().del(key(roomId));
 }
 

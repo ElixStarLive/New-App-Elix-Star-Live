@@ -1,57 +1,84 @@
-import { useEffect } from "react";
-import { apiRequest } from "@/lib/apiClient";
-import { isRecord } from "@/lib/isRecord";
+import { useCallback } from "react";
+import { useLocation, useNavigate } from "react-router-dom";
+import { Bell } from "lucide-react";
+import SettingsOptionSheet from "@/components/SettingsOptionSheet";
+import { registerPushToken } from "@/lib/pushRegister";
+import { SETTINGS_HOME, exitToFromLocationState } from "@/lib/settingsNav";
 import { useSettingsStore } from "@/store/useSettingsStore";
-import { SettingsSubpage } from "./SettingsSubpage";
+
+export const NOTIFICATIONS_HOME = "/settings/notifications";
+
+function ToggleRow({
+  title,
+  description,
+  value,
+  onToggle,
+}: {
+  title: string;
+  description: string;
+  value: boolean;
+  onToggle: () => void;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onToggle}
+      className="w-full flex items-center gap-3 px-2.5 py-2.5 text-left active:bg-white/5 rounded-md"
+    >
+      <span className="flex-1 min-w-0">
+        <span className="block text-[15px] leading-tight text-[#E6E9EE]">{title}</span>
+        <span className="block text-xs text-[#8B9099] mt-0.5">{description}</span>
+      </span>
+      <span
+        className={`text-xs font-bold px-2 py-1 rounded-full shrink-0 ${
+          value ? "bg-[#E6E9EE] text-white elix-accent" : "bg-white/10 text-[#8B9099]"
+        }`}
+      >
+        {value ? "On" : "Off"}
+      </span>
+    </button>
+  );
+}
 
 export default function NotificationSettings() {
-  const enabled = useSettingsStore((s) => s.notificationsEnabled);
-  const setEnabled = useSettingsStore((s) => s.setNotificationsEnabled);
-  const live = useSettingsStore((s) => s.liveNotifications);
-  const setLive = useSettingsStore((s) => s.setLiveNotifications);
+  const navigate = useNavigate();
+  const location = useLocation();
+  const notificationsEnabled = useSettingsStore((state) => state.notificationsEnabled);
+  const liveNotifications = useSettingsStore((state) => state.liveNotifications);
+  const setNotificationsEnabled = useSettingsStore((state) => state.setNotificationsEnabled);
+  const setLiveNotifications = useSettingsStore((state) => state.setLiveNotifications);
 
-  useEffect(() => {
-    void apiRequest<unknown>("/api/notifications/prefs").then((res) => {
-      if (res.error || !isRecord(res.data)) return;
-      if (typeof res.data.system === "boolean") setEnabled(res.data.system);
-      if (typeof res.data.live === "boolean") setLive(res.data.live);
-    });
-  }, [setEnabled, setLive]);
+  const exit = useCallback(() => {
+    navigate(exitToFromLocationState(location.state, SETTINGS_HOME), { replace: true });
+  }, [navigate, location.state]);
 
   return (
-    <SettingsSubpage title="Notifications">
-      <div className="px-4 py-3 space-y-3">
-        <label className="flex items-center justify-between py-2">
-          <span>Push notifications</span>
-          <input
-            type="checkbox"
-            checked={enabled}
-            onChange={(e) => {
-              const next = e.target.checked;
-              setEnabled(next);
-              void apiRequest("/api/notifications/prefs", {
-                method: "PATCH",
-                body: JSON.stringify({ system: next }),
-              });
+    <SettingsOptionSheet onClose={exit} title="Notifications">
+      <div className="flex-1 min-h-0 overflow-y-auto overscroll-y-contain px-3 pt-2 pb-[3mm]">
+        <div className="flex flex-col gap-0 max-w-full min-h-full">
+          <ToggleRow
+            title="App notifications"
+            description="General in-app notification preference (saved on this device)."
+            value={notificationsEnabled}
+            onToggle={() => {
+              const next = !notificationsEnabled;
+              setNotificationsEnabled(next);
+              if (next) void registerPushToken();
             }}
           />
-        </label>
-        <label className="flex items-center justify-between py-2">
-          <span>Live notifications</span>
-          <input
-            type="checkbox"
-            checked={live}
-            onChange={(e) => {
-              const next = e.target.checked;
-              setLive(next);
-              void apiRequest("/api/notifications/prefs", {
-                method: "PATCH",
-                body: JSON.stringify({ live: next }),
-              });
-            }}
+          <ToggleRow
+            title="Live notifications"
+            description="Alerts when creators you follow go live."
+            value={liveNotifications}
+            onToggle={() => setLiveNotifications(!liveNotifications)}
           />
-        </label>
+          <div className="px-2.5 pt-3 text-xs text-[#8B9099] flex items-start gap-2 leading-relaxed">
+            <Bell size={14} className="mt-0.5 flex-shrink-0 royce-icon-gold" />
+            Preferences are stored locally on this device. Push delivery also requires device
+            permission.
+          </div>
+        </div>
       </div>
-    </SettingsSubpage>
+    </SettingsOptionSheet>
   );
 }

@@ -1,73 +1,146 @@
-import { useLocation, useNavigate } from "react-router-dom";
+import { useCallback, type ReactNode } from "react";
 import {
   Banknote,
   BookOpen,
   Clapperboard,
+  Crown,
   Gift,
+  Heart,
   Radio,
   Shield,
+  Star,
   Swords,
   Users,
   Video,
 } from "lucide-react";
-import { PageScaffold } from "@/components/PageScaffold";
-import { SETTINGS_HOME, exitToFromLocationState } from "@/lib/settingsNav";
-import type { ReactNode } from "react";
+import { useLocation, useNavigate } from "react-router-dom";
+import SettingsOptionSheet from "@/components/SettingsOptionSheet";
+import {
+  HOW_IT_WORKS_ENGAGEMENT_LABEL,
+  HOW_IT_WORKS_ENGAGEMENT_PATH,
+  HOW_IT_WORKS_GUIDELINES_LABEL,
+  HOW_IT_WORKS_GUIDELINES_PATH,
+  HOW_IT_WORKS_INTRO,
+  HOW_IT_WORKS_SECTIONS,
+  HOW_IT_WORKS_SUPPORT_LABEL,
+  HOW_IT_WORKS_SUPPORT_PATH,
+  HOW_IT_WORKS_TITLE,
+  HOW_IT_WORKS_UPDATED,
+  howItWorksBulletText,
+  howItWorksParagraphText,
+  type HowItWorksIcon,
+  type HowItWorksMark,
+} from "@/content/howItWorks";
+import {
+  SETTINGS_HOME,
+  containerReturnState,
+  exitToFromLocationState,
+  returnToFromLocationState,
+} from "@/lib/settingsNav";
+
+const HOW_IT_WORKS_ICONS: Record<HowItWorksIcon, ReactNode> = {
+  clapperboard: <Clapperboard className="w-5 h-5" />,
+  video: <Video className="w-5 h-5" />,
+  radio: <Radio className="w-5 h-5" />,
+  swords: <Swords className="w-5 h-5" />,
+  gift: <Gift className="w-5 h-5" />,
+  banknote: <Banknote className="w-5 h-5" />,
+  star: <Star className="w-5 h-5" />,
+  crown: <Crown className="w-5 h-5" />,
+  users: <Users className="w-5 h-5" />,
+  shield: <Shield className="w-5 h-5" />,
+  heart: <Heart className="w-5 h-5" />,
+};
+
+function renderMarks(marks: readonly HowItWorksMark[]): ReactNode {
+  return marks.map((mark, index) => {
+    if (mark.strong) {
+      return (
+        <strong key={`s-${index}`} className="text-[#E6E9EE]">
+          {mark.strong}
+        </strong>
+      );
+    }
+    if (mark.em) {
+      return <em key={`e-${index}`}>{mark.em}</em>;
+    }
+    return <span key={`t-${index}`}>{mark.text}</span>;
+  });
+}
 
 export default function HowItWorks() {
   const navigate = useNavigate();
   const location = useLocation();
+  const childReturnState = containerReturnState(returnToFromLocationState(location.state) || "/how-it-works");
+
+  const exit = useCallback(() => {
+    navigate(exitToFromLocationState(location.state, SETTINGS_HOME), { replace: true });
+  }, [navigate, location.state]);
+
+  const go = useCallback(
+    (path: string) => {
+      navigate(path, { state: childReturnState });
+    },
+    [navigate, childReturnState],
+  );
+
   return (
-    <PageScaffold title="How the app works" onClose={() => navigate(exitToFromLocationState(location.state, SETTINGS_HOME), { replace: true })}>
-      <div className="px-3 pt-2 pb-[3mm] text-white">
+    <SettingsOptionSheet onClose={exit} title={HOW_IT_WORKS_TITLE}>
+      <div className="flex-1 min-h-0 overflow-y-auto overscroll-y-contain px-3 pt-2 pb-[3mm] text-white">
         <div className="flex items-center gap-2 px-1 mb-3">
           <BookOpen className="w-4 h-4 text-[#E6E9EE] shrink-0" aria-hidden />
-          <div className="text-xs text-[#8B9099] italic">Full guide for fans and creators.</div>
+          <div className="text-xs text-[#8B9099] italic">{HOW_IT_WORKS_UPDATED}</div>
         </div>
         <div className="text-sm text-[#C8CDD5] space-y-5 leading-6 px-1">
-          <p>
-            Elix Star Live is a short-video and live streaming app. Watch For You, go LIVE, send paid-coin gifts, and use Shop checkout on Stripe. Test coins are never money.
-          </p>
-          <Section icon={<Clapperboard className="w-5 h-5" />} title="Main tabs">
-            Home is For You. Friends is people you follow. Create opens the camera. Inbox is messages. Profile is your videos and settings.
-          </Section>
-          <Section icon={<Video className="w-5 h-5" />} title="Videos, sound & duets">
-            Record or upload from Create. Add a caption and sound before you post. Side controls like, comment, save, and share.
-          </Section>
-          <Section icon={<Radio className="w-5 h-5" />} title="LIVE">
-            Go live from Create → LIVE. Spectators join from Live Discover or a live card on For You.
-          </Section>
-          <Section icon={<Swords className="w-5 h-5" />} title="Battles">
-            Battle score comes from gifts and the one-tap battle score. Test-coin gifts add score only. Paid gifts can earn creators.
-          </Section>
-          <Section icon={<Gift className="w-5 h-5" />} title="Coins & gifts">
-            Mobile coins use Apple or Google in-app purchase only. Stripe is shop checkout only. Test coins never go through IAP, Stripe, or payouts.
-          </Section>
-          <Section icon={<Banknote className="w-5 h-5" />} title="Shop">
-            Shop listings check out with Stripe. That is separate from in-app coins.
-          </Section>
-          <Section icon={<Users className="w-5 h-5" />} title="Engagement Hub">
-            Missions, fan level, MVP, and daily login live under Settings → Engagement Hub.
-          </Section>
-          <Section icon={<Shield className="w-5 h-5" />} title="Safety">
-            Report, block, and the Safety Center are in Settings. Paid gifts follow the 60/40 split from paid coin lots only.
-          </Section>
+          <p>{HOW_IT_WORKS_INTRO}</p>
+          {HOW_IT_WORKS_SECTIONS.map((section) => (
+            <section key={section.title}>
+              <h2 className="flex items-center gap-2 text-white font-semibold text-base mb-2">
+                <span className="text-[#E6E9EE] flex-shrink-0">{HOW_IT_WORKS_ICONS[section.icon]}</span>
+                {section.title}
+              </h2>
+              {section.paragraphs?.map((marks) => (
+                <p key={howItWorksParagraphText(marks)} className="mb-2">
+                  {renderMarks(marks)}
+                </p>
+              ))}
+              {section.bullets ? (
+                <ul className="list-disc pl-5 space-y-1.5">
+                  {section.bullets.map((bullet) => (
+                    <li key={howItWorksBulletText(bullet)}>
+                      {bullet.marks ? renderMarks(bullet.marks) : bullet.text}
+                    </li>
+                  ))}
+                </ul>
+              ) : null}
+              {section.footer ? <p className="mt-2 text-xs text-[#8B9099]">{section.footer}</p> : null}
+            </section>
+          ))}
+          <div className="pt-2 flex flex-col gap-2">
+            <button
+              type="button"
+              onClick={() => go(HOW_IT_WORKS_ENGAGEMENT_PATH)}
+              className="w-full py-3 bg-[#E6E9EE] text-white rounded-xl font-bold active:opacity-90 transition"
+            >
+              {HOW_IT_WORKS_ENGAGEMENT_LABEL}
+            </button>
+            <button
+              type="button"
+              onClick={() => go(HOW_IT_WORKS_SUPPORT_PATH)}
+              className="w-full py-3 bg-white/10 text-white rounded-xl font-semibold active:bg-white/15 transition"
+            >
+              {HOW_IT_WORKS_SUPPORT_LABEL}
+            </button>
+            <button
+              type="button"
+              onClick={() => go(HOW_IT_WORKS_GUIDELINES_PATH)}
+              className="w-full py-3 bg-white/10 text-white rounded-xl font-semibold active:bg-white/15 transition"
+            >
+              {HOW_IT_WORKS_GUIDELINES_LABEL}
+            </button>
+          </div>
         </div>
       </div>
-    </PageScaffold>
-  );
-}
-
-function Section({ icon, title, children }: { icon: ReactNode; title: string; children: ReactNode }) {
-  return (
-    <div>
-      <div className="flex items-center gap-2 mb-1.5">
-        <span className="royce-glow-disc" style={{ width: 28, height: 28 }} aria-hidden>
-          {icon}
-        </span>
-        <h2 className="text-[#E6E9EE] font-bold text-sm">{title}</h2>
-      </div>
-      <div className="pl-1">{children}</div>
-    </div>
+    </SettingsOptionSheet>
   );
 }

@@ -39,37 +39,34 @@ const STARTED_DISMISS_MS = 6000;
 const SHARE_DISMISS_MS = 12000;
 const LIVE_RING = "#FF2D55";
 
-function field(payload: Record<string, unknown>, ...keys: string[]): string {
-  for (const key of keys) {
-    const value = payload[key];
-    if (typeof value === "string" && value.trim()) return value.trim();
-  }
-  return "";
+function text(payload: Record<string, unknown>, key: string): string {
+  const value = payload[key];
+  return typeof value === "string" && value.trim() ? value.trim() : "";
 }
 
 function parseSharePayload(data: unknown): ShareBanner | null {
   if (!isRecord(data)) return null;
-  const streamKey = field(data, "streamKey", "stream_key");
+  const streamKey = text(data, "streamKey");
   if (!streamKey) return null;
   return {
     kind: "share",
     streamKey,
-    sharerName: field(data, "sharerName", "sharer_name") || "Someone",
-    sharerAvatar: field(data, "sharerAvatar", "sharer_avatar"),
-    hostName: field(data, "hostName", "host_name") || "a creator",
-    hostAvatar: field(data, "hostAvatar", "host_avatar"),
+    sharerName: text(data, "sharerName") || "Someone",
+    sharerAvatar: text(data, "sharerAvatar"),
+    hostName: text(data, "hostName") || "a creator",
+    hostAvatar: text(data, "hostAvatar"),
   };
 }
 
 function parseInvitePayload(data: unknown, kind: "battle" | "cohost"): InviteBanner | null {
   if (!isRecord(data)) return null;
-  const streamKey = field(data, "streamKey", "stream_key");
-  const hostUserId = field(data, "hostUserId", "host_user_id");
+  const streamKey = text(data, "streamKey");
+  const hostUserId = text(data, "hostUserId");
   if (!streamKey || !hostUserId) return null;
   return {
     kind,
-    hostName: field(data, "hostName", "host_name") || "Creator",
-    hostAvatar: field(data, "hostAvatar", "host_avatar"),
+    hostName: text(data, "hostName") || "Creator",
+    hostAvatar: text(data, "hostAvatar"),
     streamKey,
     hostUserId,
   };
@@ -163,8 +160,8 @@ export function LiveNotifyBanner() {
 
     const showStarted = (data: unknown) => {
       if (!isRecord(data)) return;
-      const room = field(data, "stream_key", "room_id", "streamKey");
-      const uid = field(data, "user_id", "userId");
+      const room = text(data, "roomId");
+      const uid = text(data, "hostId");
       if (!room) return;
       if (uid && user?.id && uid === user.id) return;
       if (seenStartedRef.current.has(room)) return;
@@ -173,9 +170,8 @@ export function LiveNotifyBanner() {
         const first = seenStartedRef.current.values().next().value;
         if (first) seenStartedRef.current.delete(first);
       }
-      const name =
-        field(data, "display_name", "displayName", "title") || "Someone";
-      const avatar = field(data, "avatar_url", "avatarUrl", "avatar");
+      const name = text(data, "displayName") || "Someone";
+      const avatar = text(data, "avatarUrl");
       if (cancelled) return;
       setStartedBanner({ kind: "started", room, userId: uid, name, avatar });
       if (startedDismissTimer.current) clearTimeout(startedDismissTimer.current);
@@ -184,11 +180,11 @@ export function LiveNotifyBanner() {
 
     const retireStarted = (data: unknown) => {
       if (!isRecord(data)) return;
-      const endedRoom = field(data, "stream_key", "streamKey", "room_id");
-      const endedHost = field(data, "host_user_id", "hostUserId");
+      const endedStreamId = text(data, "streamId");
+      const endedRoom = text(data, "roomId");
       const current = startedBannerRef.current;
       if (!current) return;
-      if ((endedRoom && current.room === endedRoom) || (endedHost && current.userId === endedHost)) {
+      if ((endedRoom && current.room === endedRoom) || (endedStreamId && current.room === endedStreamId)) {
         dismissStarted();
       }
     };
@@ -213,7 +209,7 @@ export function LiveNotifyBanner() {
       const parsed = parseSharePayload(data);
       if (!parsed) return;
       if (!isRecord(data)) return;
-      const sharerId = field(data, "sharerUserId", "sharer_user_id");
+      const sharerId = text(data, "sharerUserId");
       if (sharerId && sharerId === user.id) return;
       setShareBanner(parsed);
       if (shareDismissTimer.current) clearTimeout(shareDismissTimer.current);
@@ -222,7 +218,7 @@ export function LiveNotifyBanner() {
 
     const onStreamEnded = (data: unknown) => {
       if (!isRecord(data)) return;
-      const endedKey = field(data, "stream_key", "streamKey");
+      const endedKey = text(data, "streamId") || text(data, "roomId");
       const current = shareBannerRef.current;
       if (endedKey && current?.streamKey === endedKey) dismissShare();
     };

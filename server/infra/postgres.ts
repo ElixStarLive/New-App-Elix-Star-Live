@@ -4,6 +4,7 @@ import { fileURLToPath } from "node:url";
 import pg from "pg";
 import { env } from "./env.js";
 import { logger } from "./logger.js";
+import { detectLiveNeonSchema } from "./liveSchema.js";
 
 const ADVISORY_KEY = 87236401;
 
@@ -66,6 +67,10 @@ export async function withTransaction<T>(fn: (client: pg.PoolClient) => Promise<
 
 export async function applyPendingMigrations(databaseUrl = env().DATABASE_URL): Promise<string[]> {
   const url = directDatabaseUrl(databaseUrl);
+  if (await detectLiveNeonSchema(url)) {
+    logger.info("live Neon schema detected; skipping NEW migrations");
+    return [];
+  }
   const needsSsl = url.includes("neon.tech") || url.includes("sslmode=require");
   const migratePool = new pg.Pool({
     connectionString: url,
@@ -110,6 +115,9 @@ export async function applyPendingMigrations(databaseUrl = env().DATABASE_URL): 
 }
 
 export async function assertMigrationsApplied(): Promise<void> {
+  if (await detectLiveNeonSchema(directDatabaseUrl(env().DATABASE_URL))) {
+    return;
+  }
   const { rows } = await getPool().query<{ filename: string }>(
     "SELECT filename FROM elix_schema_migrations",
   );

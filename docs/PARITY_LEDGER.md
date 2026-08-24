@@ -14,7 +14,7 @@ Template per item: ID, Feature, Reference files, Reference behaviour, Reference 
 
 | ID | Feature | Reference | Backend | Status |
 | --- | --- | --- | --- | --- |
-| AUTH-001 | Register | `src/pages/Register.tsx`, `server/routes/auth.ts` | POST `/api/auth/register`, confirmation email if configured | NOT STARTED |
+| AUTH-001 | Register | `src/pages/Register.tsx`, `server/routes/auth.ts` | POST `/api/auth/register`, confirmation email if configured | PAGE-002 CODE-CLOSED / FROZEN `c8a819b9a015b775c0fa79a374dcdfe9084eb65f`. CODE PARITY PASS. FULL VERIFIED 1:1 FAIL / BLOCKED (verification-only). Do not modify unless a future verification gate exposes a real defect |
 | AUTH-002 | Login email/username | `src/pages/Login.tsx` | POST `/api/auth/login`, lockout via Valkey | NOT STARTED |
 | AUTH-003 | Logout | Settings | POST `/api/auth/logout`, revoke session, disconnect WS | NOT STARTED |
 | AUTH-004 | Session restore | `useAuthStore` persist + `/me` after hydrate | GET `/api/auth/me`, session row live | NOT STARTED |
@@ -70,16 +70,16 @@ Template per item: ID, Feature, Reference files, Reference behaviour, Reference 
 
 | ID | Feature | Status |
 | --- | --- | --- |
-| FEED-001 | For You | NOT STARTED |
-| FEED-002 | Following | NOT STARTED |
-| FEED-003 | Friends | NOT STARTED |
-| FEED-004 | STEM | NOT STARTED |
+| FEED-001 | For You | PAGE-007 IMPLEMENTATION COMPLETE / deferred to PAGE-018 (five live-card runtime tests). Return to PAGE-007 before PAGE-019 |
+| FEED-002 | Following | PAGE-009 IMPLEMENTATION COMPLETE / RUNTIME MEDIA DEPENDENCY DEFERRED. Locked: eligibility, newest-first, self/blocks/moderation, pagination, engagement, unfollow, shell, singleton WS. Return with PAGE-008 when playable NEW-server media exists: playback, one active video, no dual audio, bg/fg, 3s views |
+| FEED-003 | Friends | PAGE-010 IMPLEMENTATION COMPLETE / DEPENDENCY DEFERRED. Locked: follow∪follower union, newest-first, overlay, empty copy. Shared media gate with PAGE-008/009; overlay live PAGE-018; stories FLOW-004 |
+| FEED-004 | STEM | PAGE-008 IMPLEMENTATION COMPLETE / deferred runtime media + release deployment gate. Device chrome/engagements verified. Playback blocked by local test media CORP/placeholders. Same media return gate as PAGE-009. PAGE-007 live-card runtime still deferred to PAGE-018 |
 | FEED-005 | Pagination / refresh | NOT STARTED |
 | FEED-006 | Video cards | NOT STARTED |
 | FEED-007 | Live cards from server presence | NOT STARTED |
 | FEED-008 | Empty / error / loading | NOT STARTED |
 | FEED-009 | Stale live cleanup | NOT STARTED |
-| FEED-010 | Discover / hashtag / search | NOT STARTED |
+| FEED-010 | Discover / hashtag / search | PAGE-011 IMPLEMENTATION COMPLETE / DEPENDENCY DEFERRED. PAGE-012 IMPLEMENTATION COMPLETE / DEPENDENCY DEFERRED. PAGE-013 IMPLEMENTATION COMPLETE / DEPENDENCY DEFERRED. Hashtag grid locked: `GET /api/hashtags/:tag`. Do not start PAGE-014. Video PAGE-014; profile PAGE-025 |
 | FEED-011 | Stories | NOT STARTED |
 | FEED-012 | Likes comments saves | NOT STARTED |
 

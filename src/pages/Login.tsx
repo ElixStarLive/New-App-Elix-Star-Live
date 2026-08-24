@@ -188,7 +188,7 @@ export default function Login() {
           </label>
 
           {error ? (
-            <div className="text-fluid-sm text-rose-300 bg-white/20/10 border border-rose-500/20 rounded-xl p-3 xs:p-2.5">
+            <div className="text-fluid-sm text-rose-300 bg-rose-500/10 border border-rose-500/20 rounded-xl p-3 xs:p-2.5">
               {error}
             </div>
           ) : null}

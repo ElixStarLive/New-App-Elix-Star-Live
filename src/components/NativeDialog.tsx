@@ -16,12 +16,12 @@ type DialogState = DialogRequest & {
 let showDialog: ((request: DialogRequest) => Promise<boolean | string | null>) | null = null;
 
 export function nativeConfirm(message: string, title = "Confirm"): Promise<boolean> {
-  if (!showDialog) return Promise.resolve(window.confirm(message));
+  if (!showDialog) return Promise.reject(new Error("Dialog host is not mounted"));
   return showDialog({ type: "confirm", title, message }) as Promise<boolean>;
 }
 
 export function nativePrompt(message: string, defaultValue = "", title = ""): Promise<string | null> {
-  if (!showDialog) return Promise.resolve(window.prompt(message, defaultValue));
+  if (!showDialog) return Promise.reject(new Error("Dialog host is not mounted"));
   return showDialog({ type: "prompt", title, message, defaultValue }) as Promise<string | null>;
 }
 

@@ -7,6 +7,8 @@ import { logger } from "../../infra/logger.js";
 import { AppError } from "../../middleware/errors.js";
 import { reverseIapPurchase } from "../iap/reverse.js";
 import { verifyAppleSignedJws } from "../../infra/iapVerify.js";
+import { fulfillShopCheckoutSession } from "../shop/fulfill.js";
+import { markHostGrace } from "../live/hostGrace.js";
 
 export async function handleStripeWebhook(req: Request, res: Response): Promise<void> {
   const secret = env().STRIPE_WEBHOOK_SECRET;
@@ -31,13 +33,7 @@ export async function handleStripeWebhook(req: Request, res: Response): Promise<
     return;
   }
   if (event.type === "checkout.session.completed") {
-    const session = event.data.object as { id?: string };
-    if (session.id) {
-      await getPool().query(
-        `UPDATE shop_purchases SET status = 'paid' WHERE stripe_session_id = $1`,
-        [session.id],
-      );
-    }
+    await fulfillShopCheckoutSession(event.data.object as Stripe.Checkout.Session, stripe);
   }
   if (event.type === "account.updated") {
     const account = event.data.object as { id?: string; details_submitted?: boolean };
@@ -61,11 +57,7 @@ export async function handleLivekitWebhook(req: Request, res: Response): Promise
   const auth = typeof req.headers.authorization === "string" ? req.headers.authorization : "";
   const event = await receiver.receive(body, auth);
   if (event.event === "room_finished" && event.room?.name) {
-    await getPool().query(
-      `UPDATE live_streams SET status = 'ended', ended_at = NOW()
-       WHERE room_id = $1 AND status = 'live'`,
-      [event.room.name],
-    );
+    await markHostGrace(event.room.name);
   }
   res.json({ ok: true });
 }

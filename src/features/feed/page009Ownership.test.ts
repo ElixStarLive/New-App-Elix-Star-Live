@@ -8,7 +8,7 @@ const query = readFileSync(resolve(process.cwd(), "server/modules/feed/query.ts"
 
 describe("PAGE-009 Following ownership", () => {
   it("keeps following feed contract and overlay title", () => {
-    expect(page).toMatch(/FollowingFeedOverlay|title=\"Following\"|Following/);
+    expect(page).toMatch(/FollowingFeedOverlay|title="Following"|Following/);
     expect(query).toMatch(/queryFollowingPage/);
     expect(query).toMatch(/RELATION_FEED_LIMIT|following_id|followee_id/);
   });

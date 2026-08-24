@@ -30,6 +30,13 @@ import { encryptSecret, decryptSecret } from "../../infra/secretBox.js";
 import { requireValkey, valkeyTrySetNx, valkeyDel } from "../../infra/valkey.js";
 import { AppError } from "../../middleware/errors.js";
 import { requireAuth, type AuthedRequest } from "../../middleware/auth.js";
+import {
+  assertTotpAttemptAllowed,
+  clearTotpFailures,
+  consumeTotpCounter,
+  recordTotpFailure,
+  totpReplayError,
+} from "./totpGuard.js";
 import { consumeEmailVerifyToken, emailVerifyCallbackUrl, issueEmailVerifyToken } from "./emailVerify.js";
 import {
   applyPasswordReset,
@@ -239,23 +246,47 @@ async function writeProductionRegister(
   });
 }
 
-async function findUserByLogin(emailOrUsername: string): Promise<(UserRow & { password_hash: string | null }) | null> {
+type LoginUserRow = UserRow & { password_hash: string | null };
+
+const LOGIN_USER_COLUMNS = `id, email, username, display_name, avatar_url, bio, is_verified, is_admin,
+          email_confirmed_at, created_at, password_hash, banned_until`;
+
+/**
+ * Login accepts an email address or a username. Email wins outright; a username
+ * only resolves when it names exactly one account, so legacy duplicate usernames
+ * must sign in with their unique email rather than landing on an arbitrary row.
+ */
+async function findUserByLogin(emailOrUsername: string): Promise<LoginUserRow | null> {
   const value = emailOrUsername.trim();
-  const { rows } = (await isLiveNeonSchema())
-    ? await getPool().query<UserRow & { password_hash: string | null }>(
-        `${LIVE_AUTH_USER_SELECT}
-         WHERE u.email_lower = $1 OR LOWER(u.username) = $2
-         LIMIT 1`,
-        [normalizeEmail(value), normalizeUsername(value)],
-      )
-    : await getPool().query<UserRow & { password_hash: string | null }>(
-        `SELECT id, email, username, display_name, avatar_url, bio, is_verified, is_admin, email_confirmed_at, created_at, password_hash, banned_until
-     FROM users
-     WHERE deleted_at IS NULL AND (email_normalized = $1 OR username_normalized = $2)
-     LIMIT 1`,
-        [normalizeEmail(value), normalizeUsername(value)],
+  const live = await isLiveNeonSchema();
+
+  const byEmail = live
+    ? await getPool().query<LoginUserRow>(`${LIVE_AUTH_USER_SELECT} WHERE u.email_lower = $1 LIMIT 1`, [
+        normalizeEmail(value),
+      ])
+    : await getPool().query<LoginUserRow>(
+        `SELECT ${LOGIN_USER_COLUMNS}
+           FROM users
+          WHERE deleted_at IS NULL AND email_normalized = $1
+          LIMIT 1`,
+        [normalizeEmail(value)],
       );
-  return rows[0] ?? null;
+  if (byEmail.rows[0]) return byEmail.rows[0];
+
+  const byUsername = live
+    ? await getPool().query<LoginUserRow>(
+        `${LIVE_AUTH_USER_SELECT} WHERE LOWER(u.username) = $1 ORDER BY u.created_at ASC LIMIT 2`,
+        [normalizeUsername(value)],
+      )
+    : await getPool().query<LoginUserRow>(
+        `SELECT ${LOGIN_USER_COLUMNS}
+           FROM users
+          WHERE deleted_at IS NULL AND username_normalized = $1
+          ORDER BY created_at ASC
+          LIMIT 2`,
+        [normalizeUsername(value)],
+      );
+  return byUsername.rows.length === 1 ? byUsername.rows[0] : null;
 }
 
 function loginFailKey(identifier: string): string {
@@ -323,6 +354,20 @@ async function requireTwoFactorTable(): Promise<void> {
   throw new AppError("SCHEMA_UNAVAILABLE", "SCHEMA_UNAVAILABLE", 503);
 }
 
+/** Authenticator label: the account the code belongs to, never the TOTP secret. */
+async function twoFactorAccountLabel(userId: string): Promise<string> {
+  const { rows } = (await isLiveNeonSchema())
+    ? await getPool().query<{ email: string | null; username: string | null }>(
+        `SELECT u.email, u.username FROM elix_auth_users u WHERE u.id = $1`,
+        [userId],
+      )
+    : await getPool().query<{ email: string | null; username: string | null }>(
+        `SELECT email, username FROM users WHERE id = $1 AND deleted_at IS NULL`,
+        [userId],
+      );
+  return rows[0]?.email?.trim() || rows[0]?.username?.trim() || userId;
+}
+
 async function assertTotpIfEnabled(userId: string, totpCode: string | undefined): Promise<void> {
   if (await isLiveNeonSchema()) {
     if (!(await publicTableExists("user_two_factor"))) return;
@@ -333,10 +378,15 @@ async function assertTotpIfEnabled(userId: string, totpCode: string | undefined)
   );
   if (!rows[0]?.enabled_at) return;
   if (!totpCode) throw new AppError("requires_2fa", "Authenticator code required", 401);
-  const { verifyTotp } = await import("../../infra/totp.js");
-  if (!verifyTotp(decryptSecret(rows[0].secret_encrypted), totpCode)) {
+  await assertTotpAttemptAllowed(userId);
+  const { matchTotpCounter } = await import("../../infra/totp.js");
+  const counter = matchTotpCounter(decryptSecret(rows[0].secret_encrypted), totpCode);
+  if (counter === null) {
+    await recordTotpFailure(userId);
     throw new AppError("invalid_credentials", "Invalid authenticator code", 401);
   }
+  if (!(await consumeTotpCounter(userId, counter))) throw totpReplayError();
+  await clearTotpFailures(userId);
 }
 
 function uniqueRegisterConflict(error: unknown): AppError | null {
@@ -653,6 +703,7 @@ router.post("/change-password", requireAuth, async (req: AuthedRequest, res) => 
 router.get("/me", requireAuth, async (req: AuthedRequest, res: Response) => {
   const token = req.accessToken;
   if (!token) throw new AppError("unauthenticated", "Session expired", 401);
+  res.setHeader("Cache-Control", "private, no-store");
   const { rows } = (await isLiveNeonSchema())
     ? await getPool().query<UserRow>(`${LIVE_AUTH_USER_SELECT} WHERE u.id = $1`, [req.userId])
     : await getPool().query<UserRow>(
@@ -1055,7 +1106,7 @@ router.post("/2fa/enroll", requireAuth, async (req: AuthedRequest, res) => {
   if (existing.rows[0]?.enabled_at) {
     throw new AppError("conflict", "2FA already enabled", 409);
   }
-  const { generateTotpSecret } = await import("../../infra/totp.js");
+  const { generateTotpSecret, totpOtpauthUrl } = await import("../../infra/totp.js");
   const secret = generateTotpSecret();
   await getPool().query(
     `INSERT INTO user_two_factor (user_id, secret_encrypted, enabled_at)
@@ -1063,7 +1114,8 @@ router.post("/2fa/enroll", requireAuth, async (req: AuthedRequest, res) => {
      ON CONFLICT (user_id) DO UPDATE SET secret_encrypted = EXCLUDED.secret_encrypted, enabled_at = NULL`,
     [userId, encryptSecret(secret)],
   );
-  res.json({ secret });
+  res.setHeader("Cache-Control", "private, no-store");
+  res.json({ enabled: false, secret, otpauth_url: totpOtpauthUrl(await twoFactorAccountLabel(userId), secret) });
 });
 
 router.post("/2fa/verify", requireAuth, async (req: AuthedRequest, res) => {

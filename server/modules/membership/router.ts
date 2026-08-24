@@ -4,6 +4,7 @@ import { requireAuth, type AuthedRequest } from "../../middleware/auth.js";
 import { AppError } from "../../middleware/errors.js";
 import { verifyAppleReceipt, verifyGooglePurchase } from "../../infra/iapVerify.js";
 import { iapVerifyBodySchema } from "../../../shared/contracts/money.js";
+import { canonicalIapProductId } from "../iap/replay.js";
 
 const router = Router();
 
@@ -28,24 +29,26 @@ router.post("/iap-complete", requireAuth, async (req: AuthedRequest, res) => {
   const body = iapVerifyBodySchema.parse({
     provider: req.body?.provider,
     productId: req.body?.productId,
+    packageId: req.body?.packageId,
     receipt: req.body?.receipt,
   });
+  const productId = canonicalIapProductId(body);
   const coinSku = await getPool().query(
     `SELECT 1 FROM coin_packages WHERE provider = $1 AND product_id = $2`,
-    [body.provider, body.productId],
+    [body.provider, productId],
   );
   if (coinSku.rows[0]) {
     throw new AppError("validation_error", "Coin products cannot be used for membership", 400);
   }
   const sku = await getPool().query<{ duration_days: number }>(
     `SELECT duration_days FROM membership_products WHERE provider = $1 AND product_id = $2`,
-    [body.provider, body.productId],
+    [body.provider, productId],
   );
   if (!sku.rows[0]) throw new AppError("validation_error", "Unknown membership product", 400);
   const verified =
     body.provider === "apple"
-      ? await verifyAppleReceipt(body.receipt, body.productId, 0)
-      : await verifyGooglePurchase(body.receipt, body.productId, 0);
+      ? await verifyAppleReceipt(body.receipt, productId, 0)
+      : await verifyGooglePurchase(body.receipt, productId, 0);
   await withTransaction(async (client) => {
     const purchase = await client.query<{ id: string }>(
       `INSERT INTO membership_purchases (subscriber_id, creator_id, provider, product_id, provider_txn_id)

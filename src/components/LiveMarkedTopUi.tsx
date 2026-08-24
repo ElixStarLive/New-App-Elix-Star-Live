@@ -3,6 +3,19 @@ import { Heart } from "lucide-react";
 import { AvatarRing } from "./AvatarRing";
 import { LIVE_TOP_AVATAR_RING_PX } from "@/lib/profileFrame";
 
+function formatLikesShort(count: number): string {
+  const value = Number.isFinite(count) ? count : 0;
+  if (value >= 1_000_000) {
+    const millions = Math.round((value / 1_000_000) * 10) / 10;
+    return `${Number.isInteger(millions) ? Math.trunc(millions) : millions}M`;
+  }
+  if (value >= 1000) {
+    const thousands = Math.round((value / 1000) * 10) / 10;
+    return `${Number.isInteger(thousands) ? Math.trunc(thousands) : thousands}K`;
+  }
+  return String(value);
+}
+
 const ACTION_PILL_CLASS =
   "flex items-center justify-center gap-1 w-[70px] h-[36px] pl-2 pr-2.5 rounded-full box-border flex-shrink-0 active:scale-95 transition-transform";
 
@@ -37,6 +50,7 @@ export function LiveHostProfileHeader({
   onAvatarClick,
   onFollow,
   onJoin,
+  onLikesClick,
   joinSent,
 }: {
   name: string;
@@ -47,6 +61,7 @@ export function LiveHostProfileHeader({
   onAvatarClick: () => void;
   onFollow: (e: React.MouseEvent) => void;
   onJoin: () => void;
+  onLikesClick?: () => void;
   joinSent: boolean;
 }) {
   const followAboveJoin = Boolean(showFollow && !isFollowing);
@@ -91,13 +106,94 @@ export function LiveHostProfileHeader({
                 onClick={onJoin}
                 aria-label="Join"
               >
-                <Heart className="elix-join-heart w-3.5 h-3.5" strokeWidth={2.2} />
-                <span className="text-[11px] font-semibold">Join</span>
+                <span className="relative inline-flex items-center justify-center w-[18px] h-[18px] flex-shrink-0">
+                  <Heart className="elix-join-heart w-[18px] h-[18px]" strokeWidth={2.2} />
+                  {!joinSent ? (
+                    <span
+                      className="absolute inset-0 flex items-center justify-center text-[9px] font-black leading-none pt-px"
+                      style={{ color: "var(--elix-join-accent)" }}
+                    >
+                      +
+                    </span>
+                  ) : null}
+                </span>
+                <span className="text-[13px] font-semibold leading-none">Join</span>
               </button>
             </div>
-            <span className="elix-silver-red-text text-[9px] font-semibold">{likes} Likes LIVE</span>
+            <button
+              type="button"
+              className="elix-silver-red-text text-[9px] font-semibold text-left"
+              onClick={onLikesClick}
+            >
+              {formatLikesShort(likes)} Likes LIVE
+            </button>
           </div>
         </div>
+      </div>
+    </div>
+  );
+}
+
+const THIN_CAPSULE_CLASS =
+  "elix-live-thin-capsule inline-flex items-center gap-0.5 flex-shrink-0 rounded-full pl-1.5 pr-2 h-[22px] box-border pointer-events-auto active:scale-95 transition-transform bg-transparent shadow-none";
+const THIN_CAPSULE_STYLE: React.CSSProperties = {
+  background: "transparent",
+  border: "1px solid #2A2D33",
+  boxShadow: "none",
+};
+const CAPSULE_TITLE = "elix-silver-red-text text-[8px] font-bold whitespace-nowrap";
+const CAPSULE_SUB = "elix-silver-red-text text-[6px] font-semibold whitespace-nowrap mt-[0.5px]";
+
+export function LiveMarkedSubHeaderBar({
+  rank,
+  giftLabel,
+  onWeeklyRanking,
+  onDiamond,
+  onGiftGoal,
+  onExplore,
+}: {
+  rank: number | null;
+  giftLabel?: string;
+  onWeeklyRanking: () => void;
+  onDiamond: () => void;
+  onGiftGoal: () => void;
+  onExplore: () => void;
+}) {
+  return (
+    <div className="mt-1 -translate-y-[0.5mm] w-full pointer-events-auto relative z-20 flex justify-end">
+      <div className="flex items-center gap-1.5 flex-nowrap w-max max-w-full ml-auto overflow-x-auto no-scrollbar">
+        <button type="button" className={THIN_CAPSULE_CLASS} style={THIN_CAPSULE_STYLE} onClick={onWeeklyRanking}>
+          <span className="text-[8px] leading-none w-[9px] h-[9px] flex items-center justify-center flex-shrink-0" aria-hidden>
+            🔥
+          </span>
+          <span className="flex flex-col items-start justify-center leading-none min-w-0">
+            <span className={CAPSULE_TITLE}>Weekly Ranking</span>
+            <span className={CAPSULE_SUB}>{rank != null ? `No.${rank}` : "No."}</span>
+          </span>
+        </button>
+        <button type="button" className={THIN_CAPSULE_CLASS} style={THIN_CAPSULE_STYLE} onClick={onDiamond}>
+          <span className="w-[9px] h-[9px] rounded-[2px] rotate-45 bg-[#818CF8] flex-shrink-0" aria-hidden />
+          <span className="flex flex-col items-start justify-center leading-none min-w-0">
+            <span className={CAPSULE_TITLE}>Diamond League</span>
+            <span className={CAPSULE_SUB}>{rank != null ? `Rank ${rank}` : "Rank"}</span>
+          </span>
+        </button>
+        <button type="button" className={THIN_CAPSULE_CLASS} style={THIN_CAPSULE_STYLE} onClick={onGiftGoal} aria-label="Gift Goal">
+          <span className="text-[8px] leading-none flex-shrink-0" aria-hidden>
+            🎯
+          </span>
+          <span className="flex flex-col items-start justify-center leading-none min-w-0">
+            <span className={CAPSULE_TITLE}>Gift Goal</span>
+            <span className={CAPSULE_SUB}>{giftLabel || "Set"}</span>
+          </span>
+        </button>
+        <button type="button" className={THIN_CAPSULE_CLASS} style={THIN_CAPSULE_STYLE} onClick={onExplore}>
+          <span className="w-[9px] h-[9px] rounded-full bg-[#A5B4FC] flex-shrink-0" aria-hidden />
+          <span className="flex flex-col items-start justify-center leading-none min-w-0">
+            <span className={CAPSULE_TITLE}>Explore</span>
+            <span className={CAPSULE_SUB}>Live</span>
+          </span>
+        </button>
       </div>
     </div>
   );

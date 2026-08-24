@@ -114,6 +114,32 @@ export class LiveKitSession {
     await this.room?.localParticipant.setMicrophoneEnabled(enabled);
   }
 
+  async switchCamera(): Promise<void> {
+    const publication = this.room?.localParticipant.getTrackPublication(Track.Source.Camera);
+    const track = publication?.videoTrack;
+    if (!track || typeof track.restartTrack !== "function") return;
+    const facing = track.mediaStreamTrack.getSettings().facingMode === "environment" ? "user" : "environment";
+    await track.restartTrack({ facingMode: facing });
+  }
+
+  async publishFromStream(stream: MediaStream): Promise<void> {
+    const room = this.room;
+    if (!room || room.state !== ConnectionState.Connected) {
+      throw new Error("LiveKit room is not connected");
+    }
+    const local = room.localParticipant;
+    for (const publication of [...local.trackPublications.values()]) {
+      if (publication.track) {
+        await local.unpublishTrack(publication.track);
+      }
+    }
+    for (const mediaTrack of stream.getTracks()) {
+      await local.publishTrack(mediaTrack, {
+        source: mediaTrack.kind === "video" ? Track.Source.Camera : Track.Source.Microphone,
+      });
+    }
+  }
+
   attachLocalVideo(element: HTMLVideoElement): void {
     const pub = this.room?.localParticipant.getTrackPublication(Track.Source.Camera);
     const track = pub?.track;

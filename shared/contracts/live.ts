@@ -2,6 +2,8 @@ import { z } from "zod";
 
 export const liveStartBodySchema = z.object({
   title: z.string().max(80).optional(),
+  displayName: z.string().max(80).optional(),
+  room: z.string().min(1).optional(),
 });
 
 export const liveStartResponseSchema = z.object({

@@ -39,6 +39,18 @@ export function valkeySub(): Redis {
   return sub;
 }
 
+export async function valkeySet(key: string, value: string, ttlMs: number): Promise<void> {
+  await requireValkey().set(key, value, "PX", ttlMs);
+}
+
+export async function valkeyGet(key: string): Promise<string | null> {
+  return requireValkey().get(key);
+}
+
+export async function valkeyDel(key: string): Promise<void> {
+  await requireValkey().del(key);
+}
+
 export async function valkeyTrySetNx(
   key: string,
   value: string,
@@ -46,6 +58,20 @@ export async function valkeyTrySetNx(
 ): Promise<boolean> {
   const result = await requireValkey().set(key, value, "PX", ttlMs, "NX");
   return result === "OK";
+}
+
+export async function valkeySadd(key: string, member: string, ttlMs: number): Promise<void> {
+  const redis = requireValkey();
+  await redis.sadd(key, member);
+  await redis.pexpire(key, ttlMs);
+}
+
+export async function valkeySrem(key: string, member: string): Promise<number> {
+  return requireValkey().srem(key, member);
+}
+
+export async function valkeyScard(key: string): Promise<number> {
+  return requireValkey().scard(key);
 }
 
 export async function closeValkey(): Promise<void> {

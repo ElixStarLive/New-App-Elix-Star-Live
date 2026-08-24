@@ -10,8 +10,8 @@ export default function RequireAdmin() {
     return <Navigate to="/login" replace />;
   }
 
-  if (!user.isAdmin) {
-    return <Navigate to="/" replace />;
+  if (user.isAdmin !== true) {
+    return <Navigate to="/feed" replace />;
   }
 
   return <Outlet />;

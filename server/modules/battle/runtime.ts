@@ -1,45 +1,35 @@
-import { env } from "../../infra/env.js";
 import { getPool } from "../../infra/postgres.js";
+import { env } from "../../infra/env.js";
 import { requireValkey, valkeyPub } from "../../infra/valkey.js";
+import { AppError } from "../../middleware/errors.js";
 import { applyScore, tick } from "./state.js";
 import type { BattleSeat, BattleState } from "../../../shared/contracts/realtime.js";
 
-const localBattles = new Map<string, BattleState>();
+function requireRealtime(): void {
+  if (!env().valkeyUrl) {
+    throw new AppError("unavailable", "Live state is unavailable", 503);
+  }
+}
 
 function battleKey(roomId: string): string {
   return `battle:${roomId}`;
 }
 
 export async function loadBattle(roomId: string): Promise<BattleState | null> {
-  if (!env().valkeyUrl) return localBattles.get(roomId) ?? null;
+  requireRealtime();
   const raw = await requireValkey().get(battleKey(roomId));
   return raw ? (JSON.parse(raw) as BattleState) : null;
 }
 
 export async function saveBattle(state: BattleState): Promise<void> {
-  if (!env().valkeyUrl) {
-    localBattles.set(state.streamId, state);
-    return;
-  }
+  requireRealtime();
   await requireValkey().set(battleKey(state.streamId), JSON.stringify(state));
 }
 
-const localRoomHandlers = new Set<(roomId: string, payload: string) => void>();
-
-export function onLocalRoom(handler: (roomId: string, payload: string) => void): () => void {
-  localRoomHandlers.add(handler);
-  return () => {
-    localRoomHandlers.delete(handler);
-  };
-}
-
 export async function publishRoom(roomId: string, event: string, data: unknown): Promise<void> {
+  requireRealtime();
   const payload = JSON.stringify({ event, data, timestamp: new Date().toISOString() });
-  if (env().valkeyUrl) {
-    await valkeyPub().publish(`room:${roomId}`, payload);
-    return;
-  }
-  for (const handler of localRoomHandlers) handler(roomId, payload);
+  await valkeyPub().publish(`room:${roomId}`, payload);
 }
 
 export async function persistEndedBattle(state: BattleState): Promise<void> {

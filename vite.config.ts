@@ -82,11 +82,25 @@ export default defineConfig(({ mode }) => {
   },
   plugins: [react(), tsconfigPaths()],
   test: {
-    environment: "node",
-    include: ["shared/**/*.test.ts", "server/**/*.test.ts", "src/**/*.test.ts", "src/**/*.test.tsx"],
-    environmentMatchGlobs: [
-      ["src/**/*.test.tsx", "jsdom"],
-      ["src/lib/api.origin.test.ts", "jsdom"],
+    projects: [
+      {
+        extends: true,
+        test: {
+          name: "node",
+          environment: "node",
+          include: ["shared/**/*.test.ts", "server/**/*.test.ts", "src/**/*.test.ts"],
+          exclude: ["src/lib/api.origin.test.ts"],
+        },
+      },
+      {
+        extends: true,
+        test: {
+          name: "jsdom",
+          environment: "jsdom",
+          include: ["src/**/*.test.tsx", "src/lib/api.origin.test.ts"],
+          setupFiles: ["./src/test/setup.ts"],
+        },
+      },
     ],
   },
 };

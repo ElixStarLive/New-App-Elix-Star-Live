@@ -24,6 +24,22 @@ export function emptyCohostState(streamId: string, hostId: string): CohostRoomSt
   return { streamId, hostId, bigScreenUserId: null, seats: [], requests: [] };
 }
 
+export function requireCohostTarget(userId: string): string {
+  const id = userId.trim();
+  if (!id) throw new Error("cohost_target_required");
+  return id;
+}
+
+export function markSeatLive(state: CohostRoomState, userId: string): CohostRoomState {
+  const seated = state.seats.some((seat) => seat.userId === userId);
+  if (!seated) throw new Error("not_invited");
+  return {
+    ...state,
+    seats: state.seats.map((seat) => (seat.userId === userId ? { ...seat, status: "live" } : seat)),
+    requests: state.requests.filter((row) => row.userId !== userId),
+  };
+}
+
 export function assignSeat(state: CohostRoomState, seat: Omit<CohostSeat, "seatIndex">): CohostRoomState {
   if (seat.userId === state.hostId) {
     throw new Error("host_cannot_occupy_cohost_seat");

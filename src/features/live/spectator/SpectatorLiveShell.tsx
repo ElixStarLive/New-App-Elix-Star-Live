@@ -5,7 +5,7 @@ export default function SpectatorLiveShell() {
   const { streamId } = useParams();
   return (
     <>
-      <LiveRoomScreen streamId={streamId || ""} role="spectator" />
+      <LiveRoomScreen key={streamId || "watch"} streamId={streamId || ""} role="spectator" />
       <Outlet />
     </>
   );

@@ -7,5 +7,6 @@ describe("totp", () => {
     const code = totpNow(secret);
     expect(verifyTotp(secret, code)).toBe(true);
     expect(verifyTotp(secret, "000000")).toBe(false);
+    expect(verifyTotp(secret, totpNow(secret, Date.now() - 120_000))).toBe(false);
   });
 });

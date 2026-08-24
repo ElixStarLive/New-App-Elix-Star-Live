@@ -45,5 +45,6 @@ describe("PAGE-007 comments handoff header", () => {
     expect(el.textContent).toContain("Oldest");
     expect(el.textContent).toContain("Most Liked");
     expect(el.querySelector(".w-10.h-1.rounded-full")).toBeTruthy();
+    expect(el.querySelector(".elix-glass.bottom-sheet-above-nav")).toBeTruthy();
   });
 });

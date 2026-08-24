@@ -84,9 +84,15 @@ describe("PAGE-006 LiveNotifyBanner", () => {
     container = mounted.container;
     await act(async () => {
       emit("stream_started", {
-        stream_key: "room-9",
-        user_id: "22222222-2222-2222-2222-222222222222",
-        display_name: "Creator",
+        streamId: "99999999-9999-4999-8999-999999999999",
+        roomId: "room-9",
+        hostId: "22222222-2222-2222-2222-222222222222",
+        displayName: "Creator",
+        username: "creator",
+        avatarUrl: null,
+        title: "LIVE",
+        viewerCount: 1,
+        startedAt: "2026-08-21T00:00:00.000Z",
       });
     });
     expect(mounted.container.textContent).toContain("Creator");
@@ -100,9 +106,15 @@ describe("PAGE-006 LiveNotifyBanner", () => {
     container = mounted.container;
     await act(async () => {
       emit("stream_started", {
-        stream_key: "room-9",
-        user_id: "22222222-2222-2222-2222-222222222222",
-        display_name: "Creator",
+        streamId: "99999999-9999-4999-8999-999999999999",
+        roomId: "room-9",
+        hostId: "22222222-2222-2222-2222-222222222222",
+        displayName: "Creator",
+        username: "creator",
+        avatarUrl: null,
+        title: "LIVE",
+        viewerCount: 1,
+        startedAt: "2026-08-21T00:00:00.000Z",
       });
     });
     expect(mounted.container.textContent).not.toContain("is live now — tap to watch");

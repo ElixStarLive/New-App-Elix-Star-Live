@@ -12,8 +12,6 @@ export const wsEventNameSchema = z.enum([
   "viewer_count",
   "user_joined",
   "user_left",
-  "stream_start",
-  "stream_end",
   "stream_started",
   "stream_ended",
   "room_state",

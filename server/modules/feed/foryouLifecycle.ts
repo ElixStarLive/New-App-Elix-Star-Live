@@ -159,7 +159,7 @@ export async function onQualifiedUniqueViewForFeed(input: {
     const atRemoval = Math.floor(Number(row.qualified_at_removal) || 0);
     let qualifiedSinceRemoval = Math.max(0, qualified - atRemoval);
     let promotedAt = row.promoted_at as string | null;
-    let removedAt = row.removed_at as string | null;
+    const removedAt = row.removed_at as string | null;
     let reentryAt = row.reentry_at as string | null;
 
     if (stage === "initial" || stage === "reentered") {

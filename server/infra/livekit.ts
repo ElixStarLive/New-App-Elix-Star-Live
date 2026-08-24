@@ -19,12 +19,13 @@ export async function createLivekitToken(params: {
   room: string;
   canPublish: boolean;
   name?: string;
+  ttl?: string;
 }): Promise<{ token: string; url: string }> {
   const cfg = requireLivekit();
   const at = new AccessToken(cfg.key, cfg.secret, {
     identity: params.identity,
     name: params.name,
-    ttl: "6h",
+    ttl: params.ttl ?? "6h",
   });
   at.addGrant({
     roomJoin: true,
@@ -34,6 +35,11 @@ export async function createLivekitToken(params: {
     canPublishData: true,
   });
   return { token: await at.toJwt(), url: cfg.url };
+}
+
+export function isLivekitConfigured(): boolean {
+  const cfg = env();
+  return Boolean(cfg.LIVEKIT_URL?.trim() && cfg.LIVEKIT_API_KEY?.trim() && cfg.LIVEKIT_API_SECRET?.trim());
 }
 
 export function livekitRooms(): RoomServiceClient {

@@ -12,10 +12,9 @@ export async function apiGiftCatalog(): Promise<{
 }> {
   const { data, error } = await apiRequest<unknown>("/api/gifts");
   if (error) return { gifts: [], error: error.message };
-  const list = Array.isArray(data) ? data : isRecord(data) && Array.isArray(data.gifts) ? data.gifts : null;
-  if (!list) return { gifts: [], error: "Invalid gift catalog" };
+  if (!isRecord(data) || !Array.isArray(data.gifts)) return { gifts: [], error: "Invalid gift catalog" };
   const gifts: GiftCatalogItem[] = [];
-  for (const item of list) {
+  for (const item of data.gifts) {
     const parsed = giftCatalogItemSchema.safeParse(item);
     if (parsed.success) gifts.push(parsed.data);
   }

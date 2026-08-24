@@ -1,0 +1,95 @@
+import { readFileSync } from "node:fs";
+import { resolve } from "node:path";
+import { describe, expect, it } from "vitest";
+import { ADMIN_RISING_STARS_TITLE } from "@/content/adminRisingStars";
+
+const page = readFileSync(resolve(process.cwd(), "src/pages/admin/RisingStars.tsx"), "utf8");
+const content = readFileSync(resolve(process.cwd(), "src/content/adminRisingStars.ts"), "utf8");
+const api = readFileSync(resolve(process.cwd(), "src/features/admin/adminApi.ts"), "utf8");
+const rising = readFileSync(resolve(process.cwd(), "server/modules/admin/risingStars.ts"), "utf8");
+const extra = readFileSync(resolve(process.cwd(), "server/modules/app/clientRoutes.ts"), "utf8");
+const hub = readFileSync(resolve(process.cwd(), "server/modules/risingStars/hub.ts"), "utf8");
+const challenge = readFileSync(resolve(process.cwd(), "server/modules/risingStars/challenge.ts"), "utf8");
+const auth = readFileSync(resolve(process.cwd(), "server/middleware/auth.ts"), "utf8");
+const app = readFileSync(resolve(process.cwd(), "src/App.tsx"), "utf8");
+const dashboard = readFileSync(resolve(process.cwd(), "src/content/adminDashboard.ts"), "utf8");
+const publicPage = readFileSync(resolve(process.cwd(), "src/pages/RisingStars.tsx"), "utf8");
+const publicChallenge = readFileSync(resolve(process.cwd(), "src/pages/RisingStarsChallenge.tsx"), "utf8");
+const withdrawals = readFileSync(resolve(process.cwd(), "src/pages/admin/Withdrawals.tsx"), "utf8");
+const monetisation = readFileSync(resolve(process.cwd(), "src/pages/admin/Monetisation.tsx"), "utf8");
+const purchases = readFileSync(resolve(process.cwd(), "src/pages/admin/Purchases.tsx"), "utf8");
+const progression = readFileSync(resolve(process.cwd(), "src/pages/admin/Progression.tsx"), "utf8");
+const users = readFileSync(resolve(process.cwd(), "src/pages/admin/Users.tsx"), "utf8");
+const reports = readFileSync(resolve(process.cwd(), "src/pages/admin/Reports.tsx"), "utf8");
+const ws = readFileSync(resolve(process.cwd(), "src/lib/wsClient.ts"), "utf8");
+
+describe("PAGE-077 Admin Rising Stars ownership", () => {
+  it("has one /admin/rising-stars owner behind the shared admin guard", () => {
+    expect(app.match(/<Route path="\/admin\/rising-stars" /g)?.length).toBe(1);
+    expect(app).toMatch(/<Route path="\/admin\/rising-stars" element=\{<AdminRisingStars \/>\} \/>/);
+    expect(app).toMatch(/<Route element=\{<RequireAdmin \/>\}>/);
+    expect(ADMIN_RISING_STARS_TITLE).toBe("Rising Stars Admin");
+    expect(page).toMatch(/ADMIN_RISING_STARS_TITLE/);
+    expect(page).toMatch(/ADMIN_RISING_STARS_CREATE_SEASON/);
+    expect(page).toMatch(/ADMIN_RISING_STARS_SNAPSHOT_QUALIFIER/);
+    expect(page).toMatch(/ADMIN_RISING_STARS_AUDIT/);
+    expect(page).not.toMatch(/PageScaffold|AdminTablePage|LegalDocPage|history\.back|navigate\(-1\)|location\.reload|setTimeout\(|setInterval\(/);
+    expect(page).not.toMatch(/WebSocket|LiveKit|localStorage|sessionStorage|impersonat/);
+    expect(content).not.toMatch(/coming soon|lorem ipsum|RisingStarsV2/);
+  });
+
+  it("uses canonical rs_* tables and users.is_admin only", () => {
+    expect(api).toMatch(/\/api\/admin\/rising-stars\/seasons/);
+    expect(api).toMatch(/\/api\/admin\/rising-stars\/challenges\?seasonId=/);
+    expect(api).toMatch(/\/api\/admin\/rising-stars\/audit\?limit=50/);
+    expect(api).toMatch(/\/api\/admin\/rising-stars\/challenges\/\$\{encodeURIComponent\(challengeId\)\}\/snapshot/);
+    expect(rising).toMatch(/FROM rs_seasons/);
+    expect(rising).toMatch(/FROM rs_categories/);
+    expect(rising).toMatch(/FROM rs_regions/);
+    expect(rising).toMatch(/FROM rs_challenges/);
+    expect(rising).toMatch(/FROM rs_entries/);
+    expect(rising).toMatch(/FROM rs_phase_results/);
+    expect(rising).toMatch(/FROM rs_badges/);
+    expect(rising).toMatch(/FROM rs_reward_definitions/);
+    expect(rising).toMatch(/FROM rs_reward_grants/);
+    expect(rising).toMatch(/FROM rs_admin_audit/);
+    expect(rising).toMatch(/req\.userId/);
+    expect(rising).toMatch(/ORDER BY vote_count DESC, created_at ASC/);
+    expect(rising).toMatch(/leaderboard_frozen/);
+    expect(rising).toMatch(/status = 'disqualified'/);
+    expect(rising).not.toMatch(/SELECT \*/);
+    expect(rising).not.toMatch(/new Map\(|ADMIN_EMAIL|adminId|reviewedBy/);
+    expect(rising).not.toMatch(/VALKEY|valkey|paid_coin_lots|withdrawals_gbp|creator_wallet_gbp/);
+    expect(rising).not.toMatch(/banned_until|engagement_missions|feature.flags/);
+    expect(extra).toMatch(/handleAdminRisingStarsSeasons/);
+    expect(extra).toMatch(/\.post\("\/rising-stars\/seasons"/);
+    expect(extra).toMatch(/\.post\("\/rising-stars\/challenges\/:id\/freeze"/);
+    expect(extra).toMatch(/\.post\("\/rising-stars\/challenges\/:id\/snapshot"/);
+    expect(extra).toMatch(/\.post\("\/rising-stars\/entries\/:id\/disqualify"/);
+    expect(extra).not.toMatch(/SELECT \* FROM rs_challenges/);
+    expect(extra).not.toMatch(/\.get\("\/rising-stars", requireAuth, requireAdmin, async/);
+    expect(auth).toMatch(/SELECT is_admin FROM users/);
+    expect(dashboard).toMatch(/path: "\/admin\/rising-stars"/);
+    expect(hub).toMatch(/WHERE status = 'active'/);
+    expect(challenge).toMatch(/ORDER BY e.vote_count DESC, e.created_at ASC|ORDER BY vote_count DESC, created_at ASC/);
+    expect(ws).toMatch(/class WsClient/);
+    expect(page).not.toMatch(/new WebSocket|reconnectOnForeground/);
+  });
+
+  it("does not take public Rising Stars, later Progression, or money-domain ownership", () => {
+    expect(page).not.toMatch(/Starter Coins|feature-flags|daily login|Fan Level|Missions/);
+    expect(page).not.toMatch(/apiAdminWithdrawalAction|apiAdminPatchMonetisationConfig|apiAdminBanUser/);
+    expect(page).not.toMatch(/Disqualify|Award badge|Grant reward|Freeze leaderboard/);
+    expect(publicPage).not.toMatch(/ADMIN_RISING_STARS_TITLE|apiAdminRisingStars/);
+    expect(publicChallenge).not.toMatch(/ADMIN_RISING_STARS_TITLE|apiAdminRisingStars/);
+    expect(withdrawals).not.toMatch(/apiAdminRisingStars|rs_challenges/);
+    expect(monetisation).not.toMatch(/apiAdminRisingStars|Rising Stars Admin/);
+    expect(purchases).not.toMatch(/apiAdminRisingStars/);
+    expect(users).not.toMatch(/apiAdminRisingStars/);
+    expect(reports).not.toMatch(/apiAdminRisingStars/);
+    expect(progression).toMatch(/ADMIN_PROGRESSION_TITLE/);
+    expect(progression).not.toMatch(/AdminTablePage/);
+    expect(rising).not.toMatch(/UPDATE users SET|UPDATE creator_wallet_gbp|UPDATE paid_coin_lots|UPDATE withdrawals_gbp/);
+    expect(rising).not.toMatch(/engagement_missions|xp_level_requirements/);
+  });
+});

@@ -66,11 +66,10 @@ export default function EnhancedCommentsModal({
     `text-[11px] font-semibold capitalize ${sortBy === mode ? "text-[#A7A7AD]" : "text-white/60"}`;
 
   return (
-    <div className="fixed inset-0 z-[1000] flex items-end justify-center" onClick={onClose}>
-      <div className="absolute inset-0" />
+    <div className="fixed inset-0 z-modals flex items-end justify-center" onClick={onClose}>
+      <div className="absolute inset-0 pointer-events-auto" onClick={onClose} />
       <div
-        className="rounded-t-2xl p-3 h-1/2 w-full max-w-[480px] flex flex-col relative z-10 border border-black bg-[#1A1C21]"
-        style={{ paddingBottom: "calc(var(--safe-bottom) + 12px)" }}
+        className="elix-glass rounded-t-2xl p-3 h-1/2 w-full max-w-[480px] flex flex-col pointer-events-auto relative z-10 bottom-sheet-above-nav border border-black"
         onClick={(e) => e.stopPropagation()}
       >
         <div className="flex justify-center pt-0.5 pb-2">
@@ -115,7 +114,7 @@ export default function EnhancedCommentsModal({
             </div>
           )}
         </div>
-        <div className="pt-3 mt-2 border-t border-white/10" style={{ transform: "translateY(-5mm)" }}>
+        <div className="pt-3 mt-2 border-t border-white/10">
           <form
             className="flex gap-2 items-center"
             onSubmit={(e) => {

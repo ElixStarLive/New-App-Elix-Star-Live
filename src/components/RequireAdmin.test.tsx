@@ -23,6 +23,7 @@ function renderGate(path: string): { container: HTMLDivElement; root: Root } {
       <MemoryRouter initialEntries={[path]}>
         <Routes>
           <Route path="/" element={<div>home-destination</div>} />
+          <Route path="/feed" element={<div>feed-destination</div>} />
           <Route path="/login" element={<div>login-destination</div>} />
           <Route element={<RequireAdmin />}>
             <Route path="/admin" element={<div>admin-page</div>} />
@@ -54,7 +55,27 @@ describe("PAGE-006 RequireAdmin", () => {
     const mounted = renderGate("/admin");
     root = mounted.root;
     container = mounted.container;
-    expect(mounted.container.textContent).toBe("home-destination");
+    expect(mounted.container.textContent).toBe("feed-destination");
+  });
+
+  it("sends logged-out users to login without admin content", () => {
+    authState.isAuthenticated = false;
+    authState.isLoading = false;
+    authState.user = null;
+    const mounted = renderGate("/admin");
+    root = mounted.root;
+    container = mounted.container;
+    expect(mounted.container.textContent).toBe("login-destination");
+  });
+
+  it("fails closed when admin state is unknown", () => {
+    authState.isAuthenticated = true;
+    authState.isLoading = false;
+    authState.user = { isAdmin: undefined as unknown as boolean };
+    const mounted = renderGate("/admin");
+    root = mounted.root;
+    container = mounted.container;
+    expect(mounted.container.textContent).toBe("feed-destination");
   });
 
   it("renders admin content for admins", () => {
