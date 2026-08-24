@@ -1,47 +1,22 @@
-import pg from "pg";
+let cached = false;
 
-let cached: boolean | null = process.env.NODE_ENV === "test" ? false : null;
-
-export function setLiveNeonSchema(value: boolean): void {
-  cached = value;
+export function setLiveNeonSchema(_value: boolean): void {
+  cached = false;
 }
 
-async function readLiveMarker(client: Pick<pg.Pool, "query">): Promise<boolean> {
-  const { rows } = await client.query<{ has_auth: boolean; has_bunny: boolean }>(
-    `SELECT
-       EXISTS (
-         SELECT 1 FROM information_schema.tables
-         WHERE table_schema = 'public' AND table_name = 'elix_auth_users'
-       ) AS has_auth,
-       EXISTS (
-         SELECT 1 FROM information_schema.columns
-         WHERE table_schema = 'public' AND table_name = 'videos' AND column_name = 'bunny_path'
-       ) AS has_bunny`,
-  );
-  return Boolean(rows[0]?.has_auth) && !rows[0]?.has_bunny;
+/**
+ * Canonical NEW production schema owner.
+ * Legacy runtime schema guessing is intentionally disabled.
+ */
+export async function detectLiveNeonSchema(_databaseUrl: string): Promise<boolean> {
+  return cached;
 }
 
-export async function detectLiveNeonSchema(databaseUrl: string): Promise<boolean> {
-  if (cached != null) return cached;
-  const needsSsl = databaseUrl.includes("neon.tech") || databaseUrl.includes("sslmode=require");
-  const probe = new pg.Pool({
-    connectionString: databaseUrl,
-    max: 1,
-    ssl: needsSsl ? { rejectUnauthorized: process.env.PG_SSL_REJECT_UNAUTHORIZED !== "false" } : undefined,
-  });
-  try {
-    const live = await readLiveMarker(probe);
-    cached = live;
-    return live;
-  } finally {
-    await probe.end();
-  }
-}
-
+/**
+ * Canonical NEW production schema owner.
+ * Legacy runtime schema guessing is intentionally disabled.
+ */
 export async function isLiveNeonSchema(): Promise<boolean> {
-  if (cached != null) return cached;
-  const { getPool } = await import("./postgres.js");
-  cached = await readLiveMarker(getPool());
   return cached;
 }
 

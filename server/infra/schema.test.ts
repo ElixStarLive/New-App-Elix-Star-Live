@@ -20,7 +20,7 @@ describe("baseline schema", () => {
   });
 
   it("keeps the GBP financial ledger append-only by uniqueness", () => {
-    expect(sql).toMatch(/CREATE TABLE financial_ledger[\s\S]*idempotency_key TEXT NOT NULL UNIQUE/);
+    expect(sql).toMatch(/CREATE TABLE (IF NOT EXISTS )?financial_ledger[\s\S]*idempotency_key TEXT NOT NULL UNIQUE/);
   });
 
   it("does not replay historical gift-price patch filenames", () => {

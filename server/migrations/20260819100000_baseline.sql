@@ -7,7 +7,7 @@ CREATE TABLE IF NOT EXISTS elix_schema_migrations (
   applied_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
-CREATE TABLE users (
+CREATE TABLE IF NOT EXISTS users (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   email TEXT NOT NULL,
   email_normalized TEXT NOT NULL,
@@ -30,7 +30,7 @@ CREATE TABLE users (
   CONSTRAINT users_apple_sub_unique UNIQUE (apple_sub)
 );
 
-CREATE TABLE auth_sessions (
+CREATE TABLE IF NOT EXISTS auth_sessions (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
   token_hash TEXT NOT NULL UNIQUE,
@@ -38,10 +38,10 @@ CREATE TABLE auth_sessions (
   revoked_at TIMESTAMPTZ,
   created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
-CREATE INDEX auth_sessions_user_id_idx ON auth_sessions(user_id);
-CREATE INDEX auth_sessions_expires_idx ON auth_sessions(expires_at);
+CREATE INDEX IF NOT EXISTS auth_sessions_user_id_idx ON auth_sessions(user_id);
+CREATE INDEX IF NOT EXISTS auth_sessions_expires_idx ON auth_sessions(expires_at);
 
-CREATE TABLE user_consents (
+CREATE TABLE IF NOT EXISTS user_consents (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
   kind TEXT NOT NULL,
@@ -49,14 +49,14 @@ CREATE TABLE user_consents (
   UNIQUE (user_id, kind)
 );
 
-CREATE TABLE user_two_factor (
+CREATE TABLE IF NOT EXISTS user_two_factor (
   user_id UUID PRIMARY KEY REFERENCES users(id) ON DELETE CASCADE,
   secret_encrypted TEXT NOT NULL,
   enabled_at TIMESTAMPTZ,
   created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
-CREATE TABLE password_reset_tokens (
+CREATE TABLE IF NOT EXISTS password_reset_tokens (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
   token_hash TEXT NOT NULL UNIQUE,
@@ -65,7 +65,7 @@ CREATE TABLE password_reset_tokens (
   created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
-CREATE TABLE email_verify_tokens (
+CREATE TABLE IF NOT EXISTS email_verify_tokens (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
   token_hash TEXT NOT NULL UNIQUE,
@@ -74,16 +74,16 @@ CREATE TABLE email_verify_tokens (
   created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
-CREATE TABLE follows (
+CREATE TABLE IF NOT EXISTS follows (
   follower_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
   followee_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
   created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
   PRIMARY KEY (follower_id, followee_id),
   CONSTRAINT follows_no_self CHECK (follower_id <> followee_id)
 );
-CREATE INDEX follows_followee_idx ON follows(followee_id);
+CREATE INDEX IF NOT EXISTS follows_followee_idx ON follows(followee_id);
 
-CREATE TABLE blocks (
+CREATE TABLE IF NOT EXISTS blocks (
   blocker_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
   blocked_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
   created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
@@ -91,7 +91,7 @@ CREATE TABLE blocks (
   CONSTRAINT blocks_no_self CHECK (blocker_id <> blocked_id)
 );
 
-CREATE TABLE reports (
+CREATE TABLE IF NOT EXISTS reports (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   reporter_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
   target_user_id UUID REFERENCES users(id) ON DELETE SET NULL,
@@ -104,9 +104,9 @@ CREATE TABLE reports (
   reviewed_at TIMESTAMPTZ,
   created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
-CREATE INDEX reports_status_idx ON reports(status, created_at DESC);
+CREATE INDEX IF NOT EXISTS reports_status_idx ON reports(status, created_at DESC);
 
-CREATE TABLE videos (
+CREATE TABLE IF NOT EXISTS videos (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
   bunny_path TEXT NOT NULL,
@@ -118,31 +118,31 @@ CREATE TABLE videos (
   deleted_at TIMESTAMPTZ,
   created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
-CREATE INDEX videos_user_created_idx ON videos(user_id, created_at DESC);
-CREATE INDEX videos_created_idx ON videos(created_at DESC) WHERE deleted_at IS NULL;
+CREATE INDEX IF NOT EXISTS videos_user_created_idx ON videos(user_id, created_at DESC);
+CREATE INDEX IF NOT EXISTS videos_created_idx ON videos(created_at DESC) WHERE deleted_at IS NULL;
 
-CREATE TABLE video_likes (
+CREATE TABLE IF NOT EXISTS video_likes (
   user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
   video_id UUID NOT NULL REFERENCES videos(id) ON DELETE CASCADE,
   created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
   PRIMARY KEY (user_id, video_id)
 );
 
-CREATE TABLE video_saves (
+CREATE TABLE IF NOT EXISTS video_saves (
   user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
   video_id UUID NOT NULL REFERENCES videos(id) ON DELETE CASCADE,
   created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
   PRIMARY KEY (user_id, video_id)
 );
 
-CREATE TABLE video_views (
+CREATE TABLE IF NOT EXISTS video_views (
   video_id UUID NOT NULL REFERENCES videos(id) ON DELETE CASCADE,
   viewer_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
   created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
   PRIMARY KEY (video_id, viewer_id)
 );
 
-CREATE TABLE comments (
+CREATE TABLE IF NOT EXISTS comments (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   video_id UUID NOT NULL REFERENCES videos(id) ON DELETE CASCADE,
   user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
@@ -150,9 +150,9 @@ CREATE TABLE comments (
   deleted_at TIMESTAMPTZ,
   created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
-CREATE INDEX comments_video_idx ON comments(video_id, created_at);
+CREATE INDEX IF NOT EXISTS comments_video_idx ON comments(video_id, created_at);
 
-CREATE TABLE stories (
+CREATE TABLE IF NOT EXISTS stories (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
   media_url TEXT NOT NULL,
@@ -160,7 +160,7 @@ CREATE TABLE stories (
   created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
-CREATE TABLE live_streams (
+CREATE TABLE IF NOT EXISTS live_streams (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   host_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
   room_id TEXT NOT NULL UNIQUE,
@@ -170,17 +170,17 @@ CREATE TABLE live_streams (
   ended_at TIMESTAMPTZ,
   CONSTRAINT live_streams_status_chk CHECK (status IN ('live', 'ended'))
 );
-CREATE INDEX live_streams_host_idx ON live_streams(host_id, started_at DESC);
-CREATE INDEX live_streams_live_idx ON live_streams(status) WHERE status = 'live';
+CREATE INDEX IF NOT EXISTS live_streams_host_idx ON live_streams(host_id, started_at DESC);
+CREATE INDEX IF NOT EXISTS live_streams_live_idx ON live_streams(status) WHERE status = 'live';
 
-CREATE TABLE live_stream_moderators (
+CREATE TABLE IF NOT EXISTS live_stream_moderators (
   stream_id UUID NOT NULL REFERENCES live_streams(id) ON DELETE CASCADE,
   user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
   created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
   PRIMARY KEY (stream_id, user_id)
 );
 
-CREATE TABLE live_comments (
+CREATE TABLE IF NOT EXISTS live_comments (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   stream_id UUID NOT NULL REFERENCES live_streams(id) ON DELETE CASCADE,
   user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
@@ -188,7 +188,7 @@ CREATE TABLE live_comments (
   created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
-CREATE TABLE battle_results (
+CREATE TABLE IF NOT EXISTS battle_results (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   stream_id UUID NOT NULL REFERENCES live_streams(id) ON DELETE CASCADE,
   battle_type TEXT NOT NULL,
@@ -200,7 +200,7 @@ CREATE TABLE battle_results (
   created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
-CREATE TABLE battle_result_participants (
+CREATE TABLE IF NOT EXISTS battle_result_participants (
   battle_id UUID NOT NULL REFERENCES battle_results(id) ON DELETE CASCADE,
   user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
   seat TEXT NOT NULL,
@@ -208,7 +208,7 @@ CREATE TABLE battle_result_participants (
   PRIMARY KEY (battle_id, user_id)
 );
 
-CREATE TABLE gifts (
+CREATE TABLE IF NOT EXISTS gifts (
   id TEXT PRIMARY KEY,
   name TEXT NOT NULL,
   coin_cost INTEGER NOT NULL CHECK (coin_cost > 0),
@@ -217,7 +217,7 @@ CREATE TABLE gifts (
   active BOOLEAN NOT NULL DEFAULT TRUE
 );
 
-CREATE TABLE wallet_balances (
+CREATE TABLE IF NOT EXISTS wallet_balances (
   user_id UUID PRIMARY KEY REFERENCES users(id) ON DELETE CASCADE,
   paid_coins BIGINT NOT NULL DEFAULT 0 CHECK (paid_coins >= 0),
   promo_coins BIGINT NOT NULL DEFAULT 0 CHECK (promo_coins >= 0),
@@ -226,7 +226,7 @@ CREATE TABLE wallet_balances (
   updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
-CREATE TABLE wallet_ledger (
+CREATE TABLE IF NOT EXISTS wallet_ledger (
   id BIGSERIAL PRIMARY KEY,
   user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
   bucket TEXT NOT NULL CHECK (bucket IN ('paid', 'promo', 'starter', 'test')),
@@ -238,9 +238,9 @@ CREATE TABLE wallet_ledger (
   ref_id TEXT,
   created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
-CREATE INDEX wallet_ledger_user_idx ON wallet_ledger(user_id, created_at DESC);
+CREATE INDEX IF NOT EXISTS wallet_ledger_user_idx ON wallet_ledger(user_id, created_at DESC);
 
-CREATE TABLE gift_transactions (
+CREATE TABLE IF NOT EXISTS gift_transactions (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   sender_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
   recipient_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
@@ -252,7 +252,7 @@ CREATE TABLE gift_transactions (
   created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
-CREATE TABLE coin_packages (
+CREATE TABLE IF NOT EXISTS coin_packages (
   product_id TEXT NOT NULL,
   provider TEXT NOT NULL CHECK (provider IN ('apple', 'google')),
   coins INTEGER NOT NULL CHECK (coins > 0),
@@ -261,7 +261,7 @@ CREATE TABLE coin_packages (
   PRIMARY KEY (provider, product_id)
 );
 
-CREATE TABLE processed_purchases (
+CREATE TABLE IF NOT EXISTS processed_purchases (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
   provider TEXT NOT NULL CHECK (provider IN ('apple', 'google')),
@@ -274,14 +274,14 @@ CREATE TABLE processed_purchases (
   UNIQUE (provider, provider_txn_id)
 );
 
-CREATE TABLE processed_webhook_events (
+CREATE TABLE IF NOT EXISTS processed_webhook_events (
   provider TEXT NOT NULL,
   event_id TEXT NOT NULL,
   processed_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
   PRIMARY KEY (provider, event_id)
 );
 
-CREATE TABLE financial_ledger (
+CREATE TABLE IF NOT EXISTS financial_ledger (
   id BIGSERIAL PRIMARY KEY,
   account TEXT NOT NULL,
   amount_pence BIGINT NOT NULL,
@@ -293,7 +293,7 @@ CREATE TABLE financial_ledger (
   created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
-CREATE TABLE creator_wallet_gbp (
+CREATE TABLE IF NOT EXISTS creator_wallet_gbp (
   user_id UUID PRIMARY KEY REFERENCES users(id) ON DELETE CASCADE,
   pending_pence BIGINT NOT NULL DEFAULT 0,
   available_pence BIGINT NOT NULL DEFAULT 0,
@@ -302,21 +302,21 @@ CREATE TABLE creator_wallet_gbp (
   updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
-CREATE TABLE platform_wallet_gbp (
+CREATE TABLE IF NOT EXISTS platform_wallet_gbp (
   id SMALLINT PRIMARY KEY DEFAULT 1,
   available_pence BIGINT NOT NULL DEFAULT 0,
   CHECK (id = 1)
 );
 INSERT INTO platform_wallet_gbp (id, available_pence) VALUES (1, 0) ON CONFLICT DO NOTHING;
 
-CREATE TABLE payout_accounts (
+CREATE TABLE IF NOT EXISTS payout_accounts (
   user_id UUID PRIMARY KEY REFERENCES users(id) ON DELETE CASCADE,
   stripe_account_id TEXT,
   onboarded_at TIMESTAMPTZ,
   created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
-CREATE TABLE withdrawals_gbp (
+CREATE TABLE IF NOT EXISTS withdrawals_gbp (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
   amount_pence BIGINT NOT NULL CHECK (amount_pence > 0),
@@ -327,7 +327,7 @@ CREATE TABLE withdrawals_gbp (
   updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
-CREATE TABLE memberships (
+CREATE TABLE IF NOT EXISTS memberships (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   creator_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
   subscriber_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
@@ -339,28 +339,28 @@ CREATE TABLE memberships (
   UNIQUE (creator_id, subscriber_id)
 );
 
-CREATE TABLE chat_threads (
+CREATE TABLE IF NOT EXISTS chat_threads (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
-CREATE TABLE chat_thread_members (
+CREATE TABLE IF NOT EXISTS chat_thread_members (
   thread_id UUID NOT NULL REFERENCES chat_threads(id) ON DELETE CASCADE,
   user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
   last_read_at TIMESTAMPTZ,
   PRIMARY KEY (thread_id, user_id)
 );
 
-CREATE TABLE chat_messages (
+CREATE TABLE IF NOT EXISTS chat_messages (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   thread_id UUID NOT NULL REFERENCES chat_threads(id) ON DELETE CASCADE,
   sender_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
   body TEXT NOT NULL,
   created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
-CREATE INDEX chat_messages_thread_idx ON chat_messages(thread_id, created_at);
+CREATE INDEX IF NOT EXISTS chat_messages_thread_idx ON chat_messages(thread_id, created_at);
 
-CREATE TABLE notifications (
+CREATE TABLE IF NOT EXISTS notifications (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
   kind TEXT NOT NULL,
@@ -368,9 +368,9 @@ CREATE TABLE notifications (
   read_at TIMESTAMPTZ,
   created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
-CREATE INDEX notifications_user_idx ON notifications(user_id, created_at DESC);
+CREATE INDEX IF NOT EXISTS notifications_user_idx ON notifications(user_id, created_at DESC);
 
-CREATE TABLE device_tokens (
+CREATE TABLE IF NOT EXISTS device_tokens (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
   platform TEXT NOT NULL,
@@ -379,7 +379,7 @@ CREATE TABLE device_tokens (
   UNIQUE (user_id, token)
 );
 
-CREATE TABLE shop_items (
+CREATE TABLE IF NOT EXISTS shop_items (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   seller_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
   title TEXT NOT NULL,
@@ -390,7 +390,7 @@ CREATE TABLE shop_items (
   created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
-CREATE TABLE shop_purchases (
+CREATE TABLE IF NOT EXISTS shop_purchases (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   buyer_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
   item_id UUID NOT NULL REFERENCES shop_items(id),
@@ -399,7 +399,7 @@ CREATE TABLE shop_purchases (
   created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
-CREATE TABLE notification_prefs (
+CREATE TABLE IF NOT EXISTS notification_prefs (
   user_id UUID PRIMARY KEY REFERENCES users(id) ON DELETE CASCADE,
   live BOOLEAN NOT NULL DEFAULT TRUE,
   follow BOOLEAN NOT NULL DEFAULT TRUE,
@@ -409,7 +409,7 @@ CREATE TABLE notification_prefs (
   system BOOLEAN NOT NULL DEFAULT TRUE
 );
 
-CREATE TABLE moderation_audit (
+CREATE TABLE IF NOT EXISTS moderation_audit (
   id BIGSERIAL PRIMARY KEY,
   actor_id UUID REFERENCES users(id) ON DELETE SET NULL,
   action TEXT NOT NULL,
