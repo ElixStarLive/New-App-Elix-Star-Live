@@ -111,8 +111,8 @@
     --space-xl: clamp(16px, 4vw, 32px);
     --nav-height: clamp(56px, 14vw, 64px);
     --nav-tolerance: clamp(4px, 1vw, 8px);
-    --bottom-ui-reserve: calc(var(--nav-height) + var(--safe-bottom) + var(--nav-tolerance));
     --bottom-nav-top: calc(var(--nav-height) + var(--safe-bottom));
+    --bottom-ui-reserve: calc(var(--nav-height) + var(--safe-bottom) + var(--nav-tolerance));
     --bottom-nav-drop: 0mm;
     --live-bottom-action-drop: 0mm;
     --topbar-height: clamp(40px, 10vw, 56px);
@@ -121,10 +121,6 @@
     --topnav-video-gap: 0px;
     --feed-column-max-width: 480px;
     --topbar-total: calc(var(--topnav-anchor-top) + var(--topnav-bar-height) + var(--topnav-video-gap));
-    --feed-slide-pad-top: max(var(--safe-top), calc(var(--topnav-anchor-top) + var(--topnav-bar-height) + var(--topnav-video-gap) - 12px - 22mm));
-    --feed-slide-pad-top-for-you: max(0px, calc(var(--topnav-anchor-top) + var(--topnav-bar-height) + var(--topnav-video-gap) - 6mm));
-    --feed-video-lift-for-you: 4mm;
-    --feed-main-pb: max(0px, calc(var(--bottom-ui-reserve) - 9mm));
     --page-header-top: max(8px, env(safe-area-inset-top, 0px));
     --sheet-collapsed: 30vh;
     --sheet-half: 50vh;
@@ -137,7 +133,6 @@
   }
 
   html.native-app {
-    --feed-main-pb: var(--bottom-nav-top);
     --safe-top: max(40px, env(safe-area-inset-top, 0px));
     --page-header-top: max(40px, calc(env(safe-area-inset-top, 0px) + 8px));
   }
@@ -156,6 +151,17 @@
     transform: translateY(-5mm);
   }
 
+  .pb-safe { padding-bottom: var(--safe-bottom); }
+  .pt-page-header { padding-top: var(--page-header-top); }
+  .pt-topbar { padding-top: var(--topbar-total); }
+  .bottom-sheet-above-nav {
+    margin-bottom: var(--bottom-nav-top);
+  }
+  .fixed-above-bottom-nav {
+    bottom: var(--bottom-nav-top);
+  }
+  .z-modals { z-index: var(--z-modals); }
+
   .feed-column-width {
     box-sizing: border-box;
     width: min(var(--feed-column-max-width), calc(100vw - var(--safe-left) - var(--safe-right)));
@@ -170,8 +176,19 @@
     max-width: var(--feed-column-max-width);
   }
 
+  #root nav[aria-label="Main navigation"] .feed-column-width,
+  #root .feed-column-width.min-h-\[var\(--topnav-bar-height\)\],
+  #root .feed-column-width.h-\[var\(--topnav-bar-height\)\] {
+    width: min(var(--feed-column-max-width), calc(100vw - var(--safe-left) - var(--safe-right)));
+    max-width: var(--feed-column-max-width);
+  }
+
   body {
-    @apply text-text font-sans antialiased overflow-hidden;
+    color: var(--color-text);
+    font-family: Inter, Roboto, sans-serif;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    overflow: hidden;
     background-color: var(--elix-bg);
     background-image: none;
     min-height: 100%;
@@ -250,8 +267,30 @@
   background-image: none;
 }
 
-.elix-panel {
+.elix-page-glass {
+  background-color: #080A0E;
+  background-image: var(--elix-page-fill);
+  background-size: var(--elix-fundal-size), var(--elix-fundal-size);
+  background-position: var(--elix-fundal-position), var(--elix-fundal-position);
+  background-repeat: no-repeat, no-repeat;
+  background-attachment: var(--elix-fundal-attachment), var(--elix-fundal-attachment);
+}
+
+.elix-surface {
   background-color: transparent;
+  background-image: var(--elix-surface-fill);
+  background-size: var(--elix-fundal-size), var(--elix-fundal-size);
+  background-position: var(--elix-fundal-position), var(--elix-fundal-position);
+  background-repeat: no-repeat, no-repeat;
+  background-attachment: var(--elix-fundal-attachment), var(--elix-fundal-attachment);
+  border: 1px solid var(--elix-border);
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
+  box-shadow: none;
+}
+
+.elix-panel {
+  background-color: #080A0E;
   background-image: var(--elix-panel-fill);
   background-size: var(--elix-fundal-size), var(--elix-fundal-size);
   background-position: var(--elix-fundal-position), var(--elix-fundal-position);
@@ -282,9 +321,81 @@
   background-image: none !important;
 }
 
-.page-above-bottom-nav {
+.app-live-column-host {
+  position: fixed;
+  inset: 0;
+  display: flex;
+  justify-content: center;
+  overflow: hidden;
   background-color: transparent;
   background-image: none;
+}
+
+.app-live-column {
+  position: relative;
+  width: 100%;
+  max-width: 480px;
+  height: 100%;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  background: transparent;
+}
+
+#root .elix-sheet-host {
+  top: 0;
+  bottom: var(--bottom-ui-reserve);
+  height: auto;
+  max-height: none;
+}
+
+#root .app-live-column-host.elix-sheet-host {
+  isolation: isolate;
+  background-color: var(--elix-bg);
+  background-image: none;
+}
+
+#root .elix-sheet-host > .absolute.inset-0 {
+  background-image: none !important;
+  background-color: var(--elix-bg) !important;
+}
+
+.elix-full-page-panel {
+  background-color: #080A0E;
+  background-image: var(--elix-page-fill);
+  background-size: var(--elix-fundal-size), var(--elix-fundal-size);
+  background-position: var(--elix-fundal-position), var(--elix-fundal-position);
+  background-repeat: no-repeat, no-repeat;
+  background-attachment: var(--elix-fundal-attachment), var(--elix-fundal-attachment);
+  border: none;
+  border-radius: 0;
+  box-shadow: none;
+  max-height: none;
+}
+
+.page-above-bottom-nav {
+  position: fixed;
+  top: 0;
+  right: 0;
+  bottom: var(--bottom-ui-reserve);
+  left: 0;
+  z-index: 1;
+  display: flex;
+  justify-content: center;
+  overflow: hidden;
+  background-color: transparent;
+  background-image: none;
+}
+
+.page-above-bottom-nav__inner {
+  width: 100%;
+  max-width: 480px;
+  height: 100%;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
 }
 
 .page-above-bottom-nav__inner,
@@ -329,6 +440,12 @@ nav[aria-label="Main navigation"] .royce-glow-disc {
   max-height: 40px !important;
 }
 
+.royce-glow-disc::before,
+.royce-tile::before {
+  content: none !important;
+  display: none !important;
+}
+
 nav[aria-label="Main navigation"] .royce-glow-disc::before {
   content: "" !important;
   display: block !important;
@@ -338,7 +455,9 @@ nav[aria-label="Main navigation"] .royce-glow-disc::before {
   padding: 2px;
   box-sizing: border-box;
   background: rgba(255, 255, 255, 0.14);
-  -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+  -webkit-mask:
+    linear-gradient(#fff 0 0) content-box,
+    linear-gradient(#fff 0 0);
   -webkit-mask-composite: xor;
   mask-composite: exclude;
   pointer-events: none;
@@ -414,12 +533,52 @@ nav[aria-label="Main navigation"] .royce-glow-disc::before {
 
 #root .elix-settings-write,
 #root .elix-full-page-panel,
-#root .app-live-column.elix-page-glass,
+#root .app-live-column.elix-page-glass {
+  -webkit-text-fill-color: #E6E9EE !important;
+  color: #E6E9EE !important;
+}
+
+#root .elix-settings-write h1,
+#root .elix-full-page-panel h1,
+#root .app-live-column.elix-page-glass h1 {
+  -webkit-text-fill-color: #FFFFFF !important;
+  color: #FFFFFF !important;
+}
+
+#root .elix-settings-write [class*="text-[#8B9099]"],
+#root .elix-full-page-panel [class*="text-[#8B9099]"] {
+  -webkit-text-fill-color: #8B9099 !important;
+  color: #8B9099 !important;
+}
+
+#root .elix-settings-write [class*="text-[#C8CDD5]"],
+#root .elix-full-page-panel [class*="text-[#C8CDD5]"] {
+  -webkit-text-fill-color: #C8CDD5 !important;
+  color: #C8CDD5 !important;
+}
+
 #root .elix-settings-write .elix-silver-red-text,
-#root .elix-full-page-panel .elix-silver-red-text {
+#root .elix-full-page-panel .elix-silver-red-text,
+#root .app-live-column.elix-page-glass .elix-silver-red-text {
   background-image: none !important;
   -webkit-text-fill-color: #E6E9EE !important;
   color: #E6E9EE !important;
+}
+
+#root main.feed-column-width,
+#root .app-live-column.elix-page-glass,
+#root .app-live-column.elix-full-page-panel,
+#root .page-above-bottom-nav__inner,
+#root .elix-page-glass,
+#root .elix-full-page-panel,
+#root .elix-panel:not(.rounded-full),
+#root .elix-page-glass.max-w-\[480px\],
+#root .fixed.inset-0.max-w-\[480px\] {
+  background-color: #080A0E !important;
+  background-image: var(--elix-panel-fill) !important;
+  background-size: cover, cover !important;
+  background-position: top center, top center !important;
+  background-repeat: no-repeat, no-repeat !important;
 }
 
 #root :is(button, a, [role="button"]).elix-solid-red {
@@ -428,6 +587,40 @@ nav[aria-label="Main navigation"] .royce-glow-disc::before {
   border-color: transparent !important;
   color: #ffffff !important;
   -webkit-text-fill-color: #ffffff !important;
+}
+
+#root :is(button, a, [role="button"]).elix-solid-accent,
+#root :is(button, a, [role="button"]).elix-accent,
+#root :is(button, a, [role="button"])[data-elix-accent="true"],
+#root :is(button, a, [role="button"]).elix-silver-cta,
+#root :is(button, a, [role="button"])[class*="bg-[#E6E9EE]"]:not([class*="bg-[#E6E9EE]/"]):not(.elix-solid-red),
+#root :is(button, a, [role="button"]).bg-primary:not(.elix-solid-red),
+#root :is(button, a, [role="button"])[class*="bg-white"]:not([class*="bg-white/"]):not(.elix-solid-red),
+#root :is(button, a, [role="button"])[class*="bg-[#FFFFFF]"]:not(.elix-solid-red),
+#root :is(button, a, [role="button"])[class*="bg-[#F5F5F7]"]:not([class*="bg-[#F5F5F7]/"]):not(.elix-solid-red) {
+  background-color: transparent !important;
+  background-image: none !important;
+  border: 1px solid rgba(216, 217, 221, 0.40) !important;
+  box-shadow: none !important;
+  color: #F5F5F7 !important;
+  -webkit-text-fill-color: #F5F5F7 !important;
+}
+
+:is(button, a[role="button"], [role="button"])[class*="bg-[#E6E9EE]"]:not([class*="bg-[#E6E9EE]/"]):not(.elix-solid-red),
+:is(button, a[role="button"], [role="button"]).bg-primary:not(.elix-solid-red),
+:is(button, a[role="button"], [role="button"]).elix-solid-accent,
+:is(button, a[role="button"], [role="button"]).elix-accent,
+:is(button, a[role="button"], [role="button"])[data-elix-accent="true"],
+:is(button, a[role="button"], [role="button"]).elix-silver-cta,
+:is(button, a[role="button"], [role="button"])[class*="bg-white"]:not([class*="bg-white/"]):not(.elix-solid-red),
+:is(button, a[role="button"], [role="button"])[class*="bg-[#FFFFFF]"]:not(.elix-solid-red),
+:is(button, a[role="button"], [role="button"])[class*="bg-[#F5F5F7]"]:not([class*="bg-[#F5F5F7]/"]):not(.elix-solid-red) {
+  background-color: transparent !important;
+  background-image: none !important;
+  border: 1px solid rgba(216, 217, 221, 0.40) !important;
+  box-shadow: none !important;
+  color: #F5F5F7 !important;
+  -webkit-text-fill-color: #F5F5F7 !important;
 }
 
 #root .elix-loader {
@@ -460,6 +653,35 @@ nav[aria-label="Main navigation"] .royce-glow-disc::before {
   left: -2mm !important;
 }
 
+#root button[data-elix-join="true"][data-elix-join-sent="false"] {
+  --elix-join-accent: #6B7280;
+}
+#root button[data-elix-join="true"][data-elix-join-sent="false"] .elix-join-heart,
+#root button[data-elix-join="true"][data-elix-join-sent="false"] .elix-join-heart path {
+  color: #6B7280 !important;
+  stroke: #6B7280 !important;
+  fill: none !important;
+}
+#root button[data-elix-join="true"][data-elix-join-sent="false"] > span:last-child {
+  color: #6B7280 !important;
+  -webkit-text-fill-color: #6B7280 !important;
+  background-image: none !important;
+}
+#root button[data-elix-join="true"][data-elix-join-sent="true"] {
+  --elix-join-accent: #FF6A3D;
+}
+#root button[data-elix-join="true"][data-elix-join-sent="true"] .elix-join-heart,
+#root button[data-elix-join="true"][data-elix-join-sent="true"] .elix-join-heart path {
+  color: #FF6A3D !important;
+  stroke: #FF6A3D !important;
+  fill: none !important;
+}
+#root button[data-elix-join="true"][data-elix-join-sent="true"] > span:last-child {
+  color: #FF6A3D !important;
+  -webkit-text-fill-color: #FF6A3D !important;
+  background-image: none !important;
+}
+
 #root button[data-elix-follow="true"] {
   height: calc(36px + 0.5mm) !important;
   min-height: calc(36px + 0.5mm) !important;
@@ -482,8 +704,10 @@ nav[aria-label="Main navigation"] .royce-glow-disc::before {
 .elix-cohost-pill {
   border-radius: 0.5rem !important;
   overflow: hidden !important;
+  background-image: none !important;
   background-color: rgba(255, 255, 255, 0.05) !important;
   border: 1px solid rgba(216, 217, 221, 0.7) !important;
+  box-shadow: none !important;
 }
 
 @keyframes elix-cohost-ring-pulse {
@@ -493,6 +717,17 @@ nav[aria-label="Main navigation"] .royce-glow-disc::before {
 
 .elix-cohost-pill.elix-speaking-pulse {
   animation: elix-cohost-ring-pulse 0.9s ease-in-out infinite;
+}
+
+.elix-speaking-pulse:not(.elix-cohost-pill) {
+  animation: none !important;
+  box-shadow: none !important;
+  filter: none !important;
+}
+
+.elix-cohost-pill:active,
+.elix-cohost-pill.elix-speaking-pulse:active {
+  border-color: #EF4444 !important;
 }
 
 .elix-battle-slot,
@@ -594,8 +829,23 @@ nav[aria-label="Main navigation"] .royce-glow-disc::before {
   height: 14px !important;
 }
 
+#root .elix-home-top-bar,
+#root .elix-feed-chrome-shell .elix-home-top-bar {
+  left: 0;
+  right: 0;
+  top: 0;
+  width: 100%;
+  max-width: none;
+  background-color: transparent !important;
+  background-image: none !important;
+  border: none !important;
+  box-shadow: none !important;
+}
+
 #root .elix-home-top-bar .feed-column-width,
-#root nav[aria-label="Main navigation"] .feed-column-width {
+#root .elix-feed-chrome-shell .elix-home-top-bar .feed-column-width,
+#root .feed-column-width.min-h-\[var\(--topnav-bar-height\)\],
+#root .feed-column-width.h-\[var\(--topnav-bar-height\)\] {
   position: relative;
   overflow: hidden;
   background-color: #080A0E !important;
@@ -603,6 +853,32 @@ nav[aria-label="Main navigation"] .royce-glow-disc::before {
   background-size: cover, cover !important;
   background-position: top center, top center !important;
   background-repeat: no-repeat, no-repeat !important;
+  background-attachment: scroll !important;
+  border: none !important;
+  box-shadow: none !important;
+  outline: none !important;
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
+}
+
+#root nav[aria-label="Main navigation"] .feed-column-width,
+#root .elix-feed-chrome-shell nav[aria-label="Main navigation"] .feed-column-width {
+  position: relative;
+  overflow: hidden;
+  background-color: #080A0E !important;
+  background-image: var(--elix-feed-chrome-fill) !important;
+  background-size: cover, cover !important;
+  background-position: top center, top center !important;
+  background-repeat: no-repeat, no-repeat !important;
+  background-attachment: scroll !important;
+}
+
+#root .elix-home-top-bar .feed-column-width::before,
+#root .elix-home-top-bar .feed-column-width::after,
+#root nav[aria-label="Main navigation"] .feed-column-width::before,
+#root nav[aria-label="Main navigation"] .feed-column-width::after {
+  content: none !important;
+  display: none !important;
 }
 
 #root .elix-app-shell.elix-feed-chrome-shell {
@@ -616,6 +892,89 @@ nav[aria-label="Main navigation"] .royce-glow-disc::before {
   background-image: var(--elix-panel-fill) !important;
   background-size: cover, cover !important;
   background-position: top center, top center !important;
+  background-repeat: no-repeat, no-repeat !important;
+}
+
+#root .elix-feed-video-stage {
+  background-color: transparent !important;
+  background-image: var(--elix-panel-fill) !important;
+  background-size: var(--elix-fundal-size), var(--elix-fundal-size) !important;
+  background-position: var(--elix-fundal-position), var(--elix-fundal-position) !important;
+  background-repeat: no-repeat, no-repeat !important;
+}
+
+#root .feed-column-width,
+#root main.feed-column-width {
+  border-left: none !important;
+  border-right: none !important;
+}
+
+div.feed-column-width button[title] > span,
+div.feed-column-width button[aria-label] > span,
+div.feed-column-width button[title] > span > span {
+  background-image: none !important;
+  -webkit-background-clip: unset !important;
+  background-clip: unset !important;
+}
+
+#root .feed-column-width.h-\[var\(--topnav-bar-height\)\] svg.lucide,
+#root .feed-column-width.min-h-\[var\(--topnav-bar-height\)\] svg.lucide {
+  padding: 0 !important;
+  border: none !important;
+  border-radius: 0 !important;
+  background: transparent !important;
+  box-shadow: none !important;
+  filter: none !important;
+}
+
+#root .feed-column-width.h-\[var\(--topnav-bar-height\)\] button[title="LIVE"] svg.lucide,
+#root .feed-column-width.min-h-\[var\(--topnav-bar-height\)\] button[title="LIVE"] svg.lucide,
+#root .feed-column-width.h-\[var\(--topnav-bar-height\)\] button[aria-label="LIVE"] svg.lucide,
+#root .feed-column-width.min-h-\[var\(--topnav-bar-height\)\] button[aria-label="LIVE"] svg.lucide {
+  color: #FF2D55 !important;
+  stroke: #FF2D55 !important;
+}
+
+#root .feed-column-width.h-\[var\(--topnav-bar-height\)\] button[title="Search"] svg.lucide,
+#root .feed-column-width.min-h-\[var\(--topnav-bar-height\)\] button[title="Search"] svg.lucide,
+#root .feed-column-width.h-\[var\(--topnav-bar-height\)\] button[aria-label="Search"] svg.lucide,
+#root .feed-column-width.min-h-\[var\(--topnav-bar-height\)\] button[aria-label="Search"] svg.lucide {
+  color: #E8EAED !important;
+  stroke: #E8EAED !important;
+}
+
+nav[aria-label="Main navigation"] button[aria-current="page"] .royce-icon-gold,
+nav[aria-label="Main navigation"] button[aria-current="page"] svg.lucide {
+  color: var(--elix-icon-active) !important;
+  stroke: var(--elix-icon-active) !important;
+  fill: none !important;
+  filter: var(--elix-icon-glow-on) !important;
+}
+
+nav[aria-label="Main navigation"] button:not([aria-current="page"]) .royce-icon-gold,
+nav[aria-label="Main navigation"] button:not([aria-current="page"]) svg.lucide {
+  color: var(--elix-icon-primary) !important;
+  stroke: var(--elix-icon-primary) !important;
+  filter: var(--elix-icon-glow) !important;
+}
+
+.royce-glow-disc svg.lucide,
+.royce-glow-disc .royce-icon-gold,
+.royce-tile svg.lucide,
+.royce-tile .royce-icon-gold {
+  padding: 0 !important;
+  border: none !important;
+  background: transparent !important;
+  box-shadow: none !important;
+}
+
+svg.lucide.fill-silver-full,
+.royce-icon-gold.fill-silver-full,
+svg.lucide.fill-silver-full.royce-icon-gold {
+  color: var(--elix-icon-primary) !important;
+  fill: var(--elix-icon-primary) !important;
+  stroke: var(--elix-icon-primary) !important;
+  filter: var(--elix-icon-glow) !important;
 }
 
 #root .elix-auth-form svg.lucide {
@@ -670,4 +1029,215 @@ nav[aria-label="Main navigation"] .royce-glow-disc::before {
   display: none !important;
   opacity: 0 !important;
   pointer-events: none !important;
+}
+
+@keyframes elix-live-ring-pulse {
+  0%, 100% {
+    box-shadow: 0 0 0 1px #FF2D55, 0 0 6px rgba(255, 45, 85, 0.4);
+  }
+  50% {
+    box-shadow: 0 0 0 2px #FF2D55, 0 0 14px rgba(255, 45, 85, 0.85), 0 0 22px rgba(255, 45, 85, 0.45);
+  }
+}
+
+.elix-profile-ring.elix-story-live-ring {
+  border-color: #FF2D55 !important;
+  box-shadow: 0 0 0 1px #FF2D55, 0 0 8px rgba(255, 45, 85, 0.55) !important;
+  animation: elix-live-ring-pulse 1.1s ease-in-out infinite;
+}
+
+#root .feed-story-strip {
+  background-color: var(--elix-bg) !important;
+  background-image: var(--elix-panel-fill) !important;
+  background-size: var(--elix-fundal-size), var(--elix-fundal-size) !important;
+  background-position: var(--elix-fundal-position), var(--elix-fundal-position) !important;
+  background-repeat: no-repeat, no-repeat !important;
+  background-attachment: scroll, scroll !important;
+  border-bottom: 1px solid var(--elix-border);
+  isolation: isolate;
+}
+
+#root .feed-story-strip svg.lucide {
+  padding: 0 !important;
+  border: none !important;
+  border-radius: 0 !important;
+  background: transparent !important;
+  box-shadow: none !important;
+  filter: none !important;
+}
+
+.elix-glass,
+.elix-glass-panel {
+  background-color: #080A0E;
+  background-image: var(--elix-panel-fill);
+  background-size: cover, cover;
+  background-position: top center, top center;
+  background-repeat: no-repeat, no-repeat;
+  border: 1px solid var(--elix-border);
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
+  box-shadow: none;
+}
+
+#root nav[aria-label="Main navigation"] {
+  bottom: 0;
+}
+
+#root .elix-more-options-sheet,
+#root .elix-glass.elix-more-options-sheet {
+  background-color: #080A0E !important;
+  background-image: var(--elix-panel-fill) !important;
+  background-size: cover, cover !important;
+  background-position: top center, top center !important;
+  background-repeat: no-repeat, no-repeat !important;
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
+  isolation: isolate;
+  border-left: none !important;
+  border-right: none !important;
+  border-bottom: none !important;
+  box-shadow: none !important;
+  outline: none !important;
+  overflow: hidden;
+}
+
+#root .elix-share-sheet,
+#root .elix-panel.elix-share-sheet {
+  background-color: #080A0E !important;
+  background-image: var(--elix-panel-fill) !important;
+  background-size: cover, cover !important;
+  background-position: top center, top center !important;
+  background-repeat: no-repeat, no-repeat !important;
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
+  isolation: isolate;
+}
+
+#root .elix-user-panel {
+  position: fixed;
+  top: 0;
+  right: 0;
+  bottom: var(--bottom-nav-top);
+  left: 0;
+  z-index: 100020;
+  display: flex;
+  justify-content: center;
+  overflow: hidden;
+  background-color: #080A0E;
+  background-image: none;
+}
+
+#root .elix-user-panel > .elix-user-panel__inner {
+  width: 100%;
+  max-width: 480px;
+  height: 100%;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  background-color: #080A0E;
+  background-image: var(--elix-panel-fill);
+  background-size: cover, cover;
+  background-position: top center, top center;
+  background-repeat: no-repeat, no-repeat;
+  isolation: isolate;
+}
+
+#root .elix-user-panel header button[aria-label="Search"] svg.lucide,
+#root .elix-user-panel header button[aria-label="Close profile"] svg.lucide {
+  padding: 0 !important;
+  border: none !important;
+  border-radius: 0 !important;
+  background: transparent !important;
+  box-shadow: none !important;
+  filter: none !important;
+}
+
+#root .elix-live-room .elix-live-top-chrome,
+#root .elix-live-top-chrome {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  overflow: visible;
+  background-color: var(--elix-bg) !important;
+  background-image: var(--elix-fundal-image) !important;
+  background-size: 100% auto !important;
+  background-position: top center !important;
+  background-repeat: no-repeat !important;
+  background-attachment: scroll !important;
+  padding-top: 0 !important;
+  margin-top: 0 !important;
+  padding-bottom: 0;
+}
+
+#root .elix-live-room .elix-live-lower-fundal {
+  background-color: var(--elix-bg) !important;
+  background-image: var(--elix-fundal-image) !important;
+  background-size: 100% auto !important;
+  background-position: bottom center !important;
+  background-repeat: no-repeat !important;
+  background-attachment: scroll !important;
+}
+
+.elix-silver-cta {
+  background-color: transparent !important;
+  background-image: none !important;
+  color: #F5F5F7 !important;
+  -webkit-text-fill-color: #F5F5F7 !important;
+  border: 1px solid rgba(216, 217, 221, 0.40) !important;
+  box-shadow: none;
+}
+
+#root :is(input:not([type="checkbox"]):not([type="radio"]):not([type="file"]):not([type="hidden"]), textarea, select),
+#root :is(input, textarea, select).elix-surface {
+  appearance: none !important;
+  -webkit-appearance: none !important;
+  background: transparent !important;
+  background-color: transparent !important;
+  background-image: none !important;
+  color: #FFFFFF !important;
+  -webkit-text-fill-color: #FFFFFF !important;
+  caret-color: #FFFFFF !important;
+  border: 1px solid var(--elix-border) !important;
+  box-shadow: none !important;
+  color-scheme: dark !important;
+}
+
+#root :is(input, textarea, select)::placeholder {
+  color: #8B9099 !important;
+  -webkit-text-fill-color: #8B9099 !important;
+  opacity: 1 !important;
+}
+
+#root :is(input:not([type="checkbox"]):not([type="radio"]):not([type="file"]):not([type="hidden"]), textarea, select):-webkit-autofill,
+#root :is(input:not([type="checkbox"]):not([type="radio"]):not([type="file"]):not([type="hidden"]), textarea, select):-webkit-autofill:hover,
+#root :is(input:not([type="checkbox"]):not([type="radio"]):not([type="file"]):not([type="hidden"]), textarea, select):-webkit-autofill:focus {
+  -webkit-text-fill-color: #FFFFFF !important;
+  caret-color: #FFFFFF !important;
+  transition: background-color 99999s ease-out;
+  box-shadow: 0 0 0 1000px transparent inset !important;
+  background-color: transparent !important;
+}
+
+#root option,
+#root optgroup {
+  background-color: var(--elix-bg) !important;
+  color: #FFFFFF !important;
+}
+
+#root main.feed-column-width,
+#root main .min-h-screen,
+#root .page-above-bottom-nav__inner,
+#root .app-live-column.elix-page-glass,
+#root .app-live-column.elix-full-page-panel,
+#root .elix-page-glass,
+#root .elix-full-page-panel,
+#root .elix-panel:not(.rounded-full),
+#root .fixed.inset-0.max-w-\[480px\] {
+  background-color: #080A0E !important;
+  background-image: var(--elix-panel-fill) !important;
+  background-size: cover, cover !important;
+  background-position: top center, top center !important;
+  background-repeat: no-repeat, no-repeat !important;
 }
