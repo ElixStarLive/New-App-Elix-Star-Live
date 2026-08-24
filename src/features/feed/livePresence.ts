@@ -65,7 +65,7 @@ export function reconcileLiveSnapshot<T>(args: {
     if (!key || inSnapshot.has(key)) return false;
     const ended = args.endedAt.get(key);
     if (ended !== undefined && ended >= args.discoveredAtOf(item)) return false;
-    return args.discoveredAtOf(item) >= args.requestedAt;
+    return args.discoveredAtOf(item) > args.requestedAt;
   });
   const seen = new Set<string>();
   return [...accepted, ...kept].filter((item) => {

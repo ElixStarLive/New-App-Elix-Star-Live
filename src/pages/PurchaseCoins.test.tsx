@@ -81,6 +81,8 @@ describe("PAGE-038 Purchase Coins page", () => {
     expect(container.textContent).toContain("Buy Coins");
     expect(container.textContent).toContain("Purchase Coins in the App");
     expect(container.textContent).toContain("Apple App Store or Google Play");
+    expect(container.textContent).toContain("Terms of Use (EULA)");
+    expect(container.textContent).toContain("Privacy Policy");
     expect(container.textContent).not.toContain("Checkout with Stripe");
     expect(container.textContent).toContain("What you can do with coins:");
     expect(container.querySelector("button[title='Back']")).toBeTruthy();

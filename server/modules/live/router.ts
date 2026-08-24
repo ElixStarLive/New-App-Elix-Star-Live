@@ -10,6 +10,7 @@ import { viewerCount } from "../../websocket/presence.js";
 import { isSeatedCohost } from "../cohost/runtime.js";
 import { publishRoom } from "../battle/runtime.js";
 import { queryLiveStatus } from "./status.js";
+import { addLiveModerator, listLiveModerators, removeLiveModerator } from "./moderators.js";
 
 const router = Router();
 
@@ -151,6 +152,28 @@ router.get("/token", requireAuth, async (req: AuthedRequest, res) => {
     avatarUrl: stream.avatar_url,
     canPublish,
   });
+});
+
+router.get("/:streamId/moderators", requireAuth, async (req: AuthedRequest, res) => {
+  const streamId = String(req.params.streamId || "").trim();
+  if (!streamId) throw new AppError("validation_error", "streamId is required", 400);
+  res.json(await listLiveModerators(streamId));
+});
+
+router.post("/:streamId/moderators", requireAuth, async (req: AuthedRequest, res) => {
+  const streamId = String(req.params.streamId || "").trim();
+  const userId = typeof req.body?.userId === "string" ? req.body.userId.trim() : "";
+  if (!streamId) throw new AppError("validation_error", "streamId is required", 400);
+  if (!userId) throw new AppError("validation_error", "userId is required", 400);
+  res.json(await addLiveModerator(streamId, String(req.userId), userId));
+});
+
+router.delete("/:streamId/moderators/:userId", requireAuth, async (req: AuthedRequest, res) => {
+  const streamId = String(req.params.streamId || "").trim();
+  const userId = String(req.params.userId || "").trim();
+  if (!streamId) throw new AppError("validation_error", "streamId is required", 400);
+  if (!userId) throw new AppError("validation_error", "userId is required", 400);
+  res.json(await removeLiveModerator(streamId, String(req.userId), userId));
 });
 
 router.post("/:streamId/end", requireAuth, async (req: AuthedRequest, res) => {

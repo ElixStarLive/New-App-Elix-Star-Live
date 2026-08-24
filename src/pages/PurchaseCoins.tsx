@@ -219,7 +219,7 @@ export default function PurchaseCoins() {
           <p className="text-xs text-white/40 text-center mt-3 px-4">
             By purchasing, you agree to our{" "}
             <button type="button" className="text-white underline cursor-pointer" onClick={() => navigate("/terms")}>
-              Terms of Service
+              Terms of Use (EULA)
             </button>{" "}
             and{" "}
             <button type="button" className="text-white underline cursor-pointer" onClick={() => navigate("/privacy")}>

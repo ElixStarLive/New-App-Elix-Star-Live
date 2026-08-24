@@ -10,6 +10,7 @@ const feedApi = vi.hoisted(() => ({
   apiFetchForYouFeed: vi.fn(),
   apiLiveStreams: vi.fn(),
   apiFetchStories: vi.fn(),
+  apiFetchProfiles: vi.fn(),
   apiFollowList: vi.fn(),
   apiLikeVideo: vi.fn(),
   apiUnlikeVideo: vi.fn(),
@@ -129,6 +130,7 @@ describe("PAGE-010 Friends", () => {
     feedApi.apiMusicPreview.mockResolvedValue({ url: null, error: "none" });
     feedApi.apiFetchVideoComments.mockResolvedValue({ comments: [], error: null });
     feedApi.apiFetchStories.mockResolvedValue({ users: [], error: null });
+    feedApi.apiFetchProfiles.mockResolvedValue({ profiles: [], error: null });
     feedApi.apiFollowList.mockResolvedValue({ users: [], error: null });
     feedApi.apiLiveStreams.mockResolvedValue({ streams: [], error: null });
     feedApi.apiLikeVideo.mockResolvedValue({ ok: true });
