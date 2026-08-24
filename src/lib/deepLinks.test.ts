@@ -1,4 +1,4 @@
-import { describe, expect, it, vi } from "vitest";
+import { beforeAll, describe, expect, it, vi } from "vitest";
 
 vi.mock("@capacitor/app", () => ({
   App: {
@@ -11,14 +11,21 @@ vi.mock("@capacitor/core", () => ({
   Capacitor: { isNativePlatform: () => false },
 }));
 
+let navigateFromDeepLinkUrl: (url: string, navigate: (path: string) => void) => void;
+let useDeepLinks: unknown;
+
 describe("PAGE-006 deepLinks", () => {
-  it("exports useDeepLinks owner", async () => {
+  beforeAll(async () => {
     const mod = await import("./deepLinks");
-    expect(typeof mod.useDeepLinks).toBe("function");
+    navigateFromDeepLinkUrl = mod.navigateFromDeepLinkUrl;
+    useDeepLinks = mod.useDeepLinks;
   });
 
-  it("routes custom-scheme and https live/video/user links", async () => {
-    const { navigateFromDeepLinkUrl } = await import("./deepLinks");
+  it("exports useDeepLinks owner", () => {
+    expect(typeof useDeepLinks).toBe("function");
+  });
+
+  it("routes custom-scheme and https live/video/user links", () => {
     const navigate = vi.fn();
 
     navigateFromDeepLinkUrl("elixstar://video/vid-1", navigate);
@@ -40,8 +47,7 @@ describe("PAGE-006 deepLinks", () => {
     expect(navigate).toHaveBeenLastCalledWith("/hashtag/music");
   });
 
-  it("opens Rising Stars hub without a challenge id", async () => {
-    const { navigateFromDeepLinkUrl } = await import("./deepLinks");
+  it("opens Rising Stars hub without a challenge id", () => {
     const navigate = vi.fn();
 
     navigateFromDeepLinkUrl("elixstar://rising-stars", navigate);
@@ -57,8 +63,7 @@ describe("PAGE-006 deepLinks", () => {
     expect(navigate).toHaveBeenLastCalledWith("/rising-stars/challenge/ch-9");
   });
 
-  it("falls through unknown custom schemes to For You", async () => {
-    const { navigateFromDeepLinkUrl } = await import("./deepLinks");
+  it("falls through unknown custom schemes to For You", () => {
     const navigate = vi.fn();
     navigateFromDeepLinkUrl("elixstar://unknown", navigate);
     expect(navigate).toHaveBeenLastCalledWith("/feed");

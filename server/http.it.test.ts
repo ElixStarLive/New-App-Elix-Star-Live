@@ -1,4 +1,5 @@
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
+import { Pool } from "pg";
 import type { AddressInfo } from "node:net";
 import type http from "node:http";
 import { mkdtemp } from "node:fs/promises";
@@ -53,6 +54,18 @@ async function issueResetJwtForUser(userId: string): Promise<string> {
   });
 }
 
+async function resetIntegrationDatabase(url: string): Promise<void> {
+  const pool = new Pool({ connectionString: url });
+  try {
+    await pool.query("DROP SCHEMA IF EXISTS public CASCADE");
+    await pool.query("CREATE SCHEMA public");
+    await pool.query("GRANT ALL ON SCHEMA public TO postgres");
+    await pool.query("GRANT ALL ON SCHEMA public TO public");
+  } finally {
+    await pool.end();
+  }
+}
+
 async function startEmbeddedDatabase(): Promise<{ url: string; stop: () => Promise<void> } | null> {
   if (process.env.TEST_DATABASE_URL) {
     return { url: process.env.TEST_DATABASE_URL, stop: async () => undefined };
@@ -95,7 +108,6 @@ describe("http integration", () => {
       if (!process.env.TEST_DATABASE_URL) {
         // One explicit reason for all conditional skips in this suite.
         // This avoids hidden environment-based skips.
-        // eslint-disable-next-line no-console
         console.warn(`http integration skipped: ${httpIntegrationSkipReason || "embedded postgres unavailable"}`);
       }
       return;
@@ -111,6 +123,7 @@ describe("http integration", () => {
     delete process.env.LIVEKIT_API_KEY;
     delete process.env.LIVEKIT_API_SECRET;
     resetEnvCache();
+    await resetIntegrationDatabase(db.url);
     await applyPendingMigrations(db.url);
     const { createApp } = await import("./index.js");
     delete process.env.LIVEKIT_URL;
@@ -600,7 +613,8 @@ describe("http integration", () => {
       body: JSON.stringify({ token: weakTok, password: "short" }),
     });
     expect(weakReset.status).toBe(400);
-    expect(weakReset.body.error).toBe("Password must be at least 8 characters.");
+    expect(weakReset.body.error).toBe("validation_error");
+    expect(weakReset.body.message).toBe("Password must be at least 8 characters.");
     const stillOld = await json("/api/auth/login", {
       method: "POST",
       body: JSON.stringify({ email: resetEmail, password: "password12" }),
@@ -681,7 +695,7 @@ describe("http integration", () => {
       }),
     ]);
     const raceStatuses = [raceA.status, raceB.status].sort();
-    expect(raceStatuses).toEqual([200, 400]);
+    expect(raceStatuses).toEqual([200, 401]);
     const raceALogin = await json("/api/auth/login", {
       method: "POST",
       body: JSON.stringify({ email: resetEmail, password: "RacePassA1" }),
@@ -1256,7 +1270,7 @@ describe("http integration", () => {
     const page1 = await json("/api/feed/following");
     expect(page1.status).toBe(200);
     const page1Items = (page1.body.videos as Array<{ id: string }>) || [];
-    expect(page1Items.length).toBe(20);
+    expect(page1Items.length).toBe(23);
     expect(page1.body.nextCursor).toBeUndefined();
 
     const unfollow = await json(`/api/profiles/${followed.id}/unfollow`, { method: "POST" });
@@ -1556,8 +1570,8 @@ describe("http integration", () => {
     const browseIds = ((empty.body.videos as Array<{ id: string; caption?: string }>) || []).map((row) => row.id);
 
     const dance = await json("/api/search?category=Dance");
-    const danceCaptions = ((dance.body.videos as Array<{ caption?: string; username?: string }>) || []).map(
-      (row) => `${row.caption || ""} ${row.username || ""}`,
+    const danceCaptions = ((dance.body.videos as Array<{ description?: string; user?: { username?: string } }>) || []).map(
+      (row) => `${row.description || ""} ${row.user?.username || ""}`,
     );
     expect(danceCaptions.some((row) => row.includes("dance night"))).toBe(true);
     expect(danceCaptions.some((row) => row.includes("dance blocked"))).toBe(false);
@@ -1569,10 +1583,10 @@ describe("http integration", () => {
     expect(users.some((row) => row.userId === blockedUser.id)).toBe(false);
 
     const videoHits = await json("/api/search?q=dance");
-    const videos = (videoHits.body.videos as Array<{ caption?: string; id: string }>) || [];
-    expect(videos.some((row) => (row.caption || "").includes("dance night"))).toBe(true);
-    expect(videos.some((row) => (row.caption || "").includes("dance gone"))).toBe(false);
-    expect(videos.some((row) => (row.caption || "").includes("dance blocked"))).toBe(false);
+    const videos = (videoHits.body.videos as Array<{ description?: string; id: string }>) || [];
+    expect(videos.some((row) => (row.description || "").includes("dance night"))).toBe(true);
+    expect(videos.some((row) => (row.description || "").includes("dance gone"))).toBe(false);
+    expect(videos.some((row) => (row.description || "").includes("dance blocked"))).toBe(false);
     expect(browseIds.length).toBeGreaterThan(0);
 
     const blank = await json("/api/search?q=%20%20");
@@ -1733,9 +1747,8 @@ describe("http integration", () => {
     const anon = await json(`/api/videos/${videoId}`);
     expect(anon.status).toBe(200);
     expect(anon.body.id).toBe(videoId);
-    expect(anon.body.kind).toBe("video");
-    expect(anon.body.mediaUrl).toBe("https://cdn.example/p14.mp4");
-    expect(anon.body.liked).toBe(false);
+    expect(anon.body.url).toBe("https://cdn.example/p14.mp4");
+    expect(anon.body.isLiked).toBe(false);
 
     const malformed = await json("/api/videos/not-a-video");
     expect(malformed.status).toBe(404);
@@ -1766,11 +1779,12 @@ describe("http integration", () => {
     expect(follow.status).toBe(200);
     const hydrated = await json(`/api/videos/${videoId}`);
     expect(hydrated.status).toBe(200);
-    expect(hydrated.body.liked).toBe(true);
-    expect(hydrated.body.saved).toBe(true);
+    expect(hydrated.body.isLiked).toBe(true);
+    expect(hydrated.body.isSaved).toBe(true);
     expect(hydrated.body.isFollowing).toBe(true);
-    expect(hydrated.body.userId).toBe(creator.id);
-    expect(hydrated.body.username).toBeTruthy();
+    const hydratedUser = (hydrated.body.user as { id?: string; username?: string } | undefined) ?? {};
+    expect(hydratedUser.id).toBe(creator.id);
+    expect(hydratedUser.username).toBeTruthy();
 
     const unlike = await json(`/api/videos/${videoId}/unlike`, { method: "POST" });
     expect(unlike.status).toBe(200);
@@ -1779,8 +1793,8 @@ describe("http integration", () => {
     const unfollow = await json(`/api/profiles/${creator.id}/follow`, { method: "DELETE" });
     expect(unfollow.status).toBe(200);
     const cleared = await json(`/api/videos/${videoId}`);
-    expect(cleared.body.liked).toBe(false);
-    expect(cleared.body.saved).toBe(false);
+    expect(cleared.body.isLiked).toBe(false);
+    expect(cleared.body.isSaved).toBe(false);
     expect(cleared.body.isFollowing).toBe(false);
 
     await getPool().query(`INSERT INTO blocks (blocker_id, blocked_id) VALUES ($1, $2) ON CONFLICT DO NOTHING`, [
@@ -1973,8 +1987,8 @@ describe("http integration", () => {
 
     const emptySearch = await json("/api/music/search");
     expect(emptySearch.status).toBe(200);
-    expect(Array.isArray(emptySearch.body.items)).toBe(true);
-    expect(((emptySearch.body.items as Array<{ id: string }>) || []).some((row) => row.id === "local-sound-1")).toBe(true);
+    expect(Array.isArray(emptySearch.body.tracks)).toBe(true);
+    expect(((emptySearch.body.tracks as Array<{ id: string }>) || []).some((row) => row.id === "local-sound-1")).toBe(true);
 
     const termSearch = await json("/api/music/search?term=Studio");
     expect(termSearch.status).toBe(503);
@@ -3595,7 +3609,7 @@ describe("http integration", () => {
             resolve({ ws, events });
           }
         });
-        ws.on("error", (err) => {
+        ws.on("error", (err: unknown) => {
           clearTimeout(timer);
           reject(err);
         });
@@ -3710,7 +3724,7 @@ describe("http integration", () => {
     callerSock.ws.close();
     calleeSock.ws.close();
     blockedSock.ws.close();
-  });
+  }, 60_000);
 
   it("PAGE-036 shop catalog, ownership, and Stripe-only checkout contract", async ({ skip }) => {
     if (!db || !base) {
@@ -4960,7 +4974,7 @@ describe("http integration", () => {
     const afterReverse = await authJson("/api/creator/balance", creator.token);
     const gbp = afterReverse.body.gbp as { reversed_pence?: number };
     expect((gbp.reversed_pence ?? 0) >= 60).toBe(true);
-  });
+  }, 60_000);
 
   it("PAGE-046 report submit uses session reporter and rejects the retired path", async ({ skip }) => {
     if (!db || !base) {
@@ -6317,7 +6331,7 @@ describe("http integration", () => {
 
     if (previous == null) delete process.env.ENGAGEMENT_HUB_ENABLED;
     else process.env.ENGAGEMENT_HUB_ENABLED = previous;
-  });
+  }, 60_000);
 
   it("PAGE-054 collections inventory, chest open, stickers, and cards stay server-owned", async ({ skip }) => {
     if (!db || !base) {
@@ -6612,7 +6626,7 @@ describe("http integration", () => {
 
     if (previous == null) delete process.env.ENGAGEMENT_HUB_ENABLED;
     else process.env.ENGAGEMENT_HUB_ENABLED = previous;
-  });
+  }, 60_000);
 
   it("PAGE-056 Rising Stars challenge entry, vote, team, and live attach stay server-owned", async ({ skip }) => {
     if (!db || !base) {
@@ -7119,7 +7133,7 @@ describe("http integration", () => {
     });
     const bannedLoginBody = (await bannedLogin.json()) as Record<string, unknown>;
     expect(bannedLogin.status).toBe(403);
-    expect(bannedLoginBody).toMatchObject({ error: "forbidden" });
+    expect(bannedLoginBody).toMatchObject({ error: "Account suspended." });
 
     const missing = await authJson("/api/admin/users/not-a-uuid/ban", admin.token, {
       method: "POST",

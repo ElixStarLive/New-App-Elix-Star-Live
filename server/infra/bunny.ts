@@ -34,7 +34,7 @@ export async function bunnyUpload(path: string, body: Buffer, contentType: strin
       AccessKey: key as string,
       "Content-Type": contentType,
     },
-    body,
+    body: new Uint8Array(body),
   });
   if (!response.ok) {
     throw new AppError("unavailable", "Upload failed", 502);

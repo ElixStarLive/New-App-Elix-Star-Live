@@ -30,13 +30,7 @@ import { encryptSecret, decryptSecret } from "../../infra/secretBox.js";
 import { requireValkey, valkeyTrySetNx, valkeyDel } from "../../infra/valkey.js";
 import { AppError } from "../../middleware/errors.js";
 import { requireAuth, type AuthedRequest } from "../../middleware/auth.js";
-import {
-  assertTotpAttemptAllowed,
-  clearTotpFailures,
-  consumeTotpCounter,
-  recordTotpFailure,
-  totpReplayError,
-} from "./totpGuard.js";
+
 import { consumeEmailVerifyToken, emailVerifyCallbackUrl, issueEmailVerifyToken } from "./emailVerify.js";
 import {
   applyPasswordReset,
@@ -368,26 +362,7 @@ async function twoFactorAccountLabel(userId: string): Promise<string> {
   return rows[0]?.email?.trim() || rows[0]?.username?.trim() || userId;
 }
 
-async function assertTotpIfEnabled(userId: string, totpCode: string | undefined): Promise<void> {
-  if (await isLiveNeonSchema()) {
-    if (!(await publicTableExists("user_two_factor"))) return;
-  }
-  const { rows } = await getPool().query<{ secret_encrypted: string; enabled_at: Date | null }>(
-    `SELECT secret_encrypted, enabled_at FROM user_two_factor WHERE user_id = $1`,
-    [userId],
-  );
-  if (!rows[0]?.enabled_at) return;
-  if (!totpCode) throw new AppError("requires_2fa", "Authenticator code required", 401);
-  await assertTotpAttemptAllowed(userId);
-  const { matchTotpCounter } = await import("../../infra/totp.js");
-  const counter = matchTotpCounter(decryptSecret(rows[0].secret_encrypted), totpCode);
-  if (counter === null) {
-    await recordTotpFailure(userId);
-    throw new AppError("invalid_credentials", "Invalid authenticator code", 401);
-  }
-  if (!(await consumeTotpCounter(userId, counter))) throw totpReplayError();
-  await clearTotpFailures(userId);
-}
+
 
 function uniqueRegisterConflict(error: unknown): AppError | null {
   if (!error || typeof error !== "object" || !("code" in error)) return null;
@@ -1136,14 +1111,17 @@ router.post("/2fa/disable", requireAuth, async (req: AuthedRequest, res) => {
   await requireTwoFactorTable();
   const userId = req.userId as string;
   const body = twoFactorCodeBodySchema.parse(req.body ?? {});
-  const { rows } = await getPool().query<{ enabled_at: Date | null }>(
-    `SELECT enabled_at FROM user_two_factor WHERE user_id = $1`,
+  const { verifyTotp } = await import("../../infra/totp.js");
+  const { rows } = await getPool().query<{ enabled_at: Date | null; secret_encrypted: string }>(
+    `SELECT enabled_at, secret_encrypted FROM user_two_factor WHERE user_id = $1`,
     [userId],
   );
   if (!rows[0]?.enabled_at) {
     throw new AppError("validation_error", "2FA is not enabled", 400);
   }
-  await assertTotpIfEnabled(userId, body.code);
+  if (!verifyTotp(decryptSecret(rows[0].secret_encrypted), body.code)) {
+    throw new AppError("invalid_credentials", "Invalid authenticator code", 401);
+  }
   await getPool().query(`DELETE FROM user_two_factor WHERE user_id = $1`, [userId]);
   res.json({ ok: true, enabled: false });
 });

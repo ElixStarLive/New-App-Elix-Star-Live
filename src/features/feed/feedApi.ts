@@ -22,6 +22,7 @@ import { apiUrl } from "@/lib/api";
 import { getSessionToken } from "@/lib/sessionToken";
 import { isRecord } from "@/lib/isRecord";
 import { normalizeHashtag } from "@shared/hashtag";
+export { apiLikeVideo, apiUnlikeVideo, apiSaveVideo, apiUnsaveVideo } from "./engagementApi";
 
 export function parseForYouPage(data: unknown): ForYouFeedResponse | null {
   const parsed = forYouFeedResponseSchema.safeParse(data);
@@ -260,21 +261,6 @@ export async function apiFetchVideoById(videoId: string): Promise<{
   return { video: parsed.data, error: null };
 }
 
-export async function apiLikeVideo(videoId: string): Promise<{ ok: true } | { ok: false; error: string }> {
-  const { error } = await apiRequest<unknown>(`/api/videos/${encodeURIComponent(videoId)}/like`, {
-    method: "POST",
-  });
-  if (error) return { ok: false, error: error.message };
-  return { ok: true };
-}
-
-export async function apiUnlikeVideo(videoId: string): Promise<{ ok: true } | { ok: false; error: string }> {
-  const { error } = await apiRequest<unknown>(`/api/videos/${encodeURIComponent(videoId)}/unlike`, {
-    method: "POST",
-  });
-  if (error) return { ok: false, error: error.message };
-  return { ok: true };
-}
 
 export async function apiDownloadVoiceOnlyVideo(
   videoId: string,
@@ -301,21 +287,6 @@ export async function apiDownloadVoiceOnlyVideo(
   }
 }
 
-export async function apiSaveVideo(videoId: string): Promise<{ ok: true } | { ok: false; error: string }> {
-  const { error } = await apiRequest<unknown>(`/api/videos/${encodeURIComponent(videoId)}/save`, {
-    method: "POST",
-  });
-  if (error) return { ok: false, error: error.message };
-  return { ok: true };
-}
-
-export async function apiUnsaveVideo(videoId: string): Promise<{ ok: true } | { ok: false; error: string }> {
-  const { error } = await apiRequest<unknown>(`/api/videos/${encodeURIComponent(videoId)}/unsave`, {
-    method: "POST",
-  });
-  if (error) return { ok: false, error: error.message };
-  return { ok: true };
-}
 
 export async function apiFetchProfile(userId: string): Promise<{
   profile: UserPublic | null;

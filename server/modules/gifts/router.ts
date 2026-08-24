@@ -6,7 +6,7 @@ import { sendGiftBodySchema } from "../../../shared/contracts/money.js";
 import { applyWalletDelta } from "../wallet/ledger.js";
 import { creditTestCoinBalance, debitTestCoinBalance } from "../testCoins/store.js";
 import { AppError } from "../../middleware/errors.js";
-import { env } from "../../infra/env.js";
+import { logger } from "../../infra/logger.js";
 import { applyGiftToBattle, publishRoom } from "../battle/runtime.js";
 import { consumePaidLots, creditPaidGiftGbp } from "./settle.js";
 import { incrementGiftGoal } from "./goal.js";
@@ -18,6 +18,18 @@ import { loadPublicGiftsCatalog } from "./catalog.js";
 import { readPublicGiftsCatalogCache, writePublicGiftsCatalogCache } from "./catalogCache.js";
 
 const router = Router();
+
+async function runBestEffortRealtimeSideEffects(task: () => Promise<void>): Promise<void> {
+  try {
+    await task();
+  } catch (error) {
+    if (error instanceof AppError && error.code === "unavailable") {
+      logger.warn({ err: error }, "gift realtime side-effects unavailable");
+      return;
+    }
+    throw error;
+  }
+}
 
 router.get("/", async (_req, res) => {
   const cached = await readPublicGiftsCatalogCache();
@@ -32,9 +44,7 @@ router.get("/", async (_req, res) => {
 
 router.post("/send", requireAuth, async (req: AuthedRequest, res) => {
   const body = sendGiftBodySchema.parse(req.body);
-  if (body.streamId && !env().valkeyUrl) {
-    throw new AppError("unavailable", "Live state is unavailable", 503);
-  }
+
   const liveNeon = await isLiveNeonSchema();
   if (body.bucket === "test") {
     const gift = await getPool().query<{ id: string; coin_cost: number; name: string; animation_url: string | null }>(
@@ -187,21 +197,23 @@ router.post("/send", requireAuth, async (req: AuthedRequest, res) => {
       await recordCreatorGiftProgress(req.userId as string, body.recipientId, 1);
     }
     if (result.roomId) {
-      await applyGiftToBattle(result.roomId, body.recipientId, result.coinCost);
-      if (body.bucket === "paid") {
-        const goal = await incrementGiftGoal(result.roomId, body.giftId, 1);
-        if (goal) {
-          await publishRoom(result.roomId, "gift_goal_sync", goal);
+      await runBestEffortRealtimeSideEffects(async () => {
+        await applyGiftToBattle(result.roomId, body.recipientId, result.coinCost);
+        if (body.bucket === "paid") {
+          const goal = await incrementGiftGoal(result.roomId, body.giftId, 1);
+          if (goal) {
+            await publishRoom(result.roomId, "gift_goal_sync", goal);
+          }
         }
-      }
-      await publishRoom(result.roomId, "gift_sent", {
-        transactionId: result.transactionId,
-        giftId: body.giftId,
-        giftName: result.giftName,
-        senderId: req.userId,
-        recipientId: body.recipientId,
-        coinCost: result.coinCost,
-        animationUrl: result.animationUrl,
+        await publishRoom(result.roomId, "gift_sent", {
+          transactionId: result.transactionId,
+          giftId: body.giftId,
+          giftName: result.giftName,
+          senderId: req.userId,
+          recipientId: body.recipientId,
+          coinCost: result.coinCost,
+          animationUrl: result.animationUrl,
+        });
       });
     }
     res.json({ transactionId: result.transactionId, coinCost: result.coinCost });
@@ -266,21 +278,23 @@ router.post("/send", requireAuth, async (req: AuthedRequest, res) => {
     await recordCreatorGiftProgress(req.userId as string, body.recipientId, 1);
   }
   if (result.roomId) {
-    await applyGiftToBattle(result.roomId, body.recipientId, result.coinCost);
-    if (body.bucket === "paid") {
-      const goal = await incrementGiftGoal(result.roomId, body.giftId, 1);
-      if (goal) {
-        await publishRoom(result.roomId, "gift_goal_sync", goal);
+    await runBestEffortRealtimeSideEffects(async () => {
+      await applyGiftToBattle(result.roomId, body.recipientId, result.coinCost);
+      if (body.bucket === "paid") {
+        const goal = await incrementGiftGoal(result.roomId, body.giftId, 1);
+        if (goal) {
+          await publishRoom(result.roomId, "gift_goal_sync", goal);
+        }
       }
-    }
-    await publishRoom(result.roomId, "gift_sent", {
-      transactionId: result.transactionId,
-      giftId: body.giftId,
-      giftName: result.giftName,
-      senderId: req.userId,
-      recipientId: body.recipientId,
-      coinCost: result.coinCost,
-      animationUrl: result.animationUrl,
+      await publishRoom(result.roomId, "gift_sent", {
+        transactionId: result.transactionId,
+        giftId: body.giftId,
+        giftName: result.giftName,
+        senderId: req.userId,
+        recipientId: body.recipientId,
+        coinCost: result.coinCost,
+        animationUrl: result.animationUrl,
+      });
     });
   }
   res.json({ transactionId: result.transactionId, coinCost: result.coinCost });

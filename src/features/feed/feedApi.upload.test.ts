@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 
 vi.mock("@/lib/apiClient", () => ({
   apiRequest: vi.fn(),
@@ -21,14 +21,22 @@ import { apiRequest } from "@/lib/apiClient";
 
 const apiRequestMock = vi.mocked(apiRequest);
 
+let apiUnlikeVideo: (videoId: string) => Promise<{ ok: true } | { ok: false; error: string }>;
+let apiUnsaveVideo: (videoId: string) => Promise<{ ok: true } | { ok: false; error: string }>;
+
 describe("PAGE-007 engagement production contract", () => {
+  beforeAll(async () => {
+    const mod = await import("./engagementApi");
+    apiUnlikeVideo = mod.apiUnlikeVideo;
+    apiUnsaveVideo = mod.apiUnsaveVideo;
+  });
+
   beforeEach(() => {
     apiRequestMock.mockReset();
   });
 
   it("unlikes with POST /unlike not DELETE /like", async () => {
     apiRequestMock.mockResolvedValue({ data: { ok: true }, error: null });
-    const { apiUnlikeVideo } = await import("./feedApi");
     const result = await apiUnlikeVideo("aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa");
     expect(result).toEqual({ ok: true });
     expect(apiRequestMock).toHaveBeenCalledWith(
@@ -39,7 +47,6 @@ describe("PAGE-007 engagement production contract", () => {
 
   it("unsaves with POST /unsave not DELETE /save", async () => {
     apiRequestMock.mockResolvedValue({ data: { ok: true }, error: null });
-    const { apiUnsaveVideo } = await import("./feedApi");
     const result = await apiUnsaveVideo("aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa");
     expect(result).toEqual({ ok: true });
     expect(apiRequestMock).toHaveBeenCalledWith(
