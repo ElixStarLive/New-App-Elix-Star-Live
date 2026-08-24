@@ -57,10 +57,16 @@ async function issueResetJwtForUser(userId: string): Promise<string> {
 async function resetIntegrationDatabase(url: string): Promise<void> {
   const pool = new Pool({ connectionString: url });
   try {
+    const dbName = new URL(url).pathname.replace(/^\//, "");
+    if (!/^[a-zA-Z0-9_]+$/.test(dbName)) {
+      throw new Error("Invalid TEST_DATABASE_URL database name");
+    }
+
     await pool.query("DROP SCHEMA IF EXISTS public CASCADE");
     await pool.query("CREATE SCHEMA public");
-    await pool.query("GRANT ALL ON SCHEMA public TO postgres");
+    await pool.query("GRANT ALL ON SCHEMA public TO CURRENT_USER");
     await pool.query("GRANT ALL ON SCHEMA public TO public");
+    await pool.query(`ALTER DATABASE ${dbName} SET search_path TO public`);
   } finally {
     await pool.end();
   }
