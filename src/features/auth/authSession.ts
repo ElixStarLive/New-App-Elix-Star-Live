@@ -47,7 +47,9 @@ export function displayLoginError(message: string): string {
   if (
     lower.includes("invalid login") ||
     lower.includes("invalid credentials") ||
-    lower.includes("incorrect email")
+    lower.includes("incorrect email") ||
+    lower.includes("http_401") ||
+    lower === "unauthorized"
   ) {
     return "Incorrect email/username or password.";
   }

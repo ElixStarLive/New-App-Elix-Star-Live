@@ -129,6 +129,9 @@ describe("displayLoginError", () => {
     expect(displayLoginError("Invalid login credentials.")).toBe(
       "Incorrect email/username or password.",
     );
+    expect(displayLoginError("HTTP_401")).toBe(
+      "Incorrect email/username or password.",
+    );
   });
 
   it("maps confirm-email failures to the login copy", () => {
