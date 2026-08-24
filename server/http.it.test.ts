@@ -18,6 +18,7 @@ import {
 } from "./modules/engagement/collections.js";
 
 const TEST_JWT = "integration-test-jwt-secret-key-32chars";
+let httpIntegrationSkipReason = "";
 
 async function issueVerifyJwtForUser(userId: string): Promise<string> {
   const { rows } = await getPool().query<{
@@ -75,7 +76,9 @@ async function startEmbeddedDatabase(): Promise<{ url: string; stop: () => Promi
         await pg.stop();
       },
     };
-  } catch {
+  } catch (error) {
+    httpIntegrationSkipReason =
+      error instanceof Error ? error.message : typeof error === "string" ? error : "embedded postgres bootstrap failed";
     return null;
   }
 }
@@ -88,7 +91,15 @@ describe("http integration", () => {
 
   beforeAll(async () => {
     db = await startEmbeddedDatabase();
-    if (!db) return;
+    if (!db) {
+      if (!process.env.TEST_DATABASE_URL) {
+        // One explicit reason for all conditional skips in this suite.
+        // This avoids hidden environment-based skips.
+        // eslint-disable-next-line no-console
+        console.warn(`http integration skipped: ${httpIntegrationSkipReason || "embedded postgres unavailable"}`);
+      }
+      return;
+    }
     process.env.NODE_ENV = "test";
     process.env.DATABASE_URL = db.url;
     process.env.JWT_SECRET = TEST_JWT;
