@@ -3,6 +3,7 @@ dist/
 dist-ssr/
 *.local
 .env
+.env.integration
 .env.store
 coverage/
 .DS_Store
