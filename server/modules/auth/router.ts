@@ -385,6 +385,21 @@ function derivedUsernameFromEmail(email: string): string {
   return parsed.success ? parsed.data : "user";
 }
 
+function clientOriginForEmailLinks(): string | null {
+  const raw = (env().CLIENT_URL || "").trim();
+  if (!raw) return env().isProduction ? null : "http://localhost:5173";
+  try {
+    const url = new URL(raw);
+    if (env().isProduction) {
+      if (url.protocol !== "https:") return null;
+      if (/^(localhost|127\.0\.0\.1|\[::1\])$/i.test(url.hostname)) return null;
+    }
+    return raw.replace(/\/$/, "");
+  } catch {
+    return null;
+  }
+}
+
 async function sendConfirmationEmail(
   email: string,
   user: UserRow & { password_hash?: string | null },
@@ -411,7 +426,11 @@ async function sendConfirmationEmail(
       email_confirmed_at: user.email_confirmed_at,
       password_hash: passwordHash,
     });
-    const origin = env().CLIENT_URL || "http://localhost:5173";
+    const origin = clientOriginForEmailLinks();
+    if (!origin) {
+      logger.error({ userId: user.id }, "confirmation email origin is not configured");
+      return false;
+    }
     await sendMail(
       email,
       "Confirm your Elix Star account",
@@ -728,16 +747,20 @@ router.post("/forgot-password", async (req: Request, res: Response) => {
         email: user.email,
         password_hash: user.password_hash,
       });
-      const origin = env().CLIENT_URL || "http://localhost:5173";
-      try {
-        await sendMail(
-          user.email,
-          "Reset your Elix Star password",
-          `Click this link to reset your password: ${passwordResetCallbackUrl(origin, raw)}\n\nThis link expires in 1 hour. If you did not request a password reset, ignore this email.`,
-        );
-      } catch (error) {
-        // Frozen OLD: never reveal account existence via a distinct send-failure status.
-        logger.error({ err: error, userId: user.id }, "password reset email send failed");
+      const origin = clientOriginForEmailLinks();
+      if (origin) {
+        try {
+          await sendMail(
+            user.email,
+            "Reset your Elix Star password",
+            `Click this link to reset your password: ${passwordResetCallbackUrl(origin, raw)}\n\nThis link expires in 1 hour. If you did not request a password reset, ignore this email.`,
+          );
+        } catch (error) {
+          // Frozen OLD: never reveal account existence via a distinct send-failure status.
+          logger.error({ err: error, userId: user.id }, "password reset email send failed");
+        }
+      } else {
+        logger.error({ userId: user.id }, "password reset origin is not configured");
       }
     }
     res.json({ success: true });

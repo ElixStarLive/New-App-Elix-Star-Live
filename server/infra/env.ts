@@ -40,6 +40,21 @@ export function loadEnv(overrides: Record<string, string | undefined> = {}): Env
   if (isProduction && parsed.JWT_SECRET.length < 64) {
     throw new Error("JWT_SECRET must be at least 64 hex chars in production");
   }
+  if (isProduction) {
+    const raw = (parsed.CLIENT_URL || "").trim();
+    let valid = false;
+    if (raw) {
+      try {
+        const url = new URL(raw);
+        valid = url.protocol === "https:" && !/^(localhost|127\.0\.0\.1|\[::1\])$/i.test(url.hostname);
+      } catch {
+        valid = false;
+      }
+    }
+    if (!valid) {
+      throw new Error("CLIENT_URL must be a public https origin in production");
+    }
+  }
   const env: Env = { ...parsed, valkeyUrl, isProduction };
   cached = env;
   return env;

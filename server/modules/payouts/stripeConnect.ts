@@ -20,7 +20,25 @@ function stripeClient(): Stripe | null {
 }
 
 function clientOrigin(): string {
-  return env().CLIENT_URL || "http://localhost:5173";
+  const raw = (env().CLIENT_URL || "").trim();
+  if (!raw) {
+    if (env().isProduction) {
+      throw new AppError("unavailable", "CLIENT_URL must be configured", 503);
+    }
+    return "http://localhost:5173";
+  }
+  let url: URL;
+  try {
+    url = new URL(raw);
+  } catch {
+    throw new AppError("unavailable", "CLIENT_URL is invalid", 503);
+  }
+  if (env().isProduction) {
+    if (url.protocol !== "https:" || /^(localhost|127\.0\.0\.1|\[::1\])$/i.test(url.hostname)) {
+      throw new AppError("unavailable", "CLIENT_URL must be a public https origin", 503);
+    }
+  }
+  return raw;
 }
 
 function payoutReturnUrls() {
