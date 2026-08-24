@@ -10,7 +10,7 @@
 
 | Page | Page name | Assigned Agent | OLD inspected | NEW inspected | Actual migration performed | UI parity | Behaviour parity | Contracts aligned | No OLD code copied | No patches/workarounds | No duplicates/leftovers | Cleanup complete | Tests | Runtime | Device | Commit | Final Verdict |
 | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
-| PAGE-001 | Login | Grok-Bot | NO | NO | YES | PASS | PASS | PASS | PASS | PASS | PASS | PASS | PASS | PASS | N/A | PENDING | OPEN |
+| PAGE-001 | Login | Grok-Bot | NO | NO | YES | PASS | PASS | PASS | PASS | PASS | PASS | PASS | PASS | PASS | N/A | ef775ce06798da36b9f2881b6eaea59555994035 | OPEN |
 | PAGE-002 | Register | Agent-002 | NOT VERIFIED | NOT VERIFIED | NOT VERIFIED | NOT VERIFIED | NOT VERIFIED | NOT VERIFIED | NOT VERIFIED | NOT VERIFIED | NOT VERIFIED | NOT VERIFIED | NOT VERIFIED | NOT VERIFIED | NOT VERIFIED | — | OPEN |
 | PAGE-003 | Verification / email callback | Agent-003 | NOT VERIFIED | NOT VERIFIED | NOT VERIFIED | NOT VERIFIED | NOT VERIFIED | NOT VERIFIED | NOT VERIFIED | NOT VERIFIED | NOT VERIFIED | NOT VERIFIED | NOT VERIFIED | NOT VERIFIED | NOT VERIFIED | — | OPEN |
 | PAGE-004 | Forgot password | Agent-004 | NOT VERIFIED | NOT VERIFIED | NOT VERIFIED | NOT VERIFIED | NOT VERIFIED | NOT VERIFIED | NOT VERIFIED | NOT VERIFIED | NOT VERIFIED | NOT VERIFIED | NOT VERIFIED | NOT VERIFIED | NOT VERIFIED | — | OPEN |
