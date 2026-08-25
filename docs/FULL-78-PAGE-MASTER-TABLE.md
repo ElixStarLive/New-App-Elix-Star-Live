@@ -50,14 +50,14 @@
 | PAGE-038 | Purchase coins | Agent-038 | YES | YES | YES | PASS | PASS | PASS | PASS | NONE | NONE | PASS | PASS | PASS | N/A | 9fd42cd | VERIFIED FOR RELEASE |
 | PAGE-039 | Wallet display | Agent-039 | YES | YES | YES | PASS | PASS | PASS | PASS | NONE | NONE | PASS | PASS | PASS | N/A | 9fd42cd | VERIFIED FOR RELEASE |
 | PAGE-040 | Settings | Agent-040 | YES | YES | YES | PASS | PASS | PASS | PASS | NONE | NONE | PASS | PASS | PASS | N/A | 9fd42cd | VERIFIED FOR RELEASE |
-| PAGE-041 | Safety center | Agent-06 | YES | YES | YES | PASS | PASS | PASS | PASS | NONE | NONE | PASS | PASS | BLOCKED | UNVERIFIED | 8903d92 | CODE VERIFIED — device/HTTP IT deferred |
-| PAGE-042 | Security / 2FA | Agent-06 | YES | YES | YES | PASS | PASS | PASS | PASS | NONE | NONE | PASS | PASS | BLOCKED | UNVERIFIED | 8903d92 | CODE VERIFIED — device/HTTP IT deferred |
-| PAGE-043 | Notification settings | Agent-06 | YES | YES | YES | PASS | PASS | PASS | PASS | NONE | NONE | PASS | PASS | BLOCKED | UNVERIFIED | 8903d92 | CODE VERIFIED — device/HTTP IT deferred |
-| PAGE-044 | Blocked accounts | Agent-06 | YES | YES | YES | PASS | PASS | PASS | PASS | NONE | NONE | PASS | PASS | BLOCKED | UNVERIFIED | 8903d92 | CODE VERIFIED — device/HTTP IT deferred |
-| PAGE-045 | Creator payout | Agent-06 | YES | YES | YES | PASS | PASS | PASS | PASS | NONE | NONE | PASS | PASS | BLOCKED | UNVERIFIED | 8903d92 | CODE VERIFIED — device/HTTP IT deferred |
-| PAGE-046 | Report | Agent-06 | YES | YES | YES | PASS | PASS | PASS | PASS | NONE | NONE | PASS | PASS | BLOCKED | UNVERIFIED | 8903d92 | CODE VERIFIED — device/HTTP IT deferred |
-| PAGE-047 | Engagement Hub | Agent-06 | YES | YES | YES | PASS | PASS | PASS | PASS | NONE | NONE | PASS | PASS | BLOCKED | UNVERIFIED | 8903d92 | CODE VERIFIED — device/HTTP IT deferred |
-| PAGE-048 | Missions | Agent-06 | YES | YES | YES | PASS | PASS | PASS | PASS | NONE | NONE | PASS | PASS | BLOCKED | UNVERIFIED | 8903d92 | CODE VERIFIED — device/HTTP IT deferred |
+| PAGE-041 | Safety center | Agent-06 | YES | YES | YES | PASS | PASS | PASS | PASS | NONE | NONE | PASS | PASS | BLOCKED | UNVERIFIED | ab44dda | CODE VERIFIED — device/HTTP IT deferred |
+| PAGE-042 | Security / 2FA | Agent-06 | YES | YES | YES | PASS | PASS | PASS | PASS | NONE | NONE | PASS | PASS | BLOCKED | UNVERIFIED | ab44dda | CODE VERIFIED — device/HTTP IT deferred |
+| PAGE-043 | Notification settings | Agent-06 | YES | YES | YES | PASS | PASS | PASS | PASS | NONE | NONE | PASS | PASS | BLOCKED | UNVERIFIED | ab44dda | CODE VERIFIED — device/HTTP IT deferred |
+| PAGE-044 | Blocked accounts | Agent-06 | YES | YES | YES | PASS | PASS | PASS | PASS | NONE | NONE | PASS | PASS | BLOCKED | UNVERIFIED | ab44dda | CODE VERIFIED — device/HTTP IT deferred |
+| PAGE-045 | Creator payout | Agent-06 | YES | YES | YES | PASS | PASS | PASS | PASS | NONE | NONE | PASS | PASS | BLOCKED | UNVERIFIED | ab44dda | CODE VERIFIED — device/HTTP IT deferred |
+| PAGE-046 | Report | Agent-06 | YES | YES | YES | PASS | PASS | PASS | PASS | NONE | NONE | PASS | PASS | BLOCKED | UNVERIFIED | ab44dda | CODE VERIFIED — device/HTTP IT deferred |
+| PAGE-047 | Engagement Hub | Agent-06 | YES | YES | YES | PASS | PASS | PASS | PASS | NONE | NONE | PASS | PASS | BLOCKED | UNVERIFIED | ab44dda | CODE VERIFIED — device/HTTP IT deferred |
+| PAGE-048 | Missions | Agent-06 | YES | YES | YES | PASS | PASS | PASS | PASS | NONE | NONE | PASS | PASS | BLOCKED | UNVERIFIED | ab44dda | CODE VERIFIED — device/HTTP IT deferred |
 | PAGE-049 | Fan level | Agent-049 | YES | YES | YES | PASS | PASS | PASS | PASS | NONE | NONE | PASS | PASS | PASS | N/A | 9fd42cd | VERIFIED FOR RELEASE |
 | PAGE-050 | MVP | Agent-050 | YES | YES | YES | PASS | PASS | PASS | PASS | NONE | NONE | PASS | PASS | PASS | N/A | 9fd42cd | VERIFIED FOR RELEASE |
 | PAGE-051 | Achievements | Agent-051 | YES | YES | YES | PASS | PASS | PASS | PASS | NONE | NONE | PASS | PASS | PASS | N/A | 9fd42cd | VERIFIED FOR RELEASE |

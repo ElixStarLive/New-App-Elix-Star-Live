@@ -5,6 +5,7 @@ import { showToast } from "@/lib/toast";
 import { useAuthStore } from "@/store/useAuthStore";
 
 export function useStemFeed() {
+  const viewerId = useAuthStore((state) => state.user?.id ?? null);
   const [videos, setVideos] = useState<FeedVideo[]>([]);
   const [cursor, setCursor] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
@@ -14,6 +15,7 @@ export function useStemFeed() {
   const fetchGen = useRef(0);
   const moreLock = useRef(false);
   const seenVideoIds = useRef(new Set<string>());
+  const viewerRef = useRef<string | null>(viewerId);
 
   const loadVideos = useCallback(async (nextCursor: string | null, append: boolean) => {
     const gen = ++fetchGen.current;
@@ -53,6 +55,19 @@ export function useStemFeed() {
   useEffect(() => {
     void reload();
   }, [reload]);
+
+  useEffect(() => {
+    if (viewerRef.current === viewerId) return;
+    viewerRef.current = viewerId;
+    fetchGen.current += 1;
+    moreLock.current = false;
+    seenVideoIds.current = new Set();
+    setVideos([]);
+    setActiveIndex(0);
+    setCursor(null);
+    setError(null);
+    void reload();
+  }, [viewerId, reload]);
 
   const loadMore = useCallback(async () => {
     if (!cursor || moreLock.current || loadingMore) return;

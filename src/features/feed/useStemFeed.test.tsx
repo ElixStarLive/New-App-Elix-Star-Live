@@ -9,12 +9,39 @@ const feedApi = vi.hoisted(() => ({
 
 vi.mock("@/features/feed/feedApi", () => feedApi);
 vi.mock("@/lib/toast", () => ({ showToast: vi.fn() }));
-vi.mock("@/store/useAuthStore", () => ({
-  useAuthStore: Object.assign(
-    () => ({ user: { id: "11111111-1111-1111-1111-111111111111" } }),
-    { getState: () => ({ checkUser: vi.fn() }) },
-  ),
-}));
+const auth = vi.hoisted(() => {
+  let user: { id: string } | null = { id: "11111111-1111-1111-1111-111111111111" };
+  const listeners = new Set<() => void>();
+  return {
+    get user() {
+      return user;
+    },
+    setUser(next: { id: string } | null) {
+      user = next;
+      for (const fn of listeners) fn();
+    },
+    subscribe(fn: () => void) {
+      listeners.add(fn);
+      return () => listeners.delete(fn);
+    },
+    checkUser: vi.fn(),
+  };
+});
+
+vi.mock("@/store/useAuthStore", async () => {
+  const { useSyncExternalStore } = await import("react");
+  const useAuthStore = Object.assign(
+    (selector?: (state: { user: { id: string } | null }) => unknown) => {
+      const user = useSyncExternalStore(auth.subscribe, () => auth.user, () => auth.user);
+      const state = { user };
+      return selector ? selector(state) : state;
+    },
+    {
+      getState: () => ({ user: auth.user, checkUser: auth.checkUser }),
+    },
+  );
+  return { useAuthStore };
+});
 
 function HookProbe({ onValue }: { onValue: (value: ReturnType<typeof useStemFeed>) => void }) {
   const value = useStemFeed();
@@ -57,10 +84,12 @@ function stemVideo(id: string, name: string, url: string) {
 describe("useStemFeed", () => {
   afterEach(() => {
     document.body.replaceChildren();
+    auth.setUser({ id: "11111111-1111-1111-1111-111111111111" });
   });
 
   beforeEach(() => {
     feedApi.apiFetchStemFeed.mockReset();
+    auth.setUser({ id: "11111111-1111-1111-1111-111111111111" });
   });
 
   it("does not keep STEM rows without a media URL", async () => {
@@ -118,6 +147,41 @@ describe("useStemFeed", () => {
       await Promise.resolve();
     });
     expect(latest?.videos.map((row) => row.user.name)).toEqual(["Second"]);
+    root.unmount();
+  });
+
+  it("clears the prior viewer rows when the signed-in user changes", async () => {
+    feedApi.apiFetchStemFeed.mockResolvedValue({
+      page: {
+        videos: [stemVideo("22222222-2222-4222-8222-222222222222", "CreatorA", "https://cdn.example/a.mp4")],
+        nextCursor: null,
+      },
+      error: null,
+    });
+    let latest: ReturnType<typeof useStemFeed> | undefined;
+    const root = createRoot(document.body);
+    await act(async () => {
+      root.render(<HookProbe onValue={(value) => { latest = value; }} />);
+      await Promise.resolve();
+      await Promise.resolve();
+    });
+    expect(latest?.videos.some((row) => row.id === "22222222-2222-4222-8222-222222222222")).toBe(true);
+
+    feedApi.apiFetchStemFeed.mockResolvedValue({
+      page: {
+        videos: [stemVideo("55555555-5555-4555-8555-555555555555", "CreatorB", "https://cdn.example/b.mp4")],
+        nextCursor: null,
+      },
+      error: null,
+    });
+    await act(async () => {
+      auth.setUser({ id: "99999999-9999-4999-8999-999999999999" });
+      await Promise.resolve();
+      await Promise.resolve();
+      await Promise.resolve();
+    });
+    expect(latest?.videos.some((row) => row.id === "22222222-2222-4222-8222-222222222222")).toBe(false);
+    expect(latest?.videos.some((row) => row.id === "55555555-5555-4555-8555-555555555555")).toBe(true);
     root.unmount();
   });
 });

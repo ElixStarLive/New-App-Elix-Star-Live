@@ -7,10 +7,12 @@ const feedApi = readFileSync(resolve(process.cwd(), "src/features/feed/feedApi.t
 const profileRouter = readFileSync(resolve(process.cwd(), "server/modules/profile/router.ts"), "utf8");
 const stemPage = readFileSync(resolve(process.cwd(), "src/pages/StemFeed.tsx"), "utf8");
 const query = readFileSync(resolve(process.cwd(), "server/modules/feed/query.ts"), "utf8");
+const stemHook = readFileSync(resolve(process.cwd(), "src/features/feed/useStemFeed.ts"), "utf8");
 
 describe("PAGE-008 STEM ownership", () => {
   it("uses server STEM ranking and shared ForYouPlayer without live cards", () => {
     expect(stemPage).toMatch(/apiFetchStemFeed|useStemFeed|ForYouPlayer/);
+    expect(stemHook).toMatch(/viewerId/);
     expect(stemPage).not.toMatch(/ForYouLiveCard/);
     expect(query).toMatch(/queryStemPage|queryStemRanked/);
     expect(query).toMatch(/STEM_MAX|STEM_TOP_TRENDING|STEM_EXTRA_SLOTS/);
