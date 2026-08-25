@@ -3,7 +3,7 @@ import { getPool, withTransaction } from "../../infra/postgres.js";
 import { AppError } from "../../middleware/errors.js";
 import { applyWalletDelta } from "../wallet/ledger.js";
 import { parseCoinCount } from "../wallet/ledger.js";
-import { spawnTreasureChest } from "./collections.js";
+import { spawnTreasureChest, isTreasureSpawnSkippable } from "./collections.js";
 import { missionPeriodKey, utcDateKey, utcWeekKey } from "./period.js";
 import { grantEngagementXp } from "./progression.js";
 import { mapEngagementDbError, resolveEngagementFlags } from "./settings.js";
@@ -152,7 +152,7 @@ export async function claimMissionForUser(
       energy: flags.battleEnergyEnabled ? requiredCount(mission.reward_energy, "Mission energy") : 0,
     });
     const rare = await spawnTreasureChest(userId, "chest_rare_missions", `mission:${missionId}`, client);
-    if (!rare.ok && rare.error !== "COOLDOWN") {
+    if (!rare.ok && !isTreasureSpawnSkippable(rare.error)) {
       throw new AppError(
         rare.error === "UNKNOWN_CHEST" ? "SCHEMA_UNAVAILABLE" : "unavailable",
         rare.error === "UNKNOWN_CHEST" ? "SCHEMA_UNAVAILABLE" : rare.error,
@@ -161,7 +161,7 @@ export async function claimMissionForUser(
     }
     if (mission.metric_key === "unique_creators") {
       const epic = await spawnTreasureChest(userId, "chest_epic_streams", `mission:${missionId}`, client);
-      if (!epic.ok && epic.error !== "COOLDOWN") {
+      if (!epic.ok && !isTreasureSpawnSkippable(epic.error)) {
         throw new AppError(
           epic.error === "UNKNOWN_CHEST" ? "SCHEMA_UNAVAILABLE" : "unavailable",
           epic.error === "UNKNOWN_CHEST" ? "SCHEMA_UNAVAILABLE" : epic.error,

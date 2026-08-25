@@ -5,6 +5,7 @@ import { giftSpendableDisplay } from "./rewardWallet.js";
 describe("PAGE-052 reward wallet contract", () => {
   it("keeps domains unmerged and rejects a flattened items payload", () => {
     expect(giftSpendableDisplay(10, 20, 5)).toBe(35);
+    expect(giftSpendableDisplay(10, 20, 5, false)).toBe(30);
     expect(
       engagementRewardWalletResponseSchema.safeParse({
         items: [{ id: "promo", title: "Promo", detail: "12 ready to claim", claimable: true }],

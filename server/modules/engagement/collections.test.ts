@@ -5,6 +5,7 @@ import {
   engagementStickersResponseSchema,
   engagementTreasureResponseSchema,
 } from "../../../shared/contracts/engagement.js";
+import { isTreasureSpawnSkippable } from "./collections.js";
 
 const catalog = [
   {
@@ -20,6 +21,12 @@ const catalog = [
 ];
 
 describe("PAGE-054 collections contract", () => {
+  it("treats disabled treasure hunt spawn as skippable", () => {
+    expect(isTreasureSpawnSkippable("COOLDOWN")).toBe(true);
+    expect(isTreasureSpawnSkippable("TREASURE_HUNT_DISABLED")).toBe(true);
+    expect(isTreasureSpawnSkippable("UNKNOWN_CHEST")).toBe(false);
+  });
+
   it("rejects the stub saved/liked inventory payload", () => {
     expect(
       engagementTreasureResponseSchema.safeParse({

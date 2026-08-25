@@ -3,7 +3,7 @@ import { getPool, withTransaction } from "../../infra/postgres.js";
 import { AppError } from "../../middleware/errors.js";
 import { applyWalletDelta, parseCoinCount } from "../wallet/ledger.js";
 import { bumpAchievementOnClient } from "./achievements.js";
-import { spawnTreasureChest } from "./collections.js";
+import { spawnTreasureChest, isTreasureSpawnSkippable } from "./collections.js";
 import { utcDateKey } from "./period.js";
 import { grantEngagementXp } from "./progression.js";
 import {
@@ -254,7 +254,7 @@ export async function claimDailyLoginForUser(userId: string): Promise<Engagement
         "daily_login",
         client,
       );
-      if (!spawned.ok && spawned.error !== "COOLDOWN") {
+      if (!spawned.ok && !isTreasureSpawnSkippable(spawned.error)) {
         throw new AppError(
           spawned.error === "UNKNOWN_CHEST" ? "SCHEMA_UNAVAILABLE" : "unavailable",
           spawned.error === "UNKNOWN_CHEST" ? "SCHEMA_UNAVAILABLE" : spawned.error,

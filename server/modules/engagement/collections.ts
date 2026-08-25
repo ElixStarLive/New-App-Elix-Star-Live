@@ -2,7 +2,7 @@ import { getPool, withTransaction } from "../../infra/postgres.js";
 import { AppError } from "../../middleware/errors.js";
 import { applyWalletDelta, parseCoinCount } from "../wallet/ledger.js";
 import { grantEngagementXp } from "./progression.js";
-import { isSchemaUnavailable, mapEngagementDbError } from "./settings.js";
+import { isSchemaUnavailable, mapEngagementDbError, resolveEngagementFlags } from "./settings.js";
 import type {
   EngagementChest,
   EngagementChestCatalog,
@@ -20,6 +20,11 @@ import type { PoolClient } from "pg";
 const CHEST_RARITIES = new Set(["common", "rare", "epic", "legendary", "mythic"]);
 const STICKER_RARITIES = new Set(["common", "rare", "epic", "legendary"]);
 const CHEST_STATUSES = new Set(["found", "opened", "expired"]);
+export const TREASURE_SPAWN_SKIPPABLE = new Set(["COOLDOWN", "TREASURE_HUNT_DISABLED"]);
+
+export function isTreasureSpawnSkippable(error: string): boolean {
+  return TREASURE_SPAWN_SKIPPABLE.has(error);
+}
 
 function requiredCount(value: unknown, label: string): number {
   const n = parseCoinCount(value);
@@ -189,6 +194,8 @@ export async function spawnTreasureChest(
 ): Promise<SpawnResult> {
   if (!userId || !chestDefId) return { ok: false, error: "UNKNOWN_CHEST" };
   try {
+    const flags = await resolveEngagementFlags(client ?? getPool());
+    if (!flags.treasureHuntEnabled) return { ok: false, error: "TREASURE_HUNT_DISABLED" };
     if (client) return await spawnTreasureChestOnClient(client, userId, chestDefId, locationHint);
     return await withTransaction(async (tx) => spawnTreasureChestOnClient(tx, userId, chestDefId, locationHint));
   } catch (error) {
@@ -207,6 +214,10 @@ export async function openTreasureChestForUser(
   chestId: string,
 ): Promise<EngagementChestOpenResponse> {
   if (!UUID_RE.test(chestId.trim())) throw new AppError("not_found", "Chest not found", 404);
+  const flags = await resolveEngagementFlags();
+  if (!flags.treasureHuntEnabled) {
+    throw new AppError("TREASURE_HUNT_DISABLED", "Treasure hunt is disabled", 400);
+  }
   try {
   return await withTransaction(async (client) => {
     const locked = await client.query<{
@@ -254,7 +265,7 @@ export async function openTreasureChestForUser(
     if (!marked.rows[0]) {
       return { ok: true as const, alreadyOpened: true, reward };
     }
-    if (reward.reward_promo_coins > 0) {
+    if (reward.reward_promo_coins > 0 && flags.promotionalCoinsEnabled) {
       await applyWalletDelta(client, {
         userId,
         bucket: "promo",
@@ -368,6 +379,10 @@ export async function grantStickerForUser(
   stickerId: string,
 ): Promise<{ ok: true; set_completed: boolean }> {
   if (!stickerId.trim()) throw new AppError("not_found", "Sticker not found", 404);
+  const flags = await resolveEngagementFlags();
+  if (!flags.stickerCollectionEnabled) {
+    throw new AppError("STICKERS_DISABLED", "Sticker collection is disabled", 400);
+  }
   return withTransaction(async (client) => {
     const def = await client.query<{ id: string; set_id: string }>(
       `SELECT id, set_id FROM sticker_defs WHERE id = $1 AND enabled = TRUE`,
@@ -405,15 +420,17 @@ export async function grantStickerForUser(
       [userId, setId],
     );
     if (!completed.rows[0]) return { ok: true as const, set_completed: false };
-    await applyWalletDelta(client, {
-      userId,
-      bucket: "promo",
-      delta: 250,
-      reason: "sticker_set_complete",
-      idempotencyKey: `sticker_set_complete:${userId}:${setId}`,
-      refType: "sticker_set",
-      refId: setId,
-    });
+    if (flags.promotionalCoinsEnabled) {
+      await applyWalletDelta(client, {
+        userId,
+        bucket: "promo",
+        delta: 250,
+        reason: "sticker_set_complete",
+        idempotencyKey: `sticker_set_complete:${userId}:${setId}`,
+        refType: "sticker_set",
+        refId: setId,
+      });
+    }
     await grantEngagementXp(client, userId, { xp: 100, energy: 0 });
     return { ok: true as const, set_completed: true };
   });
@@ -509,6 +526,8 @@ export async function listCreatorCardsForUser(
 
 async function unlockCreatorCard(userId: string, creatorId: string, tier: string): Promise<void> {
   if (!userId || !creatorId || userId === creatorId) return;
+  const flags = await resolveEngagementFlags();
+  if (!flags.creatorCollectionsEnabled) return;
   await getPool().query(
     `INSERT INTO user_creator_cards (user_id, creator_id, tier)
      VALUES ($1, $2, $3)
@@ -534,6 +553,8 @@ async function evaluateCreatorTiers(
 export async function recordCreatorGiftProgress(userId: string, creatorId: string, gifts = 1): Promise<void> {
   const add = Math.max(0, Math.floor(gifts));
   if (!userId || !creatorId || userId === creatorId || add <= 0) return;
+  const flags = await resolveEngagementFlags();
+  if (!flags.creatorCollectionsEnabled) return;
   try {
     const row = await getPool().query<{ watch_minutes: unknown; gifts_count: unknown }>(
       `INSERT INTO user_creator_collection_progress
@@ -564,6 +585,8 @@ export async function recordCreatorGiftProgress(userId: string, creatorId: strin
 export async function recordCreatorWatchProgress(userId: string, creatorId: string, minutes: number): Promise<void> {
   const add = Math.max(0, Math.floor(minutes));
   if (!userId || !creatorId || userId === creatorId || add <= 0) return;
+  const flags = await resolveEngagementFlags();
+  if (!flags.creatorCollectionsEnabled) return;
   try {
     const row = await getPool().query<{ watch_minutes: unknown; gifts_count: unknown }>(
       `INSERT INTO user_creator_collection_progress

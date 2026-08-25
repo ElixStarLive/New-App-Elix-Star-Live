@@ -3,7 +3,7 @@ import { getPool, withTransaction } from "../../infra/postgres.js";
 import { AppError } from "../../middleware/errors.js";
 import { applyWalletDelta, parseCoinCount } from "../wallet/ledger.js";
 import { grantEngagementXp } from "./progression.js";
-import { mapEngagementDbError } from "./settings.js";
+import { mapEngagementDbError, resolveEngagementFlags, type EngagementFlags } from "./settings.js";
 import type { EngagementAchievement } from "../../../shared/contracts/engagement.js";
 
 type AchievementRow = {
@@ -69,8 +69,9 @@ async function grantAchievementRewards(
   userId: string,
   achievementId: string,
   rewards: { promo: number; xp: number },
+  flags: EngagementFlags,
 ): Promise<void> {
-  if (rewards.promo > 0) {
+  if (rewards.promo > 0 && flags.promotionalCoinsEnabled) {
     await applyWalletDelta(client, {
       userId,
       bucket: "promo",
@@ -113,6 +114,7 @@ export async function bumpAchievementOnClient(
 ): Promise<void> {
   const amount = Math.floor(delta);
   if (!userId || !metricKey || !Number.isFinite(amount) || amount <= 0) return;
+  const flags = await resolveEngagementFlags(client);
   const defs = await client.query<{
     id: string;
     goal_count: unknown;
@@ -163,7 +165,7 @@ export async function bumpAchievementOnClient(
       [userId, def.id],
     );
     if (!marked.rows[0]) continue;
-    await grantAchievementRewards(client, userId, def.id, { promo, xp });
+    await grantAchievementRewards(client, userId, def.id, { promo, xp }, flags);
   }
 }
 

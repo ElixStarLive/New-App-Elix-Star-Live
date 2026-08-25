@@ -47,6 +47,7 @@ describe("PAGE-055 Rising Stars ownership", () => {
     expect(api).toMatch(/\/api\/rising-stars\/challenges\?/);
     expect(api).toMatch(/\/api\/rising-stars\/seasons\/\$\{encodeURIComponent\(seasonId\)\}\/standings/);
     expect(api).toMatch(/\/api\/rising-stars\/teams\?seasonId=/);
+    expect(api).toMatch(/\/api\/rising-stars\/badges\/user\/\$\{encodeURIComponent\(userId\)\}/);
     expect(api).not.toMatch(/\/api\/rising-stars"\s*|\/api\/rising-stars`/);
     expect(router).toMatch(/router\.get\("\/seasons\/current"/);
     expect(router).toMatch(/router\.get\("\/categories"/);
@@ -55,6 +56,7 @@ describe("PAGE-055 Rising Stars ownership", () => {
     expect(router).toMatch(/router\.get\("\/teams"/);
     expect(router).toMatch(/router\.get\("\/rewards"/);
     expect(router).toMatch(/router\.get\("\/badges\/me"/);
+    expect(router).toMatch(/router\.get\("\/badges\/user\/:userId"/);
     expect(router).not.toMatch(/router\.get\("\/"/);
     expect(router).toMatch(/res\.json\(\{ season: await getCurrentRisingStarsSeason\(\) \}\)/);
     expect(hub).toMatch(/WHERE status = 'active'/);

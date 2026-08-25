@@ -165,6 +165,18 @@ export async function apiRisingStarsMyBadges(): Promise<
   return { ok: true, badges: parsed.data.badges };
 }
 
+export async function apiRisingStarsUserBadges(
+  userId: string,
+): Promise<{ ok: true; badges: RisingStarsBadge[] } | RisingStarsApiFailure> {
+  const { data, error } = await apiRequest<unknown>(
+    `/api/rising-stars/badges/user/${encodeURIComponent(userId)}`,
+  );
+  if (error) return failure(error, RISING_STARS_LOAD_ERROR);
+  const parsed = risingStarsBadgesResponseSchema.safeParse(data);
+  if (!parsed.success) return { ok: false, error: RISING_STARS_LOAD_ERROR, sessionExpired: false };
+  return { ok: true, badges: parsed.data.badges };
+}
+
 export async function apiRisingStarsChallenge(
   challengeId: string,
 ): Promise<

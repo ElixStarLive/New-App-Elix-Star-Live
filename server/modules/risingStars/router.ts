@@ -116,6 +116,11 @@ router.get("/badges/me", requireAuth, async (req: AuthedRequest, res) => {
   res.json({ badges: await listRisingStarsBadgesForUser(req.userId as string) });
 });
 
+router.get("/badges/user/:userId", async (req, res) => {
+  res.setHeader("Cache-Control", "no-store");
+  res.json({ badges: await listRisingStarsBadgesForUser(routeParam(req, "userId")) });
+});
+
 router.get("/challenges/:id", async (req: AuthedRequest, res) => {
   res.setHeader("Cache-Control", "no-store");
   res.json(await getRisingStarsChallengeDetail(routeParam(req, "id"), req.userId ?? null));
