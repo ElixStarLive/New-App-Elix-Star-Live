@@ -191,9 +191,9 @@ BEGIN
       WHERE conname = 'video_likes_video_id_fkey'
         AND conrelid = 'video_likes'::regclass
     ) THEN
-      ALTER TABLE video_likes
+      EXECUTE 'ALTER TABLE video_likes
         ADD CONSTRAINT video_likes_video_id_fkey
-        FOREIGN KEY (video_id) REFERENCES videos(id) ON DELETE CASCADE;
+        FOREIGN KEY (video_id) REFERENCES videos(id) ON DELETE CASCADE';
     END IF;
 
     IF NOT EXISTS (
@@ -201,9 +201,9 @@ BEGIN
       WHERE conname = 'video_saves_video_id_fkey'
         AND conrelid = 'video_saves'::regclass
     ) THEN
-      ALTER TABLE video_saves
+      EXECUTE 'ALTER TABLE video_saves
         ADD CONSTRAINT video_saves_video_id_fkey
-        FOREIGN KEY (video_id) REFERENCES videos(id) ON DELETE CASCADE;
+        FOREIGN KEY (video_id) REFERENCES videos(id) ON DELETE CASCADE';
     END IF;
 
     IF NOT EXISTS (
@@ -211,9 +211,9 @@ BEGIN
       WHERE conname = 'video_views_video_id_fkey'
         AND conrelid = 'video_views'::regclass
     ) THEN
-      ALTER TABLE video_views
+      EXECUTE 'ALTER TABLE video_views
         ADD CONSTRAINT video_views_video_id_fkey
-        FOREIGN KEY (video_id) REFERENCES videos(id) ON DELETE CASCADE;
+        FOREIGN KEY (video_id) REFERENCES videos(id) ON DELETE CASCADE';
     END IF;
 
     IF NOT EXISTS (
@@ -221,9 +221,9 @@ BEGIN
       WHERE conname = 'comments_video_id_fkey'
         AND conrelid = 'comments'::regclass
     ) THEN
-      ALTER TABLE comments
+      EXECUTE 'ALTER TABLE comments
         ADD CONSTRAINT comments_video_id_fkey
-        FOREIGN KEY (video_id) REFERENCES videos(id) ON DELETE CASCADE;
+        FOREIGN KEY (video_id) REFERENCES videos(id) ON DELETE CASCADE';
     END IF;
   END IF;
 END $$;
