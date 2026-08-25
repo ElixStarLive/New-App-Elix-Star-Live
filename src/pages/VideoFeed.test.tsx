@@ -284,7 +284,7 @@ describe("PAGE-007 For You", () => {
     expect(live).toBeTruthy();
     const ended = ws.on.mock.calls.find((call) => call[0] === "stream_ended")?.[1] as (data: unknown) => void;
     await act(async () => {
-      ended?.({ streamId: stream.streamId });
+      ended?.({ roomId: stream.roomId });
       await Promise.resolve();
     });
     expect(mounted.container.textContent).not.toContain("Live Creator");

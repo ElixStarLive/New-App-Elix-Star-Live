@@ -479,36 +479,10 @@ INSERT INTO coin_packages (product_id, provider, coins, label) VALUES
   ('coins200000', 'google', 200000, '200,000 Coins'),
   ('coins350000', 'google', 350000, '350,000 Coins');
 
--- Additive gifts columns for legacy catalogs (CREATE IF NOT EXISTS is a no-op).
-ALTER TABLE gifts ADD COLUMN IF NOT EXISTS name TEXT;
-ALTER TABLE gifts ADD COLUMN IF NOT EXISTS coin_cost INTEGER DEFAULT 1;
-ALTER TABLE gifts ADD COLUMN IF NOT EXISTS animation_url TEXT;
-ALTER TABLE gifts ADD COLUMN IF NOT EXISTS sort_order INTEGER NOT NULL DEFAULT 0;
-ALTER TABLE gifts ADD COLUMN IF NOT EXISTS active BOOLEAN NOT NULL DEFAULT TRUE;
-UPDATE gifts SET name = COALESCE(NULLIF(name, ''), id, 'gift') WHERE name IS NULL;
-UPDATE gifts SET coin_cost = COALESCE(coin_cost, 1) WHERE coin_cost IS NULL;
-
--- Seed gifts; populate legacy gift_id when present (NOT NULL on old Neon).
-DO $$
-BEGIN
-  IF EXISTS (
-    SELECT 1 FROM information_schema.columns
-    WHERE table_schema = 'public' AND table_name = 'gifts' AND column_name = 'gift_id'
-  ) THEN
-    INSERT INTO gifts (id, gift_id, name, coin_cost, sort_order) VALUES
-      ('rose', 'rose', 'Rose', 1, 1),
-      ('heart', 'heart', 'Heart', 10, 2),
-      ('star', 'star', 'Star', 100, 3),
-      ('diamond', 'diamond', 'Diamond', 1000, 4),
-      ('universe', 'universe', 'Universe', 50000, 5)
-    ON CONFLICT DO NOTHING;
-  ELSE
-    INSERT INTO gifts (id, name, coin_cost, sort_order) VALUES
-      ('rose', 'Rose', 1, 1),
-      ('heart', 'Heart', 10, 2),
-      ('star', 'Star', 100, 3),
-      ('diamond', 'Diamond', 1000, 4),
-      ('universe', 'Universe', 50000, 5)
-    ON CONFLICT (id) DO NOTHING;
-  END IF;
-END $$;
+INSERT INTO gifts (id, name, coin_cost, sort_order) VALUES
+  ('rose', 'Rose', 1, 1),
+  ('heart', 'Heart', 10, 2),
+  ('star', 'Star', 100, 3),
+  ('diamond', 'Diamond', 1000, 4),
+  ('universe', 'Universe', 50000, 5)
+ON CONFLICT (id) DO NOTHING;

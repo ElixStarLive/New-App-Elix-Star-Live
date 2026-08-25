@@ -82,9 +82,15 @@ export default function Inbox() {
   const unreadThreads = snap.threads.filter((row) => row.unread);
 
   const openUserOrLive = (userId: string, isLive: boolean, roomId?: string | null) => {
-    navigate(isLive ? `/watch/${encodeURIComponent(roomId || userId)}` : `/profile/${userId}`, {
-      state: inboxReturnState(),
-    });
+    if (isLive) {
+      if (!roomId) {
+        navigate(`/profile/${userId}`, { state: inboxReturnState() });
+        return;
+      }
+      navigate(`/watch/${encodeURIComponent(roomId)}`, { state: inboxReturnState() });
+      return;
+    }
+    navigate(`/profile/${userId}`, { state: inboxReturnState() });
   };
 
   const deleteConversation = async (threadId: string) => {
@@ -386,11 +392,11 @@ export default function Inbox() {
                     const hostLabel = row.hostName.trim() || "a creator";
                     return (
                       <button
-                        key={`${row.sharerId}_${row.streamKey}`}
+                        key={`${row.sharerId}_${row.roomId}`}
                         type="button"
                         onClick={() => {
-                          if (row.streamKey) {
-                            navigate(`/watch/${encodeURIComponent(row.streamKey)}`, { state: inboxReturnState() });
+                          if (row.roomId) {
+                            navigate(`/watch/${encodeURIComponent(row.roomId)}`, { state: inboxReturnState() });
                           }
                         }}
                         className="flex items-center gap-3 w-full text-left py-2.5 px-2 bg-transparent"

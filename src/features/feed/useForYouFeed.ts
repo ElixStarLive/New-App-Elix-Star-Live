@@ -156,11 +156,11 @@ export function useForYouFeed() {
         void loadLives();
         return;
       }
-      for (const key of [liveKey(card), card.streamId, card.hostId]) {
+      for (const key of [liveKey(card)]) {
         endedAtRef.current.delete(key);
       }
       setLives((prev) => {
-        if (prev.some((row) => liveKey(row) === liveKey(card) || row.streamId === card.streamId)) return prev;
+        if (prev.some((row) => liveKey(row) === liveKey(card))) return prev;
         return [card, ...prev];
       });
       if (needsLiveEnrichment(card)) {
@@ -190,7 +190,7 @@ export function useForYouFeed() {
       const now = Date.now();
       for (const key of keys) endedAtRef.current.set(key, now);
       setLives((prev) =>
-        prev.filter((row) => !keys.includes(liveKey(row)) && !keys.includes(row.streamId) && !keys.includes(row.hostId)),
+        prev.filter((row) => !keys.includes(liveKey(row))),
       );
     };
     wsClient.on("stream_started", onStarted);

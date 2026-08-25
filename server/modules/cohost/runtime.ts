@@ -29,7 +29,7 @@ export async function loadCohost(roomId: string, hostId: string): Promise<Cohost
 
 export async function saveCohost(state: CohostRoomState): Promise<void> {
   requireRealtime();
-  await requireValkey().set(key(state.streamId), JSON.stringify(state));
+  await requireValkey().set(key(state.roomId), JSON.stringify(state));
 }
 
 export async function withCohostLock<T>(roomId: string, fn: () => Promise<T>): Promise<T> {

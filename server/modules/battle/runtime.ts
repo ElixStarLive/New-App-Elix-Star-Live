@@ -23,7 +23,7 @@ export async function loadBattle(roomId: string): Promise<BattleState | null> {
 
 export async function saveBattle(state: BattleState): Promise<void> {
   requireRealtime();
-  await requireValkey().set(battleKey(state.streamId), JSON.stringify(state));
+  await requireValkey().set(battleKey(state.roomId), JSON.stringify(state));
 }
 
 export async function publishRoom(roomId: string, event: string, data: unknown): Promise<void> {
@@ -36,7 +36,7 @@ export async function persistEndedBattle(state: BattleState): Promise<void> {
   if (state.status !== "ENDED" || !state.startedAt) return;
   const stream = await getPool().query<{ id: string }>(
     `SELECT id FROM live_streams WHERE room_id = $1 ORDER BY started_at DESC LIMIT 1`,
-    [state.streamId],
+    [state.roomId],
   );
   const streamId = stream.rows[0]?.id;
   if (!streamId) return;

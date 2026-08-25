@@ -365,7 +365,7 @@ export async function listInboxNotices(viewerId: string): Promise<{
 
 export type InboxLiveShareRow = {
   sharerId: string;
-  streamKey: string;
+  roomId: string;
   hostUserId: string;
   hostName: string;
   hostAvatar: string;
@@ -408,7 +408,7 @@ export async function listLiveShareRequests(viewerId: string): Promise<InboxLive
   );
   return rows.map((row) => ({
     sharerId: row.sharer_id,
-    streamKey: row.stream_key,
+    roomId: row.stream_key,
     hostUserId: row.host_user_id,
     hostName: row.host_name,
     hostAvatar: row.host_avatar,

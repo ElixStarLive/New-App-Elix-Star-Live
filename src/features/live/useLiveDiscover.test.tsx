@@ -112,7 +112,7 @@ describe("PAGE-017 useLiveDiscover", () => {
     const { root, latest } = await mountHook();
     const ended = ws.on.mock.calls.find((call) => call[0] === "stream_ended")?.[1] as (data: unknown) => void;
     await act(async () => {
-      ended?.({ streamId: card.streamId, roomId: card.roomId });
+      ended?.({ roomId: card.roomId });
       await Promise.resolve();
     });
     expect(latest()?.streams.map((row) => row.roomId)).toEqual([other.roomId]);

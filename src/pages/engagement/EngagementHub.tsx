@@ -82,7 +82,7 @@ export default function EngagementHub() {
               <div className="grid grid-cols-3 gap-2 text-center">
                 <div>
                   <div className="text-[10px] text-[#8B9099]">Promo</div>
-                  <div className="text-sm font-bold tabular-nums text-[#E6E9EE]">{view.hub.promotional_coins}</div>
+                  <div className="text-sm font-bold tabular-nums text-[#E6E9EE]">{view.hub.promotional_balance}</div>
                 </div>
                 <div>
                   <div className="text-[10px] text-[#8B9099] flex items-center justify-center gap-0.5">

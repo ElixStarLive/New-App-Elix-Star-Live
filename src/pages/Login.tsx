@@ -9,13 +9,11 @@ import { isAbortLike } from "@/features/auth/abortLike";
 
 const REMEMBER_EMAIL_KEY = "login_saved_email";
 const REMEMBER_FLAG_KEY = "login_save_details";
-const LEGACY_PASSWORD_KEY = "login_saved_password";
 
 function readRememberedEmail(): { save: boolean; email: string } {
   try {
     const save = window.localStorage.getItem(REMEMBER_FLAG_KEY) === "true";
     const email = window.localStorage.getItem(REMEMBER_EMAIL_KEY) || "";
-    window.localStorage.removeItem(LEGACY_PASSWORD_KEY);
     return { save, email: save ? email : "" };
   } catch {
     return { save: false, email: "" };
@@ -31,7 +29,6 @@ function writeRememberedEmail(save: boolean, email: string): void {
       window.localStorage.removeItem(REMEMBER_EMAIL_KEY);
       window.localStorage.setItem(REMEMBER_FLAG_KEY, "false");
     }
-    window.localStorage.removeItem(LEGACY_PASSWORD_KEY);
   } catch {
     /* storage may be unavailable */
   }

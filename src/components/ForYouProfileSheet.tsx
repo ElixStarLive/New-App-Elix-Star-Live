@@ -66,7 +66,7 @@ export function ForYouProfileSheet({
     void apiLiveStreams().then((res) => {
       if (res.error) return;
       const live = res.streams.find((row) => row.hostId === userId);
-      setWatchId(live ? live.roomId || live.streamId : null);
+      setWatchId(live ? live.roomId : null);
     });
     return () => {
       document.body.removeAttribute("data-user-profile-open");

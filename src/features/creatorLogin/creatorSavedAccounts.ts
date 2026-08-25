@@ -31,17 +31,12 @@ export function browserCreatorAccountStorage(): CreatorAccountStorage {
   return window.localStorage;
 }
 
-/** One-shot cleanup: never keep OLD creator login keys after NEW store is in use. */
+/** Delete-only cleanup for leftover OLD creator login keys. Never reads or absorbs legacy values. */
 export function clearAllLegacyCreatorLoginKeys(storage: CreatorAccountStorage): void {
   storage.removeItem(LEGACY_IDENTIFIER_KEY);
   storage.removeItem(LEGACY_USERNAME_KEY);
   storage.removeItem(LEGACY_PASSWORD_KEY);
   storage.removeItem(LEGACY_SAVE_PASSWORD_KEY);
-}
-
-/** Clears all legacy creator login keys (identifier/username/password). */
-export function stripLegacyCreatorPasswordKeys(storage: CreatorAccountStorage): void {
-  clearAllLegacyCreatorLoginKeys(storage);
 }
 
 function asAccount(value: unknown): SavedCreatorAccount | null {
@@ -94,28 +89,11 @@ function persistAccounts(
     return next;
   });
   storage.setItem(CREATOR_SAVED_ACCOUNTS_KEY, JSON.stringify(limited));
-  clearAllLegacyCreatorLoginKeys(storage);
   return limited;
 }
 
-/**
- * Absorb any leftover OLD single-account keys into the NEW list, persist, then DELETE legacy keys.
- * Every read path does this so we never keep a permanent OLD→NEW bridge.
- */
 export function readCreatorSavedAccounts(storage: CreatorAccountStorage): SavedCreatorAccount[] {
-  const accounts = parseStoredAccounts(storage);
-  const legacyId = (storage.getItem(LEGACY_IDENTIFIER_KEY) || "").trim();
-  const legacyUser = (storage.getItem(LEGACY_USERNAME_KEY) || "").trim();
-
-  if (legacyId && !accounts.some((account) => account.identifier === legacyId)) {
-    return persistAccounts(storage, [
-      { identifier: legacyId, username: legacyUser || legacyId.split("@")[0] || legacyId },
-      ...accounts,
-    ]);
-  }
-
-  clearAllLegacyCreatorLoginKeys(storage);
-  return accounts;
+  return parseStoredAccounts(storage);
 }
 
 export function writeCreatorSavedAccounts(
@@ -148,8 +126,4 @@ export function readCreatorSavePref(storage: CreatorAccountStorage): boolean {
 
 export function writeCreatorSavePref(storage: CreatorAccountStorage, enabled: boolean): void {
   storage.setItem(CREATOR_SAVE_PREF_KEY, enabled ? "true" : "false");
-}
-
-export function migrateLegacyCreatorLoginKeys(storage: CreatorAccountStorage): SavedCreatorAccount[] {
-  return readCreatorSavedAccounts(storage);
 }

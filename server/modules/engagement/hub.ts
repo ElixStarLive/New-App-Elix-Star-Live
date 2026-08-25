@@ -40,7 +40,7 @@ export async function getHubSummary(userId: string): Promise<EngagementHub> {
     const promo = wallet.rows[0] ? requiredCount(wallet.rows[0].promo_coins, "Promo") : 0;
     const starter = wallet.rows[0] ? requiredCount(wallet.rows[0].starter_coins, "Starter") : 0;
     return {
-      promotional_coins: promo,
+      promotional_balance: promo,
       battle_energy: progress.battle_energy,
       total_xp: progress.total_xp,
       fan_level: progress.fan_level,

@@ -9,9 +9,9 @@ export const SEAT_TEAM: Record<BattleSeat, "teamA" | "teamB"> = {
   player4: "teamB",
 };
 
-export function emptyBattle(streamId: string, type: BattleType, hostId: string): BattleState {
+export function emptyBattle(roomId: string, type: BattleType, hostId: string): BattleState {
   return {
-    streamId,
+    roomId,
     type,
     status: "WAITING",
     seats: { host: hostId, opponent: null, player3: null, player4: null },

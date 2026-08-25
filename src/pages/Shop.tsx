@@ -49,7 +49,7 @@ export default function Shop() {
   const [loadError, setLoadError] = useState<string | null>(null);
   const [showCreate, setShowCreate] = useState(false);
   const [activeFilter, setActiveFilter] = useState<(typeof FILTERS)[number]["key"]>("all");
-  const [liveUsers, setLiveUsers] = useState<Array<{ id: string; name: string; avatar: string; streamKey: string }>>([]);
+  const [liveUsers, setLiveUsers] = useState<Array<{ id: string; name: string; avatar: string; roomId: string }>>([]);
   const [newTitle, setNewTitle] = useState("");
   const [newDescription, setNewDescription] = useState("");
   const [newPrice, setNewPrice] = useState("");
@@ -164,7 +164,7 @@ export default function Shop() {
           id: stream.hostId,
           name: stream.displayName,
           avatar: stream.avatarUrl || "",
-          streamKey: stream.roomId,
+          roomId: stream.roomId,
         })),
       );
     });
@@ -371,9 +371,9 @@ export default function Shop() {
             <div className="flex gap-3 overflow-x-auto overflow-y-hidden no-scrollbar py-1">
               {liveUsers.map((u) => (
                 <button
-                  key={u.streamKey}
+                  key={u.roomId}
                   type="button"
-                  onClick={() => navigate(`/watch/${u.streamKey}`, { state: containerReturnState("/shop") })}
+                  onClick={() => navigate(`/watch/${u.roomId}`, { state: containerReturnState("/shop") })}
                   className="flex-shrink-0 flex flex-col items-center gap-1 active:scale-95 transition-transform"
                   style={{ width: SHOP_LIVE_RING, minWidth: SHOP_LIVE_RING }}
                   title={u.name}

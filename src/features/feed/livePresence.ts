@@ -21,10 +21,8 @@ export function parseLiveStartedCard(data: unknown, discoveredAt: number): (Live
 
 export function liveEndedKeys(data: unknown): string[] {
   if (!isRecord(data)) return [];
-  const keys = [data.streamId, data.roomId]
-    .filter((value): value is string => typeof value === "string" && Boolean(value.trim()))
-    .map((value) => value.trim());
-  return [...new Set(keys)];
+  const roomId = typeof data.roomId === "string" ? data.roomId.trim() : "";
+  return roomId ? [roomId] : [];
 }
 
 export function createLiveSnapshotGate(): {

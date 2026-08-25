@@ -22,13 +22,13 @@ export function frameFromLiveVideo(video: HTMLVideoElement | null): string | nul
 }
 
 export async function apiLiveSafetyCheck(input: {
-  streamKey: string;
+  roomId: string;
   imageBase64: string;
 }): Promise<{ action: "none" | "warning"; message: string | null; error: string | null }> {
   const { data, error } = await apiRequest<unknown>("/api/live/moderation/check", {
     method: "POST",
     body: JSON.stringify({
-      roomId: input.streamKey,
+      roomId: input.roomId,
       imageBase64: input.imageBase64,
     }),
   });

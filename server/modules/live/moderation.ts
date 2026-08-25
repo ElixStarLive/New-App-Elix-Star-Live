@@ -44,12 +44,12 @@ export function interpretSafetyModel(raw: unknown): SafetyVerdict {
   return { flagged: true, category, severity };
 }
 
-async function assertLiveHost(streamKey: string, userId: string): Promise<void> {
+async function assertLiveHost(roomId: string, userId: string): Promise<void> {
   const { rows } = await getPool().query<{ host_id: string }>(
     `SELECT host_id FROM live_streams
      WHERE status = 'live' AND room_id = $1
      LIMIT 1`,
-    [streamKey],
+    [roomId],
   );
   if (!rows[0] || rows[0].host_id !== userId) {
     throw new AppError("forbidden", "Not authorized for this stream", 403);
@@ -72,7 +72,7 @@ async function assertModerationVelocity(userId: string): Promise<void> {
 }
 
 async function writeLog(
-  streamKey: string,
+  roomId: string,
   userId: string,
   kind: string,
   category: string | null,
@@ -84,10 +84,10 @@ async function writeLog(
     await getPool().query(
       `INSERT INTO live_moderation_log (stream_key, user_id, kind, category, severity, action_taken, details)
        VALUES ($1, $2, $3, $4, $5, $6, $7::jsonb)`,
-      [streamKey, userId, kind, category, severity, actionTaken, JSON.stringify(details)],
+      [roomId, userId, kind, category, severity, actionTaken, JSON.stringify(details)],
     );
   } catch (err) {
-    logger.error({ err, streamKey, userId, kind }, "live moderation log write failed");
+    logger.error({ err, roomId, userId, kind }, "live moderation log write failed");
   }
 }
 
@@ -145,13 +145,13 @@ export async function runLiveModerationCheck(
 ): Promise<{ action: "none" | "warning"; message?: string }> {
   await assertModerationVelocity(userId);
   const body = raw && typeof raw === "object" ? (raw as Record<string, unknown>) : {};
-  const streamKey = typeof body.roomId === "string" ? body.roomId.trim() : "";
-  if (!streamKey) throw new AppError("validation_error", "Missing roomId", 400);
-  await assertLiveHost(streamKey, userId);
+  const roomId = typeof body.roomId === "string" ? body.roomId.trim() : "";
+  if (!roomId) throw new AppError("validation_error", "Missing roomId", 400);
+  await assertLiveHost(roomId, userId);
 
   const imageBase64 = typeof body.imageBase64 === "string" ? body.imageBase64 : "";
   if (!imageBase64) {
-    await writeLog(streamKey, userId, "check", null, null, "none", { note: "no_image" });
+    await writeLog(roomId, userId, "check", null, null, "none", { note: "no_image" });
     return { action: "none" };
   }
   if (imageBase64.length > MAX_FRAME_CHARS) {
@@ -160,11 +160,11 @@ export async function runLiveModerationCheck(
 
   const verdict = await classifyFrame(imageBase64);
   if (!verdict.flagged) {
-    await writeLog(streamKey, userId, "check", null, null, "none", { note: "no_flag" });
+    await writeLog(roomId, userId, "check", null, null, "none", { note: "no_flag" });
     return { action: "none" };
   }
 
-  await writeLog(streamKey, userId, "flag", verdict.category, verdict.severity, "flag", {});
+  await writeLog(roomId, userId, "flag", verdict.category, verdict.severity, "flag", {});
   const { sendToUserGlobal } = await import("../../websocket/index.js");
   await sendToUserGlobal(userId, "moderation_warning", { message: LIVE_SAFETY_WARNING });
   return { action: "warning", message: LIVE_SAFETY_WARNING };

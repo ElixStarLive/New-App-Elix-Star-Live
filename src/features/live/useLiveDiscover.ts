@@ -63,13 +63,13 @@ export function useLiveDiscover() {
         void loadSnapshot({ silent: true });
         return;
       }
-      for (const key of [liveKey(card), card.streamId]) {
+      for (const key of [liveKey(card)]) {
         endedAtRef.current.delete(key);
       }
       setStreams((prev) => {
-        if (prev.some((row) => liveKey(row) === liveKey(card) || row.streamId === card.streamId)) {
+        if (prev.some((row) => liveKey(row) === liveKey(card))) {
           return prev.map((row) =>
-            liveKey(row) === liveKey(card) || row.streamId === card.streamId ? { ...row, ...card } : row,
+            liveKey(row) === liveKey(card) ? { ...row, ...card } : row,
           );
         }
         return [card, ...prev];
@@ -84,7 +84,7 @@ export function useLiveDiscover() {
       const now = Date.now();
       for (const key of keys) endedAtRef.current.set(key, now);
       setStreams((prev) =>
-        prev.filter((row) => !keys.includes(liveKey(row)) && !keys.includes(row.streamId)),
+        prev.filter((row) => !keys.includes(liveKey(row))),
       );
     };
     wsClient.on("stream_started", onStarted);

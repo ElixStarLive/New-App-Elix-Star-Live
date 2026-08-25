@@ -19,7 +19,7 @@ type StartedBanner = {
 
 type ShareBanner = {
   kind: "share";
-  streamKey: string;
+  roomId: string;
   sharerName: string;
   sharerAvatar: string;
   hostName: string;
@@ -30,7 +30,7 @@ type InviteBanner = {
   kind: "battle" | "cohost";
   hostName: string;
   hostAvatar: string;
-  streamKey: string;
+  roomId: string;
   hostUserId: string;
 };
 
@@ -46,11 +46,11 @@ function text(payload: Record<string, unknown>, key: string): string {
 
 function parseSharePayload(data: unknown): ShareBanner | null {
   if (!isRecord(data)) return null;
-  const streamKey = text(data, "streamKey");
-  if (!streamKey) return null;
+  const roomId = text(data, "roomId");
+  if (!roomId) return null;
   return {
     kind: "share",
-    streamKey,
+    roomId,
     sharerName: text(data, "sharerName") || "Someone",
     sharerAvatar: text(data, "sharerAvatar"),
     hostName: text(data, "hostName") || "a creator",
@@ -60,26 +60,26 @@ function parseSharePayload(data: unknown): ShareBanner | null {
 
 function parseInvitePayload(data: unknown, kind: "battle" | "cohost"): InviteBanner | null {
   if (!isRecord(data)) return null;
-  const streamKey = text(data, "streamKey");
+  const roomId = text(data, "roomId");
   const hostUserId = text(data, "hostUserId");
-  if (!streamKey || !hostUserId) return null;
+  if (!roomId || !hostUserId) return null;
   return {
     kind,
     hostName: text(data, "hostName") || "Creator",
     hostAvatar: text(data, "hostAvatar"),
-    streamKey,
+    roomId,
     hostUserId,
   };
 }
 
-async function isStreamJoinable(streamKey: string): Promise<boolean> {
+async function isStreamJoinable(roomId: string): Promise<boolean> {
   const { streams, error } = await apiLiveStreams();
   if (!error) {
-    if (streams.some((row) => row.roomId === streamKey)) {
+    if (streams.some((row) => row.roomId === roomId)) {
       return true;
     }
   }
-  const { token, error: tokenErr } = await apiLiveToken(streamKey, "spectator");
+  const { token, error: tokenErr } = await apiLiveToken(roomId, "spectator");
   return !tokenErr && Boolean(token?.token);
 }
 
@@ -219,7 +219,7 @@ export function LiveNotifyBanner() {
       if (!isRecord(data)) return;
       const endedKey = text(data, "roomId");
       const current = shareBannerRef.current;
-      if (endedKey && current?.streamKey === endedKey) dismissShare();
+      if (endedKey && current?.roomId === endedKey) dismissShare();
     };
 
     wsClient.on("live_share", showShare);
@@ -265,8 +265,8 @@ export function LiveNotifyBanner() {
   const startedSuppressed = onLiveSurface;
   const shareSuppressed =
     !!shareBanner &&
-    (location.pathname === `/watch/${shareBanner.streamKey}` ||
-      location.pathname.startsWith(`/watch/${shareBanner.streamKey}/`));
+    (location.pathname === `/watch/${shareBanner.roomId}` ||
+      location.pathname.startsWith(`/watch/${shareBanner.roomId}/`));
   const inviteSuppressed = onLiveSurface;
 
   const openStartedLive = useCallback(() => {
@@ -277,7 +277,7 @@ export function LiveNotifyBanner() {
 
   const openSharedLive = useCallback(async () => {
     if (!shareBanner) return;
-    const key = shareBanner.streamKey;
+    const key = shareBanner.roomId;
     dismissShare();
     try {
       const joinable = await isStreamJoinable(key);
@@ -295,12 +295,12 @@ export function LiveNotifyBanner() {
     if (!inviteBanner) return;
     if (inviteBanner.kind === "battle") {
       wsClient.send("battle_invite_decline", {
-        streamKey: inviteBanner.streamKey,
+        roomId: inviteBanner.roomId,
         hostUserId: inviteBanner.hostUserId,
       });
     } else {
       wsClient.send("cohost_invite_decline", {
-        streamKey: inviteBanner.streamKey,
+        roomId: inviteBanner.roomId,
         userId: inviteBanner.hostUserId,
       });
     }
@@ -313,7 +313,7 @@ export function LiveNotifyBanner() {
     try {
       if (inviteBanner.kind === "battle") {
         dismissInvite();
-        navigate(`/live/${encodeURIComponent(inviteBanner.streamKey)}?battle=1`, {
+        navigate(`/live/${encodeURIComponent(inviteBanner.roomId)}?battle=1`, {
           state: {
             battleHost: {
               userId: inviteBanner.hostUserId,
@@ -325,7 +325,7 @@ export function LiveNotifyBanner() {
         return;
       }
       dismissInvite();
-      navigate(`/watch/${encodeURIComponent(inviteBanner.streamKey)}?cohost=1`, {
+      navigate(`/watch/${encodeURIComponent(inviteBanner.roomId)}?cohost=1`, {
         replace: true,
         state: { fromCohostInvite: true },
       });

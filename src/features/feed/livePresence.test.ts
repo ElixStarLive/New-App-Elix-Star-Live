@@ -83,9 +83,9 @@ describe("PAGE-017 live identity", () => {
     ).toBeNull();
   });
 
-  it("matches stream_ended by roomId or streamId without inventing host-only keys", () => {
-    expect(liveEndedKeys({ streamId: card.streamId, roomId: card.roomId })).toEqual([card.streamId, card.roomId]);
-    expect(liveEndedKeys({ streamId: card.streamId })).toEqual([card.streamId]);
+  it("matches stream_ended by roomId only", () => {
+    expect(liveEndedKeys({ streamId: card.streamId, roomId: card.roomId })).toEqual([card.roomId]);
+    expect(liveEndedKeys({ streamId: card.streamId })).toEqual([]);
     expect(liveEndedKeys({ hostId: card.hostId })).toEqual([]);
     expect(liveEndedKeys({ stream_key: card.roomId, room_id: card.roomId })).toEqual([]);
   });
@@ -121,7 +121,7 @@ describe("PAGE-018 return gates for PAGE-007 and PAGE-017", () => {
 
   it("removes the card on stream_ended and stays empty after leave/return snapshot", () => {
     const endedAt = new Map<string, number>();
-    for (const key of liveEndedKeys({ streamId: card.streamId, roomId: card.roomId })) {
+    for (const key of liveEndedKeys({ roomId: card.roomId })) {
       endedAt.set(key, 90);
     }
     const afterEnd = reconcileLiveSnapshot({

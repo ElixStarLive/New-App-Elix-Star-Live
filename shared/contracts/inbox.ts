@@ -68,7 +68,7 @@ export const inboxNoticesResponseSchema = z.object({
 
 export const inboxLiveShareSchema = z.object({
   sharerId: z.string().min(1),
-  streamKey: z.string(),
+  roomId: z.string(),
   hostUserId: z.string(),
   hostName: z.string(),
   hostAvatar: z.string(),

@@ -59,7 +59,7 @@ export function ForYouLiveCard({
   isActive: boolean;
 }) {
   const navigate = useNavigate();
-  const streamKey = stream.roomId;
+  const roomId = stream.roomId;
   const hostUserIdProp = stream.hostId;
   const creatorName = stream.displayName || stream.username || "Creator";
   const creatorAvatar = stream.avatarUrl || "";
@@ -76,7 +76,7 @@ export function ForYouLiveCard({
     `inline-live-${Math.random().toString(36).slice(2, 10)}-${Date.now().toString(36)}`,
   );
   const modeRef = useRef<PreviewMode>("normal");
-  const initialHostId = String(hostUserIdProp || streamKey || "").trim() || streamKey;
+  const initialHostId = String(hostUserIdProp || roomId || "").trim() || roomId;
   const hostIdRef = useRef<string>(initialHostId);
   const opponentIdRef = useRef<string>("");
   const routeVideoTrackRef = useRef<(track: RemoteTrack, identity: string) => void>(() => {});
@@ -98,14 +98,14 @@ export function ForYouLiveCard({
   } | null>(null);
 
   modeRef.current = mode;
-  hostIdRef.current = hostUserId || hostUserIdProp || streamKey;
+  hostIdRef.current = hostUserId || hostUserIdProp || roomId;
 
   useEffect(() => {
-    const hid = String(hostUserIdProp || streamKey || "").trim();
+    const hid = String(hostUserIdProp || roomId || "").trim();
     if (!hid) return;
     setHostUserId((prev) => (sameId(prev, hid) ? prev : hid));
     hostIdRef.current = hid;
-  }, [hostUserIdProp, streamKey]);
+  }, [hostUserIdProp, roomId]);
 
   const findCoHostEl = useCallback((identity: string): HTMLVideoElement | null => {
     const appId = appUserIdFromIdentity(identity);
@@ -172,13 +172,13 @@ export function ForYouLiveCard({
     (track: RemoteTrack, identity: string) => {
       if (track.kind !== Track.Kind.Video || !identity) return;
       const m = modeRef.current;
-      const hostId = hostIdRef.current || hostUserIdProp || streamKey;
+      const hostId = hostIdRef.current || hostUserIdProp || roomId;
       const appId = appUserIdFromIdentity(identity);
       const isHost =
         sameId(appId, hostId) ||
         sameId(identity, hostId) ||
-        sameId(appId, streamKey) ||
-        sameId(identity, streamKey);
+        sameId(appId, roomId) ||
+        sameId(identity, roomId);
 
       if (isHost) {
         attachToEl(track, hostVideoRef.current);
@@ -198,7 +198,7 @@ export function ForYouLiveCard({
       const tile = findCoHostEl(identity);
       if (tile) attachToEl(track, tile);
     },
-    [attachToEl, findCoHostEl, streamKey, hostUserIdProp, enterCohostMode, ensureCohostTile],
+    [attachToEl, findCoHostEl, roomId, hostUserIdProp, enterCohostMode, ensureCohostTile],
   );
 
   const reattachAll = useCallback(
@@ -221,12 +221,12 @@ export function ForYouLiveCard({
   const syncCohostTilesFromRoom = useCallback(
     (room: Room) => {
       if (modeRef.current === "battle") return;
-      const hostId = hostIdRef.current || hostUserIdProp || streamKey;
+      const hostId = hostIdRef.current || hostUserIdProp || roomId;
       const tiles: CohostTile[] = [];
       for (const [, p] of room.remoteParticipants) {
         const identity = p.identity || "";
         if (!identity) continue;
-        if (sameId(identity, hostId) || sameId(identity, streamKey)) continue;
+        if (sameId(identity, hostId) || sameId(identity, roomId)) continue;
         let liveVideo = false;
         for (const [, pub] of p.videoTrackPublications) {
           if (pub.track && pub.isSubscribed) {
@@ -263,13 +263,13 @@ export function ForYouLiveCard({
       setMode("cohost");
       modeRef.current = "cohost";
     },
-    [streamKey, hostUserIdProp],
+    [roomId, hostUserIdProp],
   );
   const syncCohostTilesFromRoomRef = useRef(syncCohostTilesFromRoom);
   syncCohostTilesFromRoomRef.current = syncCohostTilesFromRoom;
 
   useEffect(() => {
-    if (!isActive || !streamKey) {
+    if (!isActive || !roomId) {
       void sessionRef.current?.disconnect();
       sessionRef.current = null;
       roomRef.current = null;
@@ -283,7 +283,7 @@ export function ForYouLiveCard({
       return;
     }
 
-    const connKey = `${streamKey}-active`;
+    const connKey = `${roomId}-active`;
     if (connectedKeyRef.current === connKey && sessionRef.current?.connected) return;
     connectedKeyRef.current = connKey;
     const attemptId = ++connectGenerationRef.current;
@@ -343,7 +343,7 @@ export function ForYouLiveCard({
       if (!isCurrentAttempt()) return;
       const data = (raw ?? {}) as Record<string, unknown>;
       const endedKey = typeof data.roomId === "string" ? data.roomId.trim() : "";
-      if (endedKey && endedKey !== streamKey) return;
+      if (endedKey && endedKey !== roomId) return;
       setIsOffline(true);
       setHasStream(false);
       disposeAttempt();
@@ -364,7 +364,7 @@ export function ForYouLiveCard({
       const hid =
         typeof data.hostUserId === "string" && data.hostUserId
           ? data.hostUserId
-          : hostUserIdProp || streamKey;
+          : hostUserIdProp || roomId;
       setHostUserId(hid);
       hostIdRef.current = hid;
       const live = tiles.filter(
@@ -434,16 +434,16 @@ export function ForYouLiveCard({
         setCoHosts([]);
         setBattle(null);
         opponentIdRef.current = "";
-        const hid = String(hostUserIdProp || streamKey || "").trim() || streamKey;
+        const hid = String(hostUserIdProp || roomId || "").trim() || roomId;
         hostIdRef.current = hid;
         setHostUserId(hid);
       }
       try {
-        const tok = await apiLiveToken(streamKey, "spectator");
+        const tok = await apiLiveToken(roomId, "spectator");
         if (!isCurrentAttempt()) return;
         if (tok.error || !tok.token) {
           if (mounted && connectGenerationRef.current === attemptId) {
-            const { status: liveStatus, error: statusErr } = await apiLiveStatus(streamKey);
+            const { status: liveStatus, error: statusErr } = await apiLiveStatus(roomId);
             if (!isCurrentAttempt()) return;
             if (!statusErr && liveStatus && !liveStatus.active) {
               setIsOffline(true);
@@ -484,8 +484,8 @@ export function ForYouLiveCard({
           onParticipantDisconnected: (participant) => {
             if (!isCurrentAttempt() || !mounted) return;
             const identity = participant?.identity || "";
-            const hostId = hostIdRef.current || hostUserIdProp || streamKey;
-            if (!sameId(identity, streamKey) && !sameId(identity, hostId)) {
+            const hostId = hostIdRef.current || hostUserIdProp || roomId;
+            if (!sameId(identity, roomId) && !sameId(identity, hostId)) {
               const room = session.raw;
               if (room) {
                 syncCohostTilesFromRoomRef.current(room);
@@ -493,7 +493,7 @@ export function ForYouLiveCard({
                 for (const [, p] of room.remoteParticipants) {
                   const id = p.identity || "";
                   if (!id) continue;
-                  if (sameId(id, hostId) || sameId(id, streamKey)) continue;
+                  if (sameId(id, hostId) || sameId(id, roomId)) continue;
                   for (const [, pub] of p.videoTrackPublications) {
                     if (pub.track && pub.isSubscribed) {
                       stillCohost = true;
@@ -534,7 +534,7 @@ export function ForYouLiveCard({
 
         const authToken = useAuthStore.getState().session?.token;
         if (authToken && isCurrentAttempt()) {
-          wsClient.connect(streamKey, authToken, {
+          wsClient.connect(roomId, authToken, {
             ownerId: wsOwnerIdRef.current,
           });
         }
@@ -567,7 +567,7 @@ export function ForYouLiveCard({
       setHasStream(false);
       setConnecting(false);
     };
-  }, [isActive, streamKey, hostUserIdProp]);
+  }, [isActive, roomId, hostUserIdProp]);
 
   useEffect(() => {
     const room = roomRef.current;
@@ -576,9 +576,9 @@ export function ForYouLiveCard({
   }, [mode, coHosts, battle?.status, isActive, reattachAll]);
 
   const openWatch = useCallback(() => {
-    if (!streamKey) return;
-    navigate(`/watch/${encodeURIComponent(streamKey)}`);
-  }, [navigate, streamKey]);
+    if (!roomId) return;
+    navigate(`/watch/${encodeURIComponent(roomId)}`);
+  }, [navigate, roomId]);
 
   const liveCohosts = coHosts.slice(0, 8);
   const displayAvatar = creatorAvatar || "";
@@ -624,7 +624,7 @@ export function ForYouLiveCard({
         }
       }}
       aria-label={`Watch ${creatorName} live`}
-      data-elix-watch-id={streamKey}
+      data-elix-watch-id={roomId}
     >
       {mode === "normal" && (
         <div className="absolute inset-0">

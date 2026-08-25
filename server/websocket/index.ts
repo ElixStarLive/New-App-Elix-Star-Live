@@ -84,7 +84,7 @@ async function fanout(roomId: string, event: string, data: unknown): Promise<voi
 
 async function emitViewerCount(roomId: string): Promise<void> {
   const count = await viewerCount(roomId);
-  await fanout(roomId, "viewer_count", { streamId: roomId, count });
+  await fanout(roomId, "viewer_count", { roomId, count });
 }
 
 function parseRoomId(req: IncomingMessage): string {
@@ -97,7 +97,7 @@ function parseRoomId(req: IncomingMessage): string {
 
 async function liveHostId(roomId: string): Promise<string | null> {
   const stream = await getPool().query<{ host_id: string }>(
-    `SELECT host_id FROM live_streams WHERE (room_id = $1 OR id::text = $1) AND status = 'live' LIMIT 1`,
+    `SELECT host_id FROM live_streams WHERE room_id = $1 AND status = 'live' LIMIT 1`,
     [roomId],
   );
   return stream.rows[0]?.host_id ?? null;
@@ -204,7 +204,7 @@ async function handleConnection(ws: WebSocket, req: IncomingMessage): Promise<vo
     if (hostId) {
       const cohost = await loadCohost(roomId, hostId);
       send(ws, "cohost_layout_sync", {
-        streamId: roomId,
+        roomId,
         bigScreenUserId: cohost.bigScreenUserId,
         seats: cohost.seats,
       });
@@ -279,15 +279,15 @@ async function handleEvent(
     const payload = chatMessageDataSchema.parse({
       displayName: rows[0]?.display_name ?? "",
       ...(typeof data === "object" && data ? data : {}),
-      streamId: roomId,
+      roomId,
       userId,
     });
     await fanout(roomId, "chat_message", payload);
     return;
   }
   if (event === "heart_sent") {
-    heartSentDataSchema.parse({ streamId: roomId, userId });
-    await fanout(roomId, "heart_sent", { streamId: roomId, userId });
+    heartSentDataSchema.parse({ roomId, userId });
+    await fanout(roomId, "heart_sent", { roomId, userId });
     return;
   }
   if (event === "gift_goal_set" || event === "gift_goal_clear") {
@@ -417,7 +417,7 @@ async function handleCohost(
     }
     await saveCohost(state);
     await fanout(roomId, "cohost_layout_sync", {
-      streamId: roomId,
+      roomId,
       bigScreenUserId: state.bigScreenUserId,
       seats: state.seats,
     });

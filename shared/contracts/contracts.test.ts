@@ -254,7 +254,7 @@ describe("contracts", () => {
     }));
     expect(
       cohostLayoutSchema.safeParse({
-        streamId: "room",
+        roomId: "room",
         bigScreenUserId: null,
         seats,
       }).success,

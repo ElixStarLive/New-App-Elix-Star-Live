@@ -56,10 +56,6 @@ INSERT INTO engagement_settings (key, value_json) VALUES
   (
     'battle_energy_caps',
     '{"watch_amount":5,"comment_amount":2,"share_amount":20,"watch_cap":300,"comment_cap":20,"share_cap":1,"storage_cap":10000,"session_cap":500,"daily_cap":2000,"minimum_boost":1,"allowed_boost_values":[1,2,5,10],"fan_energy_threshold":10000,"score_multiplier":1.2,"boost_duration_sec":5,"enabled":true}'::jsonb
-  ),
-  (
-    'fan_energy_boost',
-    '{"threshold":10000,"multiplier":1.2,"duration_sec":5}'::jsonb
   )
 ON CONFLICT (key) DO NOTHING;
 

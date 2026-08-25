@@ -13,15 +13,15 @@ export type CohostSeat = {
 };
 
 export type CohostRoomState = {
-  streamId: string;
+  roomId: string;
   hostId: string;
   bigScreenUserId: string | null;
   seats: CohostSeat[];
   requests: Array<{ userId: string; displayName: string }>;
 };
 
-export function emptyCohostState(streamId: string, hostId: string): CohostRoomState {
-  return { streamId, hostId, bigScreenUserId: null, seats: [], requests: [] };
+export function emptyCohostState(roomId: string, hostId: string): CohostRoomState {
+  return { roomId, hostId, bigScreenUserId: null, seats: [], requests: [] };
 }
 
 export function requireCohostTarget(userId: string): string {
@@ -77,7 +77,7 @@ export function setBigScreen(state: CohostRoomState, userId: string | null): Coh
 }
 
 export const cohostPersistedSchema = z.object({
-  streamId: z.string(),
+  roomId: z.string(),
   hostId: z.string(),
   bigScreenUserId: z.string().nullable(),
   seats: z.array(

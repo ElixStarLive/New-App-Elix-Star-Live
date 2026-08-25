@@ -7,7 +7,7 @@ export const engagementDailyLoginSchema = z.object({
 });
 
 export const engagementHubSchema = z.object({
-  promotional_coins: z.number().int().nonnegative(),
+  promotional_balance: z.number().int().nonnegative(),
   battle_energy: z.number().int().nonnegative(),
   total_xp: z.number().int().nonnegative(),
   fan_level: z.number().int().nonnegative(),

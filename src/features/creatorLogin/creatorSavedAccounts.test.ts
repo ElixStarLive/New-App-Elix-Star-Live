@@ -3,7 +3,7 @@ import {
   CREATOR_SAVED_ACCOUNTS_KEY,
   CREATOR_SAVE_PREF_KEY,
   CREATOR_SAVED_ACCOUNT_LIMIT,
-  migrateLegacyCreatorLoginKeys,
+  clearAllLegacyCreatorLoginKeys,
   readCreatorSavedAccounts,
   upsertCreatorSavedAccount,
   writeCreatorSavePref,
@@ -40,7 +40,7 @@ describe("PAGE-029 saved creator identifiers", () => {
     expect(storage.getItem("creator_saved_password")).toBeNull();
   });
 
-  it("migrates a legacy identifier, deletes all legacy keys, and caps at five", () => {
+  it("does not absorb legacy keys into the NEW store", () => {
     const storage = memoryStorage();
     const first = Array.from({ length: 5 }, (_, index) => ({
       identifier: `user${index}@example.com`,
@@ -51,28 +51,26 @@ describe("PAGE-029 saved creator identifiers", () => {
     storage.setItem("creator_saved_username", "legacy");
     storage.setItem("creator_saved_password", "secret-must-die");
     storage.setItem("creator_save_password", "true");
-    const migrated = migrateLegacyCreatorLoginKeys(storage);
-    expect(migrated[0]?.identifier).toBe("legacy@example.com");
-    expect(migrated).toHaveLength(CREATOR_SAVED_ACCOUNT_LIMIT);
-    expect(storage.getItem("creator_saved_password")).toBeNull();
-    expect(storage.getItem("creator_save_password")).toBeNull();
-    expect(storage.getItem("creator_saved_identifier")).toBeNull();
-    expect(storage.getItem("creator_saved_username")).toBeNull();
-    expect(JSON.stringify(migrated)).not.toMatch(/secret-must-die/);
+    const listed = readCreatorSavedAccounts(storage);
+    expect(listed.map((row) => row.identifier)).toEqual(first.map((row) => row.identifier));
+    expect(listed).toHaveLength(CREATOR_SAVED_ACCOUNT_LIMIT);
+    expect(JSON.stringify(listed)).not.toMatch(/legacy@example.com/);
+    expect(JSON.stringify(listed)).not.toMatch(/secret-must-die/);
   });
 
-  it("read path absorbs legacy then deletes the OLD→NEW bridge keys", () => {
+  it("clearAllLegacyCreatorLoginKeys deletes OLD keys without reading them", () => {
     const storage = memoryStorage({
       creator_saved_identifier: "bridge@example.com",
       creator_saved_username: "bridge",
       creator_saved_password: "nope",
+      creator_save_password: "true",
     });
-    const listed = readCreatorSavedAccounts(storage);
-    expect(listed).toEqual([{ identifier: "bridge@example.com", username: "bridge" }]);
+    clearAllLegacyCreatorLoginKeys(storage);
     expect(storage.getItem("creator_saved_identifier")).toBeNull();
     expect(storage.getItem("creator_saved_username")).toBeNull();
     expect(storage.getItem("creator_saved_password")).toBeNull();
-    expect(storage.getItem(CREATOR_SAVED_ACCOUNTS_KEY)).toContain("bridge@example.com");
+    expect(storage.getItem("creator_save_password")).toBeNull();
+    expect(readCreatorSavedAccounts(storage)).toEqual([]);
   });
 
   it("recovers corrupt storage to an empty list", () => {

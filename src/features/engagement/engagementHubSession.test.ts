@@ -6,7 +6,7 @@ const userA = "11111111-1111-4111-8111-111111111111";
 const userB = "22222222-2222-4222-8222-222222222222";
 
 const hub = (patch: Partial<EngagementHub> = {}): EngagementHub => ({
-  promotional_coins: 0,
+  promotional_balance: 0,
   battle_energy: 0,
   total_xp: 0,
   fan_level: 0,
@@ -77,7 +77,7 @@ describe("PAGE-047 engagement hub session", () => {
     expect(deps.session.getSnapshot()).toMatchObject({
       kind: "ready",
       hub: {
-        promotional_coins: 0,
+        promotional_balance: 0,
         battle_energy: 0,
         total_xp: 0,
         fan_level: 0,
@@ -95,18 +95,18 @@ describe("PAGE-047 engagement hub session", () => {
     deps.session.bindAccount(userB);
     deps.loadHub.mockResolvedValueOnce({
       ok: true,
-      hub: hub({ promotional_coins: 3, battle_energy: 4, total_xp: 5, fan_level: 2, fan_tier: "Bronze Fan" }),
+      hub: hub({ promotional_balance: 3, battle_energy: 4, total_xp: 5, fan_level: 2, fan_tier: "Bronze Fan" }),
     });
     const loadB = deps.session.load(userB);
     first.resolve({
       ok: true,
-      hub: hub({ promotional_coins: 99, battle_energy: 88, total_xp: 77, fan_level: 40, fan_tier: "Elite Fan" }),
+      hub: hub({ promotional_balance: 99, battle_energy: 88, total_xp: 77, fan_level: 40, fan_tier: "Elite Fan" }),
     });
     await loadA;
     await loadB;
     expect(deps.session.getSnapshot().kind).toBe("ready");
     expect(deps.session.getSnapshot().hub).toMatchObject({
-      promotional_coins: 3,
+      promotional_balance: 3,
       battle_energy: 4,
       total_xp: 5,
       fan_level: 2,

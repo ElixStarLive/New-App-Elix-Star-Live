@@ -17,7 +17,7 @@ describe("PAGE-047 hub contract", () => {
     expect(
       engagementHubResponseSchema.safeParse({
         coin_balance: 12,
-        promotional_coins: 1,
+        promotional_balance: 1,
         battle_energy: 1,
         total_xp: 1,
       }).success,
@@ -25,7 +25,7 @@ describe("PAGE-047 hub contract", () => {
     expect(
       engagementHubResponseSchema.safeParse({
         hub: {
-          promotional_coins: 1,
+          promotional_balance: 1,
           battle_energy: 1,
           total_xp: 1,
           fan_level: 1,
@@ -39,13 +39,27 @@ describe("PAGE-047 hub contract", () => {
     expect(
       engagementHubResponseSchema.safeParse({
         hub: {
-          promotional_coins: -1,
+          promotional_balance: -1,
           battle_energy: 0,
           total_xp: 0,
           fan_level: 0,
           fan_tier: "Bronze Fan",
           missions_open: 0,
           daily_login: { can_claim: false, streak_day: 0, claimed_today: false },
+          starter_coin_balance: 0,
+        },
+      }).success,
+    ).toBe(false);
+    expect(
+      engagementHubResponseSchema.safeParse({
+        hub: {
+          promotional_coins: 1,
+          battle_energy: 1,
+          total_xp: 1,
+          fan_level: 1,
+          fan_tier: "Bronze Fan",
+          missions_open: 0,
+          daily_login: { can_claim: false, streak_day: 1, claimed_today: true },
           starter_coin_balance: 0,
         },
       }).success,

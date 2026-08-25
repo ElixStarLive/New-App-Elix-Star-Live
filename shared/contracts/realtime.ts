@@ -61,19 +61,19 @@ export const wsEnvelopeSchema = z.object({
 });
 
 export const chatMessageDataSchema = z.object({
-  streamId: z.string(),
+  roomId: z.string(),
   userId: z.string().uuid(),
   displayName: z.string(),
   body: z.string().min(1).max(280),
 });
 
 export const heartSentDataSchema = z.object({
-  streamId: z.string(),
+  roomId: z.string(),
   userId: z.string().uuid(),
 });
 
 export const giftSentDataSchema = z.object({
-  streamId: z.string(),
+  roomId: z.string(),
   senderId: z.string().uuid(),
   recipientId: z.string().uuid(),
   giftId: z.string(),
@@ -82,7 +82,7 @@ export const giftSentDataSchema = z.object({
 });
 
 export const viewerCountDataSchema = z.object({
-  streamId: z.string(),
+  roomId: z.string(),
   count: z.number().int().nonnegative(),
 });
 
@@ -95,7 +95,7 @@ export const cohostSeatSchema = z.object({
 });
 
 export const cohostLayoutSchema = z.object({
-  streamId: z.string(),
+  roomId: z.string(),
   bigScreenUserId: z.string().uuid().nullable(),
   seats: z.array(cohostSeatSchema).max(8),
 });
@@ -105,7 +105,7 @@ export const battleTypeSchema = z.enum(["1x1", "2x2"]);
 export const battleTeamSchema = z.enum(["teamA", "teamB"]);
 
 export const battleStateSchema = z.object({
-  streamId: z.string(),
+  roomId: z.string(),
   type: battleTypeSchema,
   status: z.enum(["WAITING", "ACTIVE", "ENDED"]),
   seats: z.record(battleSeatSchema, z.string().uuid().nullable()),

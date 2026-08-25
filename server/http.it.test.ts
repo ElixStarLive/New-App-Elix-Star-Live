@@ -5189,7 +5189,7 @@ describe("http integration", () => {
     expect(empty.cache).toMatch(/no-store/);
     expect(empty.body).toMatchObject({
       hub: {
-        promotional_coins: 0,
+        promotional_balance: 0,
         battle_energy: 0,
         total_xp: 0,
         fan_level: 0,
@@ -5215,7 +5215,7 @@ describe("http integration", () => {
     const loaded = await authJson("/api/engagement/hub", viewer.token);
     expect(loaded.body).toMatchObject({
       hub: {
-        promotional_coins: 9,
+        promotional_balance: 9,
         battle_energy: 8,
         total_xp: xp12,
         fan_level: 12,
@@ -5236,7 +5236,7 @@ describe("http integration", () => {
     const isolated = await authJson("/api/engagement/hub", other.token);
     expect(isolated.body).toMatchObject({
       hub: {
-        promotional_coins: 0,
+        promotional_balance: 0,
         battle_energy: 0,
         total_xp: 0,
         fan_level: 0,
@@ -5399,7 +5399,7 @@ describe("http integration", () => {
     const hub = await authJson("/api/engagement/hub", viewer.token);
     expect(hub.body).toMatchObject({
       hub: {
-        promotional_coins: promoBefore + 30,
+        promotional_balance: promoBefore + 30,
         total_xp: 6,
         battle_energy: 2,
       },
@@ -6100,7 +6100,7 @@ describe("http integration", () => {
     const hub = await authJson("/api/engagement/hub", viewer.token);
     expect(hub.body).toMatchObject({
       hub: {
-        promotional_coins: 110,
+        promotional_balance: 110,
         battle_energy: 2,
         total_xp: 56,
         starter_coin_balance: 50000,
@@ -6277,7 +6277,7 @@ describe("http integration", () => {
     });
     expect((await authJson("/api/engagement/hub", viewer.token)).body).toMatchObject({
       hub: {
-        promotional_coins: 3,
+        promotional_balance: 3,
         battle_energy: 4,
         total_xp: 100,
         starter_coin_balance: 50000,
@@ -7519,7 +7519,7 @@ describe("http integration", () => {
     assertNoEconomy(loggedOutList.body);
     const loggedOutPatch = await authJson("/api/admin/gifts/catalog/rose", null, {
       method: "PATCH",
-      body: JSON.stringify({ coin_cost: nextCost }),
+      body: JSON.stringify({ coinCost: nextCost }),
     });
     expect(loggedOutPatch.status).toBe(401);
     assertNoEconomy(loggedOutPatch.body);
@@ -7531,7 +7531,7 @@ describe("http integration", () => {
     assertNoEconomy(attackerList.body);
     const attackerPatch = await authJson("/api/admin/gifts/catalog/rose", attacker.token, {
       method: "PATCH",
-      body: JSON.stringify({ coin_cost: nextCost }),
+      body: JSON.stringify({ coinCost: nextCost }),
     });
     expect(attackerPatch.status).toBe(403);
     assertNoEconomy(attackerPatch.body);
@@ -7549,18 +7549,18 @@ describe("http integration", () => {
       expect(listed.body.boosters).toEqual([]);
       expect(listed.body).not.toHaveProperty("paid");
       expect(listed.body).not.toHaveProperty("rows");
-      const rose = (listed.body.gifts as Array<{ id?: string; coin_cost?: number; is_active?: boolean }>).find(
+      const rose = (listed.body.gifts as Array<{ id?: string; coinCost?: number; isActive?: boolean }>).find(
         (gift) => gift.id === "rose",
       );
-      expect(rose?.coin_cost).toBe(originalCost);
-      expect(rose?.is_active).toBe(true);
+      expect(rose?.coinCost).toBe(originalCost);
+      expect(rose?.isActive).toBe(true);
 
       const patched = await authJson("/api/admin/gifts/catalog/rose", admin.token, {
         method: "PATCH",
-        body: JSON.stringify({ coin_cost: nextCost, is_admin: true, updatedBy: attacker.id }),
+        body: JSON.stringify({ coinCost: nextCost, is_admin: true, updatedBy: attacker.id }),
       });
       expect(patched.status).toBe(200);
-      expect(patched.body).toMatchObject({ gift: { id: "rose", coin_cost: nextCost, is_active: true } });
+      expect(patched.body).toMatchObject({ gift: { id: "rose", coinCost: nextCost, isActive: true } });
       const persisted = await getPool().query<{ coin_cost: number }>(`SELECT coin_cost FROM gifts WHERE id = 'rose'`);
       expect(persisted.rows[0]?.coin_cost).toBe(nextCost);
 
@@ -7571,29 +7571,29 @@ describe("http integration", () => {
 
       const again = await authJson("/api/admin/gifts/catalog/rose", admin.token, {
         method: "PATCH",
-        body: JSON.stringify({ coin_cost: nextCost }),
+        body: JSON.stringify({ coinCost: nextCost }),
       });
       expect(again.status).toBe(200);
-      expect(again.body).toMatchObject({ gift: { id: "rose", coin_cost: nextCost } });
+      expect(again.body).toMatchObject({ gift: { id: "rose", coinCost: nextCost } });
 
       const invalid = await authJson("/api/admin/gifts/catalog/rose", admin.token, {
         method: "PATCH",
-        body: JSON.stringify({ coin_cost: 0 }),
+        body: JSON.stringify({ coinCost: 0 }),
       });
       expect(invalid.status).toBe(400);
       const decimal = await authJson("/api/admin/gifts/catalog/rose", admin.token, {
         method: "PATCH",
-        body: JSON.stringify({ coin_cost: 1.5 }),
+        body: JSON.stringify({ coinCost: 1.5 }),
       });
       expect(decimal.status).toBe(400);
       const overflow = await authJson("/api/admin/gifts/catalog/rose", admin.token, {
         method: "PATCH",
-        body: JSON.stringify({ coin_cost: 10_000_001 }),
+        body: JSON.stringify({ coinCost: 10_000_001 }),
       });
       expect(overflow.status).toBe(400);
       const unknown = await authJson("/api/admin/gifts/catalog/not-a-real-gift-073", admin.token, {
         method: "PATCH",
-        body: JSON.stringify({ coin_cost: 4 }),
+        body: JSON.stringify({ coinCost: 4 }),
       });
       expect(unknown.status).toBe(404);
       const empty = await authJson("/api/admin/gifts/catalog/rose", admin.token, {
@@ -7604,10 +7604,10 @@ describe("http integration", () => {
 
       const restored = await authJson("/api/admin/gifts/catalog/rose", admin.token, {
         method: "PATCH",
-        body: JSON.stringify({ coin_cost: originalCost }),
+        body: JSON.stringify({ coinCost: originalCost }),
       });
       expect(restored.status).toBe(200);
-      expect(restored.body).toMatchObject({ gift: { id: "rose", coin_cost: originalCost } });
+      expect(restored.body).toMatchObject({ gift: { id: "rose", coinCost: originalCost } });
       const restoredPublic = await fetch(`${base}/api/gifts`);
       const restoredBody = (await restoredPublic.json()) as { gifts?: Array<{ id?: string; coinCost?: number }> };
       expect(restoredBody.gifts?.find((gift) => gift.id === "rose")?.coinCost).toBe(originalCost);
@@ -7618,7 +7618,7 @@ describe("http integration", () => {
       assertNoEconomy(revoked.body);
       const revokedPatch = await authJson("/api/admin/gifts/catalog/rose", admin.token, {
         method: "PATCH",
-        body: JSON.stringify({ coin_cost: nextCost }),
+        body: JSON.stringify({ coinCost: nextCost }),
       });
       expect(revokedPatch.status).toBe(403);
       assertNoEconomy(revokedPatch.body);

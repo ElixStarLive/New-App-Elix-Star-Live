@@ -25,7 +25,7 @@ vi.mock("@/store/useAuthStore", () => {
 });
 
 const hub = (patch: Partial<Hub> = {}): Hub => ({
-  promotional_coins: 12,
+  promotional_balance: 12,
   battle_energy: 34,
   total_xp: 56,
   fan_level: 7,
@@ -134,7 +134,7 @@ describe("PAGE-047 Engagement Hub", () => {
     api.apiEngagementHub.mockResolvedValueOnce({
       ok: true,
       hub: hub({
-        promotional_coins: 0,
+        promotional_balance: 0,
         battle_energy: 0,
         total_xp: 0,
         fan_level: 0,

@@ -41,7 +41,7 @@ describe("PAGE-047 Engagement Hub ownership", () => {
     expect(api).not.toMatch(/\/api\/wallet|\/api\/engagement\/fan-level|\/api\/test-coins/);
     expect(router).toMatch(/router\.get\("\/hub"/);
     expect(router).toMatch(/getHubSummary\(req\.userId/);
-    expect(hub).toMatch(/promotional_coins/);
+    expect(hub).toMatch(/promotional_balance/);
     expect(hub).toMatch(/battle_energy/);
     expect(hub).toMatch(/total_xp/);
     expect(hub).toMatch(/fan_level/);

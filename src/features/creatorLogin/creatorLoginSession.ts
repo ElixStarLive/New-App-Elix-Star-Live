@@ -2,7 +2,7 @@ import { authResendConfirmation } from "@/features/auth/authSession";
 import {
   browserCreatorAccountStorage,
   clearAllLegacyCreatorLoginKeys,
-  migrateLegacyCreatorLoginKeys,
+  readCreatorSavedAccounts,
   readCreatorSavePref,
   removeCreatorSavedAccount,
   upsertCreatorSavedAccount,
@@ -99,7 +99,7 @@ export function createCreatorLoginSession(storage: CreatorAccountStorage = brows
     getSnapshot: snapshot,
     hydrate(viewerEmail?: string) {
       submitGen += 1;
-      accounts = migrateLegacyCreatorLoginKeys(storage);
+      accounts = readCreatorSavedAccounts(storage);
       savePref = readCreatorSavePref(storage);
       if (!email) email = accounts[0]?.identifier || viewerEmail || "";
       if (!username) username = accounts[0]?.username || (email ? localPart(email) : "");

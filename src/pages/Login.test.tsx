@@ -97,16 +97,14 @@ describe("PAGE-001 Login", () => {
     expect(container.textContent).not.toContain("Google");
   });
 
-  it("prefills remembered email and never keeps a stored password", () => {
+  it("prefills remembered email only", () => {
     window.localStorage.setItem("login_save_details", "true");
     window.localStorage.setItem("login_saved_email", "saved-user");
-    window.localStorage.setItem("login_saved_password", "should-be-deleted");
     const mounted = renderLogin();
     root = mounted.root;
     container = mounted.container;
     const emailInput = container.querySelector('input[autocomplete="email"]') as HTMLInputElement;
     expect(emailInput.value).toBe("saved-user");
-    expect(window.localStorage.getItem("login_saved_password")).toBeNull();
   });
 
   it("blocks duplicate submit and surfaces wrong credentials", async () => {
@@ -174,7 +172,6 @@ describe("PAGE-001 Login", () => {
     });
     expect(window.localStorage.getItem("login_saved_email")).toBe("keep-after-unmount");
     expect(window.localStorage.getItem("login_save_details")).toBe("true");
-    expect(window.localStorage.getItem("login_saved_password")).toBeNull();
   });
 
   it("stores only email when remember is checked after success", async () => {
@@ -193,7 +190,6 @@ describe("PAGE-001 Login", () => {
     });
     expect(window.localStorage.getItem("login_saved_email")).toBe("keep-me");
     expect(window.localStorage.getItem("login_save_details")).toBe("true");
-    expect(window.localStorage.getItem("login_saved_password")).toBeNull();
   });
 
   it("navigates to from after a successful login", async () => {
@@ -270,7 +266,6 @@ describe("PAGE-001 Login", () => {
     });
     expect(window.localStorage.getItem("login_saved_email")).toBeNull();
     expect(window.localStorage.getItem("login_save_details")).toBe("false");
-    expect(window.localStorage.getItem("login_saved_password")).toBeNull();
   });
 
   it("toggles password visibility", () => {

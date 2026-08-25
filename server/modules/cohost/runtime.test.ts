@@ -26,7 +26,7 @@ describe("FLOW-007 cohost Valkey owner", () => {
       code: "unavailable",
       status: 503,
     });
-    await expect(saveCohost({ streamId: "room-1", hostId: "host-1", bigScreenUserId: null, seats: [], requests: [] })).rejects.toMatchObject({
+    await expect(saveCohost({ roomId: "room-1", hostId: "host-1", bigScreenUserId: null, seats: [], requests: [] })).rejects.toMatchObject({
       code: "unavailable",
       status: 503,
     });

@@ -73,7 +73,7 @@ function emptySeats(): Array<CohostSeat | null> {
 
 function emptyBattle(): BattleState {
   return {
-    streamId: "",
+    roomId: "",
     type: "1x1",
     status: "WAITING",
     seats: { host: null, opponent: null, player3: null, player4: null },
@@ -330,11 +330,11 @@ export function LiveRoomScreen({
   }, [hostId]);
 
   useEffect(() => {
-    if (role !== "host" || !streamId) return;
+    if (role !== "host" || !roomId) return;
     const tick = () => {
       const frame = frameFromLiveVideo(hostVideoRef.current);
       if (!frame) return;
-      void apiLiveSafetyCheck({ streamKey: streamId, imageBase64: frame }).then((result) => {
+      void apiLiveSafetyCheck({ roomId, imageBase64: frame }).then((result) => {
         if (result.action === "warning") {
           setSafetyMessage(result.message || LIVE_SAFETY_WARNING);
           setSafetyOpen(true);
@@ -343,17 +343,17 @@ export function LiveRoomScreen({
     };
     const timer = window.setInterval(tick, LIVE_SAFETY_TICK_MS);
     return () => window.clearInterval(timer);
-  }, [role, streamId]);
+  }, [role, roomId]);
 
   const sendChat = () => {
     const body = draft.trim();
     if (!body) return;
-    wsClient.send("chat_message", { streamId, body });
+    wsClient.send("chat_message", { roomId, body });
     setDraft("");
   };
 
   const sendHeart = () => {
-    wsClient.send("heart_sent", { streamId });
+    wsClient.send("heart_sent", { roomId });
   };
 
   const sendGift = async (gift: GiftCatalogItem, bucket: "paid" | "promo" | "test") => {
@@ -411,7 +411,7 @@ export function LiveRoomScreen({
   };
 
   const shareLive = () => {
-    const liveRoom = roomId || (role === "host" ? hostSession.roomId : streamIdProp);
+    const liveRoom = roomId || (role === "host" ? hostSession.roomId : "");
     if (!liveRoom) {
       showToast("Could not share");
       return;
@@ -574,8 +574,8 @@ export function LiveRoomScreen({
                     type="button"
                     className="h-full w-full flex flex-col items-center justify-center"
                     onClick={() => {
-                      if (role === "host") wsClient.send("cohost_request_accept", { streamId });
-                      else wsClient.send("cohost_request_send", { streamId });
+                      if (role === "host") wsClient.send("cohost_request_accept", { roomId });
+                      else wsClient.send("cohost_request_send", { roomId });
                     }}
                   >
                     <span className="text-white/30 text-2xl font-light">+</span>
@@ -611,7 +611,7 @@ export function LiveRoomScreen({
                         className="absolute inset-0 flex items-center justify-center text-white/40 text-[11px]"
                         onClick={() => {
                           if (role === "host") return;
-                          wsClient.send("battle_join", { streamId, seat });
+                          wsClient.send("battle_join", { roomId, seat });
                         }}
                       >
                         Waiting
@@ -710,7 +710,7 @@ export function LiveRoomScreen({
             </LiveDockButton>
             <LiveDockButton
               label="Co-Host"
-              onClick={() => wsClient.send("cohost_request_send", { streamId })}
+              onClick={() => wsClient.send("cohost_request_send", { roomId })}
             >
               <UserPlus size={18} className="text-[#F5F5F7]" strokeWidth={2.25} />
             </LiveDockButton>
@@ -731,7 +731,7 @@ export function LiveRoomScreen({
                 label="Co-Host"
                 onClick={() => {
                   setMode("cohost");
-                  wsClient.send("cohost_layout_sync", { streamId, bigScreenUserId: user?.id ?? null, seats: seats.filter(Boolean) });
+                  wsClient.send("cohost_layout_sync", { roomId, bigScreenUserId: user?.id ?? null, seats: seats.filter(Boolean) });
                 }}
               >
                 <Users size={18} className="text-[#F5F5F7]" strokeWidth={2.25} />
@@ -741,11 +741,11 @@ export function LiveRoomScreen({
               label="Battle"
               onClick={() => {
                 if (isBattle && battle.status === "ACTIVE") {
-                  wsClient.send("battle_end", { streamId });
+                  wsClient.send("battle_end", { roomId });
                   return;
                 }
                 const type = isCohost && seats.filter(Boolean).length >= 3 ? "2x2" : "1x1";
-                wsClient.send("battle_create", { streamId, type });
+                wsClient.send("battle_create", { roomId, type });
                 setMode("battle");
               }}
             >
@@ -861,7 +861,7 @@ export function LiveRoomScreen({
             onClick={() => {
               const question = pollDraft.trim();
               if (!question) return;
-              wsClient.send("chat_message", { streamId, body: `Poll: ${question}` });
+              wsClient.send("chat_message", { roomId, body: `Poll: ${question}` });
               setPollDraft("");
               setPollOpen(false);
             }}
