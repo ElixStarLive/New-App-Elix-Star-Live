@@ -76,6 +76,7 @@ export async function applyPendingMigrations(databaseUrl = env().DATABASE_URL): 
   const client = await migratePool.connect();
   try {
     await client.query("SELECT pg_advisory_lock($1)", [ADVISORY_KEY]);
+    await client.query("SET search_path TO public");
     await client.query(`
       CREATE TABLE IF NOT EXISTS elix_schema_migrations (
         id SERIAL PRIMARY KEY,
@@ -92,6 +93,7 @@ export async function applyPendingMigrations(databaseUrl = env().DATABASE_URL): 
       logger.info({ migration: name }, "applying migration");
       await client.query("BEGIN");
       try {
+        await client.query("SET LOCAL search_path TO public");
         await client.query(readMigrationSql(name));
         await client.query("INSERT INTO elix_schema_migrations (filename) VALUES ($1)", [name]);
         await client.query("COMMIT");
