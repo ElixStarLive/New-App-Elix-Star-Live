@@ -151,20 +151,20 @@ END $$;
 
 CREATE TABLE IF NOT EXISTS video_likes (
   user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
-  video_id UUID NOT NULL REFERENCES videos(id) ON DELETE CASCADE,
+  video_id UUID NOT NULL,
   created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
   PRIMARY KEY (user_id, video_id)
 );
 
 CREATE TABLE IF NOT EXISTS video_saves (
   user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
-  video_id UUID NOT NULL REFERENCES videos(id) ON DELETE CASCADE,
+  video_id UUID NOT NULL,
   created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
   PRIMARY KEY (user_id, video_id)
 );
 
 CREATE TABLE IF NOT EXISTS video_views (
-  video_id UUID NOT NULL REFERENCES videos(id) ON DELETE CASCADE,
+  video_id UUID NOT NULL,
   viewer_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
   created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
   PRIMARY KEY (video_id, viewer_id)
@@ -172,13 +172,61 @@ CREATE TABLE IF NOT EXISTS video_views (
 
 CREATE TABLE IF NOT EXISTS comments (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  video_id UUID NOT NULL REFERENCES videos(id) ON DELETE CASCADE,
+  video_id UUID NOT NULL,
   user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
   body TEXT NOT NULL,
   deleted_at TIMESTAMPTZ,
   created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 CREATE INDEX IF NOT EXISTS comments_video_idx ON comments(video_id, created_at);
+
+DO $$
+BEGIN
+  IF EXISTS (
+    SELECT 1 FROM information_schema.columns
+    WHERE table_schema = 'public' AND table_name = 'videos' AND column_name = 'id' AND udt_name = 'uuid'
+  ) THEN
+    IF NOT EXISTS (
+      SELECT 1 FROM pg_constraint
+      WHERE conname = 'video_likes_video_id_fkey'
+        AND conrelid = 'video_likes'::regclass
+    ) THEN
+      ALTER TABLE video_likes
+        ADD CONSTRAINT video_likes_video_id_fkey
+        FOREIGN KEY (video_id) REFERENCES videos(id) ON DELETE CASCADE;
+    END IF;
+
+    IF NOT EXISTS (
+      SELECT 1 FROM pg_constraint
+      WHERE conname = 'video_saves_video_id_fkey'
+        AND conrelid = 'video_saves'::regclass
+    ) THEN
+      ALTER TABLE video_saves
+        ADD CONSTRAINT video_saves_video_id_fkey
+        FOREIGN KEY (video_id) REFERENCES videos(id) ON DELETE CASCADE;
+    END IF;
+
+    IF NOT EXISTS (
+      SELECT 1 FROM pg_constraint
+      WHERE conname = 'video_views_video_id_fkey'
+        AND conrelid = 'video_views'::regclass
+    ) THEN
+      ALTER TABLE video_views
+        ADD CONSTRAINT video_views_video_id_fkey
+        FOREIGN KEY (video_id) REFERENCES videos(id) ON DELETE CASCADE;
+    END IF;
+
+    IF NOT EXISTS (
+      SELECT 1 FROM pg_constraint
+      WHERE conname = 'comments_video_id_fkey'
+        AND conrelid = 'comments'::regclass
+    ) THEN
+      ALTER TABLE comments
+        ADD CONSTRAINT comments_video_id_fkey
+        FOREIGN KEY (video_id) REFERENCES videos(id) ON DELETE CASCADE;
+    END IF;
+  END IF;
+END $$;
 
 CREATE TABLE IF NOT EXISTS stories (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
