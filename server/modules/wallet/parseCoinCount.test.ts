@@ -20,9 +20,7 @@ describe("wallet coin parsing", () => {
       user_id: "user-1",
       coin_balance: 0,
       starter_balance: 50000,
-      starter_coins: 50000,
       promotional_balance: 4,
-      promotional_coins: 4,
     });
     expect(dto.coin_balance).not.toBe(dto.starter_balance + dto.promotional_balance);
   });

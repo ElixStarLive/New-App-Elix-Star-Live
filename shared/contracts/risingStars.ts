@@ -201,8 +201,8 @@ export const risingStarsLeaderboardResponseSchema = z.object({
 });
 
 export const risingStarsChallengeLiveSchema = z.object({
-  qualifier_room_id: z.string().nullable(),
-  final_room_id: z.string().nullable(),
+  live_qualifier_room_id: z.string().nullable(),
+  live_final_room_id: z.string().nullable(),
   status: risingStarsChallengeStatusSchema,
 });
 

@@ -2,14 +2,12 @@ import { z } from "zod";
 
 export const coinBucketSchema = z.enum(["paid", "promo", "starter", "test"]);
 
-/** GET /api/wallet wire contract. Test coins are never included. */
+/** GET /api/wallet wire contract. Test coins are never included. One key per bucket. */
 export const walletBalanceSchema = z.object({
   user_id: z.string().min(1).optional(),
   coin_balance: z.number().int().nonnegative(),
   starter_balance: z.number().int().nonnegative(),
-  starter_coins: z.number().int().nonnegative(),
   promotional_balance: z.number().int().nonnegative(),
-  promotional_coins: z.number().int().nonnegative(),
 });
 
 export const testCoinBalanceSchema = z.object({

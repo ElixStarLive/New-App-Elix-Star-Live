@@ -236,40 +236,39 @@ function asInt(value: unknown, fallback: number, min: number, max: number): numb
   return Math.min(max, Math.max(min, Math.trunc(n)));
 }
 
-export function parseBattleEnergyCaps(raw: unknown, boostRaw: unknown = {}): BattleEnergyCaps {
+export function parseBattleEnergyCaps(raw: unknown): BattleEnergyCaps {
   const v = asRecord(raw);
-  const boost = asRecord(boostRaw);
   const allowedRaw = Array.isArray(v.allowed_boost_values)
     ? v.allowed_boost_values
         .map((n) => Math.trunc(Number(n)))
         .filter((n) => Number.isInteger(n) && n >= 1 && n <= 100)
         .slice(0, 20)
     : DEFAULT_BATTLE_ENERGY_CAPS.allowed_boost_values;
-  const multiplierRaw = Number(v.score_multiplier ?? boost.multiplier ?? DEFAULT_BATTLE_ENERGY_CAPS.score_multiplier);
+  const multiplierRaw = Number(v.score_multiplier ?? DEFAULT_BATTLE_ENERGY_CAPS.score_multiplier);
   const multiplier = Number.isFinite(multiplierRaw)
     ? Math.min(5, Math.max(1, multiplierRaw))
     : DEFAULT_BATTLE_ENERGY_CAPS.score_multiplier;
   return {
-    watch_amount: asInt(v.watch_amount ?? v.watch_per_minute, DEFAULT_BATTLE_ENERGY_CAPS.watch_amount, 0, 10_000),
-    comment_amount: asInt(v.comment_amount ?? v.comment, DEFAULT_BATTLE_ENERGY_CAPS.comment_amount, 0, 10_000),
-    share_amount: asInt(v.share_amount ?? v.share, DEFAULT_BATTLE_ENERGY_CAPS.share_amount, 0, 10_000),
-    watch_cap: asInt(v.watch_cap ?? v.watch_per_battle, DEFAULT_BATTLE_ENERGY_CAPS.watch_cap, 0, 1_000_000),
-    comment_cap: asInt(v.comment_cap ?? v.comment_per_battle, DEFAULT_BATTLE_ENERGY_CAPS.comment_cap, 0, 1_000_000),
-    share_cap: asInt(v.share_cap ?? v.share_per_day, DEFAULT_BATTLE_ENERGY_CAPS.share_cap, 0, 1_000_000),
+    watch_amount: asInt(v.watch_amount, DEFAULT_BATTLE_ENERGY_CAPS.watch_amount, 0, 10_000),
+    comment_amount: asInt(v.comment_amount, DEFAULT_BATTLE_ENERGY_CAPS.comment_amount, 0, 10_000),
+    share_amount: asInt(v.share_amount, DEFAULT_BATTLE_ENERGY_CAPS.share_amount, 0, 10_000),
+    watch_cap: asInt(v.watch_cap, DEFAULT_BATTLE_ENERGY_CAPS.watch_cap, 0, 1_000_000),
+    comment_cap: asInt(v.comment_cap, DEFAULT_BATTLE_ENERGY_CAPS.comment_cap, 0, 1_000_000),
+    share_cap: asInt(v.share_cap, DEFAULT_BATTLE_ENERGY_CAPS.share_cap, 0, 1_000_000),
     storage_cap: asInt(v.storage_cap, DEFAULT_BATTLE_ENERGY_CAPS.storage_cap, 0, 10_000_000),
     session_cap: asInt(v.session_cap, DEFAULT_BATTLE_ENERGY_CAPS.session_cap, 0, 1_000_000),
     daily_cap: asInt(v.daily_cap, DEFAULT_BATTLE_ENERGY_CAPS.daily_cap, 0, 10_000_000),
     minimum_boost: asInt(v.minimum_boost, DEFAULT_BATTLE_ENERGY_CAPS.minimum_boost, 1, 100),
     allowed_boost_values: allowedRaw.length > 0 ? allowedRaw : [...DEFAULT_BATTLE_ENERGY_CAPS.allowed_boost_values],
     fan_energy_threshold: asInt(
-      v.fan_energy_threshold ?? boost.threshold,
+      v.fan_energy_threshold,
       DEFAULT_BATTLE_ENERGY_CAPS.fan_energy_threshold,
       1,
       100_000_000,
     ),
     score_multiplier: multiplier,
     boost_duration_sec: asInt(
-      v.boost_duration_sec ?? boost.duration_sec,
+      v.boost_duration_sec,
       DEFAULT_BATTLE_ENERGY_CAPS.boost_duration_sec,
       1,
       120,
@@ -280,11 +279,10 @@ export function parseBattleEnergyCaps(raw: unknown, boostRaw: unknown = {}): Bat
 
 export async function resolveBattleEnergyCaps(db: Queryable = getPool()): Promise<BattleEnergyCaps> {
   const caps = await readSetting(db, "battle_energy_caps");
-  const boost = await readSetting(db, "fan_energy_boost");
   if (caps == null) {
     throw new AppError("SCHEMA_UNAVAILABLE", "SCHEMA_UNAVAILABLE", 503);
   }
-  return parseBattleEnergyCaps(caps, boost);
+  return parseBattleEnergyCaps(caps);
 }
 
 export function dailyPolicyAllowsClaim(policy: DailyRewardPolicy, now = new Date()): boolean {

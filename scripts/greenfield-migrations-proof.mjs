@@ -118,11 +118,28 @@ if (!databaseUrl) {
   } else {
     pass("neon_not_old", host);
     const { default: pg } = await import("pg");
-    const { applyPendingMigrations, closePool } = await import("../server/infra/postgres.ts");
-
-    const applied = await applyPendingMigrations(databaseUrl);
-    console.log(`MIGRATIONS_APPLIED_THIS_RUN=${JSON.stringify(applied)}`);
-    pass("applyPendingMigrations", applied.length === 0 ? "idempotent (0 new)" : `applied ${applied.length}`);
+    const { spawnSync } = await import("node:child_process");
+    const migrate = spawnSync(
+      process.execPath,
+      ["--import", "tsx", "-e", "import { applyPendingMigrations, closePool } from './server/infra/postgres.ts'; const url=process.env.DATABASE_URL; const applied=await applyPendingMigrations(url); console.log(JSON.stringify(applied)); await closePool();"],
+      { cwd: root, env: process.env, encoding: "utf8" },
+    );
+    if (migrate.status !== 0) {
+      fail("applyPendingMigrations", migrate.stderr || migrate.stdout || `exit ${migrate.status}`);
+    } else {
+      const appliedLine = (migrate.stdout || "").trim().split(/\r?\n/).filter(Boolean).at(-1) || "[]";
+      let applied = [];
+      try {
+        applied = JSON.parse(appliedLine);
+      } catch {
+        fail("applyPendingMigrations", `unreadable output: ${appliedLine}`);
+        applied = null;
+      }
+      if (applied) {
+        console.log(`MIGRATIONS_APPLIED_THIS_RUN=${JSON.stringify(applied)}`);
+        pass("applyPendingMigrations", applied.length === 0 ? "idempotent (0 new)" : `applied ${applied.length}`);
+      }
+    }
 
     const client = new pg.Client({
       connectionString: databaseUrl,
@@ -177,7 +194,6 @@ if (!databaseUrl) {
       }
     } finally {
       await client.end();
-      await closePool().catch(() => undefined);
     }
   }
 }

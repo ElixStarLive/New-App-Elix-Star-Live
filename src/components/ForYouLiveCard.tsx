@@ -342,7 +342,7 @@ export function ForYouLiveCard({
     const onStreamEnded = (raw: unknown) => {
       if (!isCurrentAttempt()) return;
       const data = (raw ?? {}) as Record<string, unknown>;
-      const endedKey = String(data.stream_key ?? data.room_id ?? data.roomId ?? "").trim();
+      const endedKey = typeof data.roomId === "string" ? data.roomId.trim() : "";
       if (endedKey && endedKey !== streamKey) return;
       setIsOffline(true);
       setHasStream(false);
@@ -355,7 +355,7 @@ export function ForYouLiveCard({
       const list = Array.isArray(data.coHosts) ? data.coHosts : [];
       const tiles: CohostTile[] = list
         .map((h: Record<string, unknown>) => ({
-          userId: String(h.userId ?? h.id ?? ""),
+          userId: String(h.userId ?? ""),
           name: String(h.name ?? "User"),
           avatar: String(h.avatar ?? ""),
           status: String(h.status ?? "invited"),

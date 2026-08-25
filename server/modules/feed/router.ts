@@ -32,9 +32,11 @@ router.get("/", async (req: AuthedRequest, res) => {
   
   const live = await getPool().query(
         `SELECT s.id, 'live'::text AS kind, s.host_id AS user_id, u.username, u.display_name, u.avatar_url,
-            s.title AS caption, NULL::text AS media_url, u.avatar_url AS thumbnail_url, s.id AS stream_id,
+            u.is_verified, s.title AS caption, NULL::text AS media_url, u.avatar_url AS thumbnail_url, s.id AS stream_id,
+            0 AS duration_ms, 0 AS shares_count,
             0 AS like_count, 0 AS comment_count, 0 AS save_count, 0 AS view_count, TRUE AS is_live, s.started_at AS created_at,
-            NULL::text AS sound_id, '{}'::text[] AS hashtags, FALSE AS liked, FALSE AS saved, FALSE AS is_following
+            'public'::text AS privacy, NULL::text AS sound_id, '{}'::text[] AS hashtags,
+            FALSE AS liked, FALSE AS saved, FALSE AS is_following
      FROM live_streams s
      JOIN users u ON u.id = s.host_id
      WHERE s.status = 'live' AND u.deleted_at IS NULL

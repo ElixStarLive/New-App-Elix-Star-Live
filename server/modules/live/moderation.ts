@@ -47,7 +47,7 @@ export function interpretSafetyModel(raw: unknown): SafetyVerdict {
 async function assertLiveHost(streamKey: string, userId: string): Promise<void> {
   const { rows } = await getPool().query<{ host_id: string }>(
     `SELECT host_id FROM live_streams
-     WHERE status = 'live' AND (room_id = $1 OR id::text = $1 OR host_id::text = $1)
+     WHERE status = 'live' AND room_id = $1
      LIMIT 1`,
     [streamKey],
   );
@@ -145,17 +145,17 @@ export async function runLiveModerationCheck(
 ): Promise<{ action: "none" | "warning"; message?: string }> {
   await assertModerationVelocity(userId);
   const body = raw && typeof raw === "object" ? (raw as Record<string, unknown>) : {};
-  const streamKey = typeof body.stream_key === "string" ? body.stream_key.trim() : "";
-  if (!streamKey) throw new AppError("validation_error", "Missing stream_key", 400);
+  const streamKey = typeof body.roomId === "string" ? body.roomId.trim() : "";
+  if (!streamKey) throw new AppError("validation_error", "Missing roomId", 400);
   await assertLiveHost(streamKey, userId);
 
-  const imageBase64 = typeof body.image_base64 === "string" ? body.image_base64 : "";
+  const imageBase64 = typeof body.imageBase64 === "string" ? body.imageBase64 : "";
   if (!imageBase64) {
     await writeLog(streamKey, userId, "check", null, null, "none", { note: "no_image" });
     return { action: "none" };
   }
   if (imageBase64.length > MAX_FRAME_CHARS) {
-    throw new AppError("validation_error", "image_base64 too large", 413);
+    throw new AppError("validation_error", "imageBase64 too large", 413);
   }
 
   const verdict = await classifyFrame(imageBase64);

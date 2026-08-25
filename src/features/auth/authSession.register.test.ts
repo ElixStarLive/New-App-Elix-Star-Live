@@ -38,7 +38,7 @@ describe("authRegister", () => {
           email_confirmed_at: "2026-08-01T00:00:00.000Z",
           created_at: "2026-08-01T00:00:00.000Z",
         },
-        session: { access_token: "tok", accessToken: "tok" },
+        session: { access_token: "tok" },
         profile_meta: {
           is_admin: false,
           is_creator: false,

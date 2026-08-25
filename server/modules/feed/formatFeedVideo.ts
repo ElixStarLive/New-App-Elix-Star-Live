@@ -10,17 +10,18 @@ function asNonNeg(value: unknown, fallback = 0): number {
   return Number.isFinite(n) && n >= 0 ? n : fallback;
 }
 
-function formatDurationSeconds(sec: unknown): string {
-  const n = Number(sec);
+function formatDurationMs(ms: unknown): string {
+  const n = Number(ms);
   if (!Number.isFinite(n) || n < 0) return "0:00";
-  const m = Math.floor(n / 60);
-  const s = Math.floor(n % 60);
+  const totalSec = Math.floor(n / 1000);
+  const m = Math.floor(totalSec / 60);
+  const s = Math.floor(totalSec % 60);
   return `${m}:${String(s).padStart(2, "0")}`;
 }
 
 /**
- * NEW formatter for the frozen OLD production feed video row.
- * Same field names and nesting as live OLD `formatVideoForClient` — independently written.
+ * Maps VIDEO_SELECT / live-feed SQL rows to the frozen FeedVideo JSON contract.
+ * Input columns are the canonical feed query shape only — no dual snake/camel fallbacks.
  */
 export function formatFeedVideo(
   row: QueryResultRow,
@@ -31,18 +32,10 @@ export function formatFeedVideo(
     location: string;
   },
 ): FeedVideo {
-  const nested = row.user && typeof row.user === "object" && !Array.isArray(row.user)
-    ? (row.user as Record<string, unknown>)
-    : null;
-  const userId =
-    asText(nested?.user_id) ||
-    asText(nested?.id) ||
-    asText(row.user_id) ||
-    "unknown";
-  const username = asText(nested?.username) || asText(row.username) || "user";
-  const displayName = asText(nested?.display_name) || asText(row.display_name) || username;
+  const userId = asText(row.user_id) || "unknown";
+  const username = asText(row.username) || "user";
+  const displayName = asText(row.display_name) || username;
   const avatar =
-    asText(nested?.avatar_url) ||
     asText(row.avatar_url) ||
     `https://ui-avatars.com/api/?name=${encodeURIComponent(username)}`;
 
@@ -52,12 +45,7 @@ export function formatFeedVideo(
       : null;
   let music: FeedVideo["music"] = null;
   if (rawMusic) {
-    const previewUrl =
-      typeof rawMusic.previewUrl === "string"
-        ? rawMusic.previewUrl
-        : typeof rawMusic.url === "string"
-          ? rawMusic.url
-          : undefined;
+    const previewUrl = typeof rawMusic.previewUrl === "string" ? rawMusic.previewUrl : undefined;
     music = {
       id: String(rawMusic.id ?? "original"),
       title: asText(rawMusic.title),
@@ -65,7 +53,7 @@ export function formatFeedVideo(
       duration:
         typeof rawMusic.duration === "string"
           ? rawMusic.duration
-          : formatDurationSeconds(rawMusic.duration),
+          : formatDurationMs(typeof rawMusic.durationMs === "number" ? rawMusic.durationMs : 0),
       ...(previewUrl ? { previewUrl } : {}),
       ...(rawMusic.provider !== undefined ? { provider: rawMusic.provider } : {}),
       ...(typeof rawMusic.clipStartSeconds === "number"
@@ -78,14 +66,14 @@ export function formatFeedVideo(
   }
 
   const duetWithVideoId =
-    (typeof row.duetWithVideoId === "string" && row.duetWithVideoId) ||
-    (typeof rawMusic?.duetWithVideoId === "string" && rawMusic.duetWithVideoId) ||
-    undefined;
-  const duetLayoutRaw = row.duetLayout || rawMusic?.duetLayout || null;
+    typeof row.duetWithVideoId === "string" && row.duetWithVideoId
+      ? row.duetWithVideoId
+      : undefined;
+  const duetLayoutRaw = row.duetLayout;
   const duetLayout =
     duetLayoutRaw === "overlay" || duetLayoutRaw === "split" ? duetLayoutRaw : undefined;
 
-  const createdRaw = row.created_at ?? row.createdAt ?? null;
+  const createdRaw = row.created_at ?? null;
   const createdAt =
     createdRaw instanceof Date
       ? createdRaw.toISOString()
@@ -99,29 +87,28 @@ export function formatFeedVideo(
 
   return {
     id: String(row.id),
-    url: asText(row.url) || asText(row.video_url) || asText(row.media_url) || asText(row.bunny_path),
-    thumbnail:
-      asText(row.thumbnail) || asText(row.thumbnail_url) || asText(row.thumb_url),
-    duration: formatDurationSeconds(row.duration_seconds ?? row.duration),
+    url: asText(row.media_url),
+    thumbnail: asText(row.thumbnail_url),
+    duration: formatDurationMs(row.duration_ms),
     user: {
       id: userId,
       username,
       name: displayName,
       avatar,
-      level: asNonNeg(nested?.level ?? row.level, 1) || 1,
-      isVerified: Boolean(nested?.is_creator ?? nested?.isVerified ?? row.is_verified),
-      followers: asNonNeg(nested?.followers ?? row.followers),
-      following: asNonNeg(nested?.following ?? row.following),
+      level: asNonNeg(row.level, 1) || 1,
+      isVerified: Boolean(row.is_verified),
+      followers: asNonNeg(row.followers),
+      following: asNonNeg(row.following),
     },
-    description: asText(row.description) || asText(row.caption),
+    description: asText(row.caption),
     hashtags,
     music,
     stats: {
-      views: asNonNeg(row.views ?? row.view_count),
-      likes: asNonNeg(row.likes ?? row.likes_count ?? row.like_count),
-      comments: asNonNeg(row.comments ?? row.comments_count ?? row.comment_count),
-      shares: asNonNeg(row.shares ?? row.shares_count),
-      saves: asNonNeg(row.saves ?? row.save_count),
+      views: asNonNeg(row.view_count),
+      likes: asNonNeg(row.like_count),
+      comments: asNonNeg(row.comment_count),
+      shares: asNonNeg(row.shares_count),
+      saves: asNonNeg(row.save_count),
     },
     createdAt,
     location: opts.location,
@@ -130,8 +117,7 @@ export function formatFeedVideo(
     isFollowing: opts.isFollowing,
     comments: [],
     quality: "auto",
-    privacy:
-      row.privacy === "private" || row.is_public === false ? "private" : "public",
+    privacy: row.privacy === "private" ? "private" : "public",
     engagementScore: asNonNeg(row.engagement_score),
     ...(duetWithVideoId ? { duetWithVideoId: String(duetWithVideoId) } : {}),
     ...(duetLayout ? { duetLayout } : {}),

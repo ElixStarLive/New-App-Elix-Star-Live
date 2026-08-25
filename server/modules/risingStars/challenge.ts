@@ -255,14 +255,14 @@ export async function listRisingStarsChallengeLeaderboard(
 }
 
 export async function getRisingStarsChallengeLive(challengeId: string): Promise<{
-  qualifier_room_id: string | null;
-  final_room_id: string | null;
+  live_qualifier_room_id: string | null;
+  live_final_room_id: string | null;
   status: RisingStarsChallengeDetail["status"];
 }> {
   const challenge = mapChallengeDetail(await loadChallengeRow(challengeId));
   return {
-    qualifier_room_id: challenge.live_qualifier_room_id,
-    final_room_id: challenge.live_final_room_id,
+    live_qualifier_room_id: challenge.live_qualifier_room_id,
+    live_final_room_id: challenge.live_final_room_id,
     status: challenge.status,
   };
 }

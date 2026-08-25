@@ -75,7 +75,7 @@ function parseInvitePayload(data: unknown, kind: "battle" | "cohost"): InviteBan
 async function isStreamJoinable(streamKey: string): Promise<boolean> {
   const { streams, error } = await apiLiveStreams();
   if (!error) {
-    if (streams.some((row) => row.roomId === streamKey || row.streamId === streamKey)) {
+    if (streams.some((row) => row.roomId === streamKey)) {
       return true;
     }
   }
@@ -180,11 +180,10 @@ export function LiveNotifyBanner() {
 
     const retireStarted = (data: unknown) => {
       if (!isRecord(data)) return;
-      const endedStreamId = text(data, "streamId");
       const endedRoom = text(data, "roomId");
       const current = startedBannerRef.current;
       if (!current) return;
-      if ((endedRoom && current.room === endedRoom) || (endedStreamId && current.room === endedStreamId)) {
+      if (endedRoom && current.room === endedRoom) {
         dismissStarted();
       }
     };
@@ -218,7 +217,7 @@ export function LiveNotifyBanner() {
 
     const onStreamEnded = (data: unknown) => {
       if (!isRecord(data)) return;
-      const endedKey = text(data, "streamId") || text(data, "roomId");
+      const endedKey = text(data, "roomId");
       const current = shareBannerRef.current;
       if (endedKey && current?.streamKey === endedKey) dismissShare();
     };

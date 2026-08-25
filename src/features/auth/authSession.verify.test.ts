@@ -17,7 +17,7 @@ const loginBody = {
     email_confirmed_at: "2026-08-23T00:00:00.000Z",
     created_at: "2026-08-23T00:00:00.000Z",
   },
-  session: { access_token: "access-token-value", accessToken: "access-token-value" },
+  session: { access_token: "access-token-value" },
   profile_meta: {
     is_admin: false,
     is_creator: false,

@@ -28,8 +28,8 @@ export async function apiLiveSafetyCheck(input: {
   const { data, error } = await apiRequest<unknown>("/api/live/moderation/check", {
     method: "POST",
     body: JSON.stringify({
-      stream_key: input.streamKey,
-      image_base64: input.imageBase64,
+      roomId: input.streamKey,
+      imageBase64: input.imageBase64,
     }),
   });
   if (error) return { action: "none", message: null, error: error.message };

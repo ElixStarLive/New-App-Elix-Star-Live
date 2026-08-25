@@ -350,8 +350,9 @@ describe("http integration", () => {
       }),
     );
     expect(login.body.session).toEqual(
-      expect.objectContaining({ access_token: expect.any(String), accessToken: expect.any(String) }),
+      expect.objectContaining({ access_token: expect.any(String) }),
     );
+    expect(login.body.session).not.toHaveProperty("accessToken");
     expect(login.body.profile_meta).toEqual(
       expect.objectContaining({
         is_admin: false,
@@ -399,9 +400,9 @@ describe("http integration", () => {
     expect(wallet.status).toBe(200);
     expect(wallet.body.coin_balance).toBe(0);
     expect(wallet.body.starter_balance).toBe(50000);
-    expect(wallet.body.starter_coins).toBe(50000);
     expect(wallet.body.promotional_balance).toBe(0);
-    expect(wallet.body.promotional_coins).toBe(0);
+    expect(wallet.body).not.toHaveProperty("starter_coins");
+    expect(wallet.body).not.toHaveProperty("promotional_coins");
     expect(wallet.body.testCoins).toBeUndefined();
     expect(wallet.body.test_coins).toBeUndefined();
 
@@ -6933,8 +6934,10 @@ describe("http integration", () => {
     expect((attach.body.challenge as { live_qualifier_room_id?: string }).live_qualifier_room_id).toBe(creator.id);
     await getPool().query(`UPDATE live_streams SET status = 'ended', ended_at = NOW() WHERE host_id = $1`, [creator.id]);
     const liveAfterEnd = await fetch(`${base}/api/rising-stars/challenges/${openId}/live`);
-    const liveBody = (await liveAfterEnd.json()) as { live?: { qualifier_room_id?: string; status?: string } };
-    expect(liveBody.live?.qualifier_room_id).toBe(creator.id);
+    const liveBody = (await liveAfterEnd.json()) as {
+      live?: { live_qualifier_room_id?: string; status?: string };
+    };
+    expect(liveBody.live?.live_qualifier_room_id).toBe(creator.id);
     expect(liveBody.live?.status).toBe("open");
 
     const withdraw = await authJson(`/api/rising-stars/entries/${entryId}`, creator.token, { method: "DELETE" });

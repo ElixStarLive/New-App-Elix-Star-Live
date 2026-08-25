@@ -50,9 +50,7 @@ export function walletApiFromRow(row: WalletRow, userId: string) {
     user_id: userId,
     coin_balance: balances.paidCoins,
     starter_balance: balances.starterCoins,
-    starter_coins: balances.starterCoins,
     promotional_balance: balances.promoCoins,
-    promotional_coins: balances.promoCoins,
   };
 }
 

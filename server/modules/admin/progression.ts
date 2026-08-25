@@ -345,8 +345,8 @@ export function parseMissionPatch(body: unknown): {
 
 export function parseDailyRewardPatch(body: unknown): AdminDailyReward {
   if (!isRecord(body)) throw new AppError("validation_error", "No fields to update", 400);
-  rejectUnknownFields(body, ["streakDay", "rewardXp", "rewardPromoCoins", "rewardLabel", "cosmeticRef"]);
-  const label = parseOptionalText(body.rewardLabel ?? body.cosmeticRef, "rewardLabel", 200, false);
+  rejectUnknownFields(body, ["streakDay", "rewardXp", "rewardPromoCoins", "rewardLabel"]);
+  const label = parseOptionalText(body.rewardLabel, "rewardLabel", 200, false);
   if (!label) throw new AppError("validation_error", "rewardLabel required", 400);
   return {
     streakDay: parseBoundedInt(body.streakDay, "streakDay", 1, 7),
@@ -1231,15 +1231,10 @@ export async function handleAdminProgressionPutBattleCaps(req: AuthedRequest, re
   const patch = parseBattleEnergyCapsPatch(req.body);
   try {
     const caps = await withTransaction(async (client) => {
-      const prev = parseBattleEnergyCaps(await readSetting(client, "battle_energy_caps"), await readSetting(client, "fan_energy_boost"));
+      const prev = parseBattleEnergyCaps(await readSetting(client, "battle_energy_caps"));
       const next: BattleEnergyCaps = { ...DEFAULT_BATTLE_ENERGY_CAPS, ...prev, ...patch };
       if (!next.allowed_boost_values.length) next.allowed_boost_values = [...prev.allowed_boost_values];
       await upsertSetting(client, "battle_energy_caps", next);
-      await upsertSetting(client, "fan_energy_boost", {
-        threshold: next.fan_energy_threshold,
-        multiplier: next.score_multiplier,
-        duration_sec: next.boost_duration_sec,
-      });
       await writeAudit(client, actorId, "battle_energy_caps_update", "battle_energy_caps", prev, next);
       return next;
     });

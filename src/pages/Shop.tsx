@@ -164,7 +164,7 @@ export default function Shop() {
           id: stream.hostId,
           name: stream.displayName,
           avatar: stream.avatarUrl || "",
-          streamKey: stream.streamId,
+          streamKey: stream.roomId,
         })),
       );
     });

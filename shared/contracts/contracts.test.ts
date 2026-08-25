@@ -94,7 +94,7 @@ describe("contracts", () => {
         email_confirmed_at: "2026-08-01T00:00:00.000Z",
         created_at: "2026-08-01T00:00:00.000Z",
       },
-      session: { access_token: "prod-tok", accessToken: "prod-tok" },
+      session: { access_token: "prod-tok" },
       profile_meta: {
         is_admin: false,
         is_creator: true,
@@ -139,7 +139,7 @@ describe("contracts", () => {
         email_confirmed_at: "2026-08-01T00:00:00.000Z",
         created_at: "2026-08-01T00:00:00.000Z",
       },
-      session: { access_token: "prod-tok", accessToken: "prod-tok" },
+      session: { access_token: "prod-tok" },
       profile_meta: {
         is_admin: false,
         is_creator: false,

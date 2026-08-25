@@ -16,7 +16,8 @@ export async function queryVideoDetail(viewerId: string | null, videoId: string)
   
   const { rows } = await getPool().query(
     `SELECT v.id, 'video'::text AS kind, v.user_id, u.username, u.display_name, u.avatar_url,
-            v.caption, v.bunny_path AS media_url, v.thumbnail_url, NULL::uuid AS stream_id,
+            u.is_verified, v.caption, v.bunny_path AS media_url, v.thumbnail_url, NULL::uuid AS stream_id,
+            v.duration_ms, 0 AS shares_count,
             (SELECT COUNT(*) FROM video_likes WHERE video_id = v.id) AS like_count,
             (SELECT COUNT(*) FROM comments WHERE video_id = v.id AND deleted_at IS NULL) AS comment_count,
             (SELECT COUNT(*) FROM video_saves WHERE video_id = v.id) AS save_count,

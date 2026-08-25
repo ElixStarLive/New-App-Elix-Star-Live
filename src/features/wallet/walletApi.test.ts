@@ -5,9 +5,7 @@ const valid = {
   user_id: "u1",
   coin_balance: 10,
   starter_balance: 50000,
-  starter_coins: 50000,
   promotional_balance: 3,
-  promotional_coins: 3,
 };
 
 describe("parseWalletResponse", () => {
@@ -28,9 +26,9 @@ describe("parseWalletResponse", () => {
     expect(parseWalletResponse(rest)).toBeNull();
   });
 
-  it("rejects alias mismatch", () => {
-    expect(parseWalletResponse({ ...valid, starter_coins: 1 })).toBeNull();
-    expect(parseWalletResponse({ ...valid, promotional_coins: 9 })).toBeNull();
+  it("rejects dual-alias leftover keys", () => {
+    expect(parseWalletResponse({ ...valid, starter_coins: 50000 })).toBeNull();
+    expect(parseWalletResponse({ ...valid, promotional_coins: 3 })).toBeNull();
   });
 
   it("rejects test coins mixed into the money wallet", () => {

@@ -170,7 +170,7 @@ async function writeProductionSession(res: Response, user: UserRow, token: strin
   setAuthSessionCookie(res, token);
   res.json({
     user: productionAuthUser(user),
-    session: { access_token: token, accessToken: token },
+    session: { access_token: token },
     profile_meta: await loadLoginProfileMeta(user),
   });
 }
@@ -203,7 +203,7 @@ async function writeProductionRegister(
   setAuthSessionCookie(res, session.token);
   res.status(201).json({
     user: productionAuthUser(user),
-    session: { access_token: session.token, accessToken: session.token },
+    session: { access_token: session.token },
     profile_meta: await loadLoginProfileMeta(user),
     needsEmailConfirmation: false,
     confirmation_email_sent: false,
@@ -741,7 +741,7 @@ router.post("/verify-email", async (req: Request, res: Response) => {
     setAuthSessionCookie(res, session.token);
     res.json({
       user: productionAuthUser(sessionUser),
-      session: { access_token: session.token, accessToken: session.token },
+      session: { access_token: session.token },
       profile_meta: await loadLoginProfileMeta(sessionUser),
       already_confirmed: result.alreadyConfirmed,
     });
