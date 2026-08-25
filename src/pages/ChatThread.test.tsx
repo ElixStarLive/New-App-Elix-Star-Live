@@ -178,4 +178,34 @@ describe("PAGE-033 Chat Thread page", () => {
     expect(container.textContent).toContain("offline");
     expect(container.textContent).not.toContain("Start the conversation!");
   });
+
+  it("disables send and blocks video call when thread is blocked", async () => {
+    api.apiGetChatThread.mockResolvedValue({
+      thread: {
+        id: threadId,
+        otherUserId: otherId,
+        otherUsername: "peer",
+        otherDisplayName: "Peer",
+        otherAvatarUrl: null,
+        otherLevel: 1,
+        blocked: true,
+        otherUnavailable: false,
+        canSend: false,
+      },
+      error: null,
+    });
+    const view = renderThread();
+    root = view.root;
+    container = view.container;
+    await act(async () => {
+      await Promise.resolve();
+      await Promise.resolve();
+    });
+    const sendButton = container.querySelector<HTMLButtonElement>('[aria-label="Send message"]');
+    expect(sendButton?.disabled).toBe(true);
+    act(() => {
+      container?.querySelector<HTMLButtonElement>('[aria-label="Video call"]')?.click();
+    });
+    expect(api.startOutgoingCall).not.toHaveBeenCalled();
+  });
 });

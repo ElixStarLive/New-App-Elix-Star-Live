@@ -109,6 +109,7 @@ describe("contracts", () => {
       const user = sessionUserFromProductionLogin(production.data);
       expect(user?.username).toBe("andrei");
       expect(user?.isVerified).toBe(true);
+      expect(user?.level).toBe(1);
     }
     expect(
       productionLoginSuccessSchema.safeParse({

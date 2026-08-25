@@ -46,6 +46,7 @@ export const sessionUserSchema = userPublicSchema.extend({
   email: z.string().email(),
   isAdmin: z.boolean(),
   emailConfirmed: z.boolean(),
+  level: z.number().int().positive().optional(),
 });
 
 export type SessionUser = z.infer<typeof sessionUserSchema>;
@@ -152,6 +153,12 @@ export function sessionUserFromProductionLogin(data: ProductionLoginSuccess): Se
     email: sessionEmailFromProduction(data.user.email, data.user.id),
     isAdmin: data.profile_meta.is_admin,
     emailConfirmed: Boolean(data.user.email_confirmed_at),
+    level:
+      typeof data.profile_meta.level === "number" &&
+      Number.isFinite(data.profile_meta.level) &&
+      data.profile_meta.level > 0
+        ? Math.floor(data.profile_meta.level)
+        : undefined,
   });
   return parsed.success ? parsed.data : null;
 }

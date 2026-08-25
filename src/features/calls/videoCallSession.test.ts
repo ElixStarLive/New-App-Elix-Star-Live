@@ -203,6 +203,16 @@ describe("PAGE-034 video call session", () => {
     expect(send.mock.calls.filter((row) => row[0] === "call_accepted")).toHaveLength(1);
   });
 
+  it("sends call_ended after accept when callee ends during connecting", () => {
+    useCallStore.setState({ viewerId: calleeId });
+    applyCallEvent("call_invite", invitePayload());
+    expect(acceptIncomingCall(callId).ok).toBe(true);
+    expect(useCallStore.getState().status).toBe("connecting");
+    endActiveCall();
+    expect(send.mock.calls.filter((row) => row[0] === "call_ended")).toHaveLength(1);
+    expect(useCallStore.getState().status).toBe("idle");
+  });
+
   it("keeps the first incoming invite when a second caller arrives", () => {
     useCallStore.setState({ viewerId: calleeId });
     applyCallEvent("call_invite", invitePayload());

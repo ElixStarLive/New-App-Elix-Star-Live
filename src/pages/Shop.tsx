@@ -330,6 +330,14 @@ export default function Shop() {
     }
   };
 
+  const dismissCart = useCallback(() => {
+    setShowCart(false);
+    if (checkingOut || checkoutInFlightRef.current) return;
+    checkoutInFlightRef.current = false;
+    checkoutIdempotencyKeyRef.current = null;
+    setCheckingOut(false);
+  }, [checkingOut]);
+
   return (
     <div className="page-above-bottom-nav bg-transparent text-white">
       <div className="page-above-bottom-nav__inner">
@@ -751,21 +759,11 @@ export default function Shop() {
           <>
             <div
               className="fixed inset-0 z-[10050] bg-black/70"
-              onClick={() => {
-                checkoutInFlightRef.current = false;
-                checkoutIdempotencyKeyRef.current = null;
-                setCheckingOut(false);
-                setShowCart(false);
-              }}
+              onClick={dismissCart}
             />
             <div
               className="fixed left-0 right-0 z-[10051] pointer-events-auto max-w-[480px] mx-auto fixed-above-bottom-nav"
-              onClick={() => {
-                checkoutInFlightRef.current = false;
-                checkoutIdempotencyKeyRef.current = null;
-                setCheckingOut(false);
-                setShowCart(false);
-              }}
+              onClick={dismissCart}
             >
               <div
                 className="w-full rounded-t-3xl pb-safe border border-black overflow-hidden"

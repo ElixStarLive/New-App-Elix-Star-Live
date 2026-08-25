@@ -72,7 +72,7 @@ export function acceptIncomingCall(callId: string): { ok: true } | { ok: false; 
   if (store.status !== "incoming" || !store.callId || store.callId !== callId) {
     return { ok: false, error: "No incoming call" };
   }
-  useCallStore.setState({ acceptLock: true, endLock: true, status: "connecting" });
+  useCallStore.setState({ acceptLock: true, status: "connecting" });
   wsClient.send("call_accepted", { callId });
   return { ok: true };
 }

@@ -101,6 +101,9 @@ export default function ChatThread() {
   const otherUserId = snap.thread?.otherUserId || "";
   const otherAvatar = snap.thread?.otherAvatarUrl || "";
   const otherLevel = snap.thread?.otherLevel || 1;
+  const threadBlocked = snap.thread?.blocked === true;
+  const canSend = snap.thread?.canSend === true;
+  const myLevel = me?.level && me.level > 0 ? me.level : 1;
 
   const goInbox = () => {
     navigate(INBOX_HOME, { replace: true });
@@ -122,6 +125,10 @@ export default function ChatThread() {
     }
     if (!otherUserId) {
       showToast("Cannot start call");
+      return;
+    }
+    if (threadBlocked || !canSend) {
+      showToast("Call not allowed");
       return;
     }
     const started = startOutgoingCall({
@@ -228,7 +235,7 @@ export default function ChatThread() {
           const isMe = message.senderId === me?.id;
           const senderName = isMe ? me?.displayName || me?.username || "You" : otherName;
           const senderAvatar = isMe ? me?.avatarUrl || "" : otherAvatar;
-          const senderLevel = isMe ? 1 : otherLevel;
+          const senderLevel = isMe ? myLevel : otherLevel;
           const senderId = isMe ? me?.id || "" : otherUserId;
           return (
             <div key={message.id} className="flex flex-col gap-1 items-start">
@@ -274,7 +281,7 @@ export default function ChatThread() {
           />
           <button
             type="submit"
-            disabled={!snap.draft.trim() || snap.sending}
+            disabled={!canSend || threadBlocked || !snap.draft.trim() || snap.sending}
             title="Send message"
             aria-label="Send message"
             className="flex-shrink-0 w-9 h-9 rounded-full flex items-center justify-center bg-transparent text-[#F5F5F7] disabled:opacity-40 active:scale-95 transition-transform"

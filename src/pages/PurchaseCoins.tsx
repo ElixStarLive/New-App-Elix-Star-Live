@@ -10,7 +10,7 @@ import {
   restoreCoinPurchases,
   type CoinPackage,
 } from "@/features/iap/iapApi";
-import { FEED_HOME, returnToFromLocationState } from "@/lib/settingsNav";
+import { containerReturnState, FEED_HOME, returnToFromLocationState } from "@/lib/settingsNav";
 import { showToast } from "@/lib/toast";
 import { platform } from "@/lib/platform";
 import { useAuthStore } from "@/store/useAuthStore";
@@ -28,9 +28,11 @@ export default function PurchaseCoins() {
   const [loading, setLoading] = useState(false);
   const [selectedId, setSelectedId] = useState<string | null>(null);
 
+  const returnTo = returnToFromLocationState(location.state) || FEED_HOME;
+
   const goBack = useCallback(() => {
-    navigate(returnToFromLocationState(location.state) || FEED_HOME, { replace: true });
-  }, [navigate, location.state]);
+    navigate(returnTo, { replace: true });
+  }, [navigate, returnTo]);
 
   const loadProducts = useCallback(async () => {
     if (!isNative) return;
@@ -218,11 +220,19 @@ export default function PurchaseCoins() {
           </div>
           <p className="text-xs text-white/40 text-center mt-3 px-4">
             By purchasing, you agree to our{" "}
-            <button type="button" className="text-white underline cursor-pointer" onClick={() => navigate("/terms")}>
+            <button
+              type="button"
+              className="text-white underline cursor-pointer"
+              onClick={() => navigate("/terms", { state: containerReturnState(returnTo) })}
+            >
               Terms of Use (EULA)
             </button>{" "}
             and{" "}
-            <button type="button" className="text-white underline cursor-pointer" onClick={() => navigate("/privacy")}>
+            <button
+              type="button"
+              className="text-white underline cursor-pointer"
+              onClick={() => navigate("/privacy", { state: containerReturnState(returnTo) })}
+            >
               Privacy Policy
             </button>
             .
