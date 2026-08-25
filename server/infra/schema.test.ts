@@ -27,15 +27,17 @@ describe("baseline schema", () => {
     expect(sql.includes("restore_rose_battle_points")).toBe(false);
   });
 
-  it("preflights legacy FK parent id columns before REFERENCES", () => {
-    expect(sql).toContain("live_streams_id_unique_idx");
-    expect(sql).toContain("videos_id_unique_idx");
-    expect(sql).toContain("gifts_id_unique_idx");
-    expect(sql).toContain("users_id_unique_idx");
-    const liveIdIdx = sql.indexOf("CREATE UNIQUE INDEX IF NOT EXISTS live_streams_id_unique_idx");
+  it("creates greenfield parents with PRIMARY KEY id before REFERENCES", () => {
+    expect(sql).toMatch(/CREATE TABLE IF NOT EXISTS users[\s\S]*id UUID PRIMARY KEY/);
+    expect(sql).toMatch(/CREATE TABLE IF NOT EXISTS videos[\s\S]*id UUID PRIMARY KEY/);
+    expect(sql).toMatch(/CREATE TABLE IF NOT EXISTS live_streams[\s\S]*id UUID PRIMARY KEY/);
+    expect(sql).toMatch(/CREATE TABLE IF NOT EXISTS gifts[\s\S]*id TEXT PRIMARY KEY/);
+    expect(sql).not.toMatch(/Legacy-production compatibility preflight/);
+    expect(sql).not.toMatch(/user_id::uuid WHERE id IS NULL/);
+    const usersIdx = sql.indexOf("CREATE TABLE IF NOT EXISTS users");
     const liveRefIdx = sql.indexOf("stream_id UUID NOT NULL REFERENCES live_streams(id)");
-    expect(liveIdIdx).toBeGreaterThan(0);
-    expect(liveRefIdx).toBeGreaterThan(liveIdIdx);
+    expect(usersIdx).toBeGreaterThan(0);
+    expect(liveRefIdx).toBeGreaterThan(usersIdx);
   });
 });
 

@@ -64,7 +64,7 @@ describe("PAGE-073 Admin Economy ownership", () => {
     expect(gifts).toMatch(/WHERE id = \$1 AND active = TRUE/);
     expect(catalog).toMatch(/FROM gifts/);
     expect(catalog).toMatch(/active = TRUE/);
-    expect(cache).toMatch(/elix:gifts:catalog:v1/);
+    expect(cache).toMatch(/gifts:catalog:v1/);
     expect(cache).not.toMatch(/new Map\(/);
     expect(settle).toMatch(/gift_creator_pct/);
     expect(ws).toMatch(/class WsClient/);

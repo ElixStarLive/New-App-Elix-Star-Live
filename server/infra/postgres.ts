@@ -8,7 +8,6 @@ import { logger } from "./logger.js";
 const ADVISORY_KEY = 87236401;
 const BASELINE_MIGRATION = "20260819100000_baseline.sql";
 const MIGRATIONS_TABLE = "schema_migrations";
-const LEGACY_MIGRATIONS_TABLE = "elix_schema_migrations";
 
 function migrationsDir(): string {
   return path.resolve(path.dirname(fileURLToPath(import.meta.url)), "../migrations");
@@ -116,19 +115,7 @@ async function assertNewAppDatabaseTarget(
   );
 }
 
-/**
- * Prefer NEW `schema_migrations`.
- * If an earlier NEW-app boot created `elix_schema_migrations` on the NEW Neon DB,
- * rename that tracker table once to `schema_migrations`. This is only a rename of
- * the NEW app's own migration ledger — never seeds/alters OLD `elix_auth*` tables,
- * and never runs against OLD Neon (refused by assertNewAppDatabaseTarget).
- */
 async function ensureMigrationsTable(client: pg.PoolClient): Promise<void> {
-  const hasNew = await baseTableExists(client, MIGRATIONS_TABLE);
-  const hasLegacyName = await baseTableExists(client, LEGACY_MIGRATIONS_TABLE);
-  if (!hasNew && hasLegacyName) {
-    await client.query(`ALTER TABLE ${LEGACY_MIGRATIONS_TABLE} RENAME TO ${MIGRATIONS_TABLE}`);
-  }
   await client.query(`
     CREATE TABLE IF NOT EXISTS ${MIGRATIONS_TABLE} (
       id SERIAL PRIMARY KEY,
