@@ -4,10 +4,10 @@ import { BLOCKED_LIST_ERROR, createBlockedUsersSession } from "./blockedUsersSes
 const userA = "11111111-1111-4111-8111-111111111111";
 const userB = "22222222-2222-4222-8222-222222222222";
 const target = {
-  blocked_user_id: "33333333-3333-4333-8333-333333333333",
+  blockedUserId: "33333333-3333-4333-8333-333333333333",
   username: "maya",
-  display_name: "Maya",
-  created_at: "2026-08-21T00:00:00.000Z",
+  displayName: "Maya",
+  createdAt: "2026-08-21T00:00:00.000Z",
 };
 
 function deferred<T>() {
@@ -98,9 +98,9 @@ describe("PAGE-044 blocked-users session", () => {
     await deps.session.load(userA);
     const hold = deferred<{ ok: true } | { ok: false; error: string; sessionExpired: boolean }>();
     deps.unblockUser.mockReturnValueOnce(hold.promise);
-    const first = deps.session.unblock(target.blocked_user_id);
-    const second = deps.session.unblock(target.blocked_user_id);
-    expect(deps.session.getSnapshot().pendingIds).toEqual([target.blocked_user_id]);
+    const first = deps.session.unblock(target.blockedUserId);
+    const second = deps.session.unblock(target.blockedUserId);
+    expect(deps.session.getSnapshot().pendingIds).toEqual([target.blockedUserId]);
     expect(deps.session.getSnapshot().users).toHaveLength(1);
     await second;
     hold.resolve({ ok: true });
@@ -115,7 +115,7 @@ describe("PAGE-044 blocked-users session", () => {
     deps.listBlockedUsers.mockResolvedValueOnce({ ok: true, rows: [target] });
     await deps.session.load(userA);
     deps.unblockUser.mockResolvedValueOnce({ ok: false, error: "Failed to unblock user", sessionExpired: false });
-    await deps.session.unblock(target.blocked_user_id);
+    await deps.session.unblock(target.blockedUserId);
     expect(deps.session.getSnapshot().users).toEqual([target]);
     expect(deps.toast).toHaveBeenCalledWith("Failed to unblock user");
   });

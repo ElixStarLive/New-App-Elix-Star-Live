@@ -56,88 +56,88 @@ export type AdminRsSeason = {
   slug: string;
   title: string;
   description: string | null;
-  starts_at: string;
-  ends_at: string;
+  startsAt: string;
+  endsAt: string;
   status: AdminRsSeasonStatus;
-  created_by: string | null;
-  created_at: string;
+  createdBy: string | null;
+  createdAt: string;
 };
 
 export type AdminRsCategory = {
   id: string;
-  season_id: string;
+  seasonId: string;
   slug: string;
   title: string;
-  sort_order: number;
-  is_active: boolean;
+  sortOrder: number;
+  isActive: boolean;
 };
 
 export type AdminRsRegion = {
   id: string;
-  season_id: string;
+  seasonId: string;
   slug: string;
   title: string;
-  country_codes: string[];
-  sort_order: number;
-  is_active: boolean;
+  countryCodes: string[];
+  sortOrder: number;
+  isActive: boolean;
 };
 
 export type AdminRsChallenge = {
   id: string;
-  season_id: string;
-  category_id: string;
-  region_id: string | null;
-  week_index: number;
+  seasonId: string;
+  categoryId: string;
+  regionId: string | null;
+  weekIndex: number;
   title: string;
   description: string | null;
-  sound_track_id: string;
-  opens_at: string;
-  closes_at: string;
+  soundTrackId: string;
+  opensAt: string;
+  closesAt: string;
   status: AdminRsChallengeStatus;
-  leaderboard_frozen: boolean;
+  leaderboardFrozen: boolean;
 };
 
 export type AdminRsEntry = {
   id: string;
-  challenge_id: string;
-  creator_user_id: string;
+  challengeId: string;
+  creatorUserId: string;
   status: string;
 };
 
 export type AdminRsAudit = {
   id: string;
   action: string;
-  entity_type: string;
-  entity_id: string | null;
-  created_at: string;
+  entityType: string;
+  entityId: string | null;
+  createdAt: string;
 };
 
 export type AdminRsBadge = {
   id: string;
-  season_id: string;
+  seasonId: string;
   code: string;
   title: string;
-  image_url: string | null;
+  imageUrl: string | null;
   kind: AdminRsBadgeKind;
 };
 
 export type AdminRsRewardDefinition = {
   id: string;
-  season_id: string;
-  place_from: number;
-  place_to: number;
-  category_id: string | null;
-  region_id: string | null;
-  reward_kind: AdminRsRewardKind;
+  seasonId: string;
+  placeFrom: number;
+  placeTo: number;
+  categoryId: string | null;
+  regionId: string | null;
+  rewardKind: AdminRsRewardKind;
   payload: Record<string, unknown>;
-  is_active: boolean;
+  isActive: boolean;
 };
 
 export type AdminRsRewardGrant = {
   id: string;
-  definition_id: string;
-  user_id: string;
-  challenge_id: string | null;
+  definitionId: string;
+  userId: string;
+  challengeId: string | null;
   status: AdminRsGrantStatus;
   notes: string | null;
 };
@@ -258,7 +258,7 @@ export function parseAdminRisingStarsChallengeStatus(raw: unknown, optional: boo
 export function parseAdminRisingStarsWeekIndex(raw: unknown): number {
   if (raw == null || raw === "") return 1;
   if (typeof raw !== "number" || !Number.isInteger(raw) || raw < 1 || raw > 520) {
-    throw new AppError("validation_error", "Invalid week_index", 400);
+    throw new AppError("validation_error", "Invalid weekIndex", 400);
   }
   return raw;
 }
@@ -266,18 +266,18 @@ export function parseAdminRisingStarsWeekIndex(raw: unknown): number {
 export function parseAdminRisingStarsSortOrder(raw: unknown): number {
   if (raw == null || raw === "") return 0;
   if (typeof raw !== "number" || !Number.isInteger(raw) || raw < 0 || raw > 10_000) {
-    throw new AppError("validation_error", "Invalid sort_order", 400);
+    throw new AppError("validation_error", "Invalid sortOrder", 400);
   }
   return raw;
 }
 
 export function parseAdminRisingStarsCountryCodes(raw: unknown): string[] {
   if (raw == null) return [];
-  if (!Array.isArray(raw)) throw new AppError("validation_error", "Invalid country_codes", 400);
-  if (raw.length > 20) throw new AppError("validation_error", "Invalid country_codes", 400);
+  if (!Array.isArray(raw)) throw new AppError("validation_error", "Invalid countryCodes", 400);
+  if (raw.length > 20) throw new AppError("validation_error", "Invalid countryCodes", 400);
   return raw.map((item) => {
     if (typeof item !== "string" || !COUNTRY_RE.test(item.trim().toUpperCase())) {
-      throw new AppError("validation_error", "Invalid country_codes", 400);
+      throw new AppError("validation_error", "Invalid countryCodes", 400);
     }
     return item.trim().toUpperCase();
   });
@@ -312,7 +312,7 @@ export function parseAdminRisingStarsBadgeKind(raw: unknown): AdminRsBadgeKind {
 
 export function parseAdminRisingStarsRewardKind(raw: unknown): AdminRsRewardKind {
   if (typeof raw !== "string" || !(ADMIN_RS_REWARD_KINDS as readonly string[]).includes(raw)) {
-    throw new AppError("validation_error", "Invalid reward_kind", 400);
+    throw new AppError("validation_error", "Invalid rewardKind", 400);
   }
   return raw as AdminRsRewardKind;
 }
@@ -327,10 +327,10 @@ export function parseAdminRisingStarsGrantStatus(raw: unknown): AdminRsGrantStat
 
 export function parseAdminRisingStarsOptionalUrl(raw: unknown): string | null {
   if (raw == null || raw === "") return null;
-  if (typeof raw !== "string") throw new AppError("validation_error", "Invalid image_url", 400);
+  if (typeof raw !== "string") throw new AppError("validation_error", "Invalid imageUrl", 400);
   const url = raw.trim();
   if (url.length > 500 || !/^https?:\/\//i.test(url)) {
-    throw new AppError("validation_error", "Invalid image_url", 400);
+    throw new AppError("validation_error", "Invalid imageUrl", 400);
   }
   return url;
 }
@@ -382,11 +382,11 @@ function mapSeason(row: {
     slug: row.slug,
     title: row.title,
     description: row.description,
-    starts_at: starts,
-    ends_at: ends,
+    startsAt: starts,
+    endsAt: ends,
     status: row.status as AdminRsSeasonStatus,
-    created_by: row.created_by,
-    created_at: created,
+    createdBy: row.created_by,
+    createdAt: created,
   };
 }
 
@@ -400,11 +400,11 @@ function mapCategory(row: {
 }): AdminRsCategory {
   return {
     id: row.id,
-    season_id: row.season_id,
+    seasonId: row.season_id,
     slug: row.slug,
     title: row.title,
-    sort_order: Number(row.sort_order) || 0,
-    is_active: Boolean(row.is_active),
+    sortOrder: Number(row.sort_order) || 0,
+    isActive: Boolean(row.is_active),
   };
 }
 
@@ -420,12 +420,12 @@ function mapRegion(row: {
   const codes = Array.isArray(row.country_codes) ? row.country_codes.map(String) : [];
   return {
     id: row.id,
-    season_id: row.season_id,
+    seasonId: row.season_id,
     slug: row.slug,
     title: row.title,
-    country_codes: codes,
-    sort_order: Number(row.sort_order) || 0,
-    is_active: Boolean(row.is_active),
+    countryCodes: codes,
+    sortOrder: Number(row.sort_order) || 0,
+    isActive: Boolean(row.is_active),
   };
 }
 
@@ -451,17 +451,17 @@ function mapChallenge(row: {
   }
   return {
     id: row.id,
-    season_id: row.season_id,
-    category_id: row.category_id,
-    region_id: row.region_id,
-    week_index: Number(row.week_index) || 1,
+    seasonId: row.season_id,
+    categoryId: row.category_id,
+    regionId: row.region_id,
+    weekIndex: Number(row.week_index) || 1,
     title: row.title,
     description: row.description,
-    sound_track_id: row.sound_track_id,
-    opens_at: opens,
-    closes_at: closes,
+    soundTrackId: row.sound_track_id,
+    opensAt: opens,
+    closesAt: closes,
     status: row.status as AdminRsChallengeStatus,
-    leaderboard_frozen: Boolean(row.leaderboard_frozen),
+    leaderboardFrozen: Boolean(row.leaderboard_frozen),
   };
 }
 
@@ -538,12 +538,12 @@ export async function handleAdminRisingStarsCreateSeason(req: AuthedRequest, res
   noStore(res);
   const actorId = requireActor(req);
   if (!isRecord(req.body)) throw new AppError("validation_error", "Invalid body", 400);
-  rejectUnknownFields(req.body, ["slug", "title", "description", "starts_at", "ends_at", "status"]);
+  rejectUnknownFields(req.body, ["slug", "title", "description", "startsAt", "endsAt", "status"]);
   const slug = parseAdminRisingStarsSlug(req.body.slug, 2, 80);
   const title = parseAdminRisingStarsTitle(req.body.title, 2, 120);
   const description = parseAdminRisingStarsDescription(req.body.description);
-  const startsAt = parseAdminRisingStarsIsoDate(req.body.starts_at, "starts_at");
-  const endsAt = parseAdminRisingStarsIsoDate(req.body.ends_at, "ends_at");
+  const startsAt = parseAdminRisingStarsIsoDate(req.body.startsAt, "startsAt");
+  const endsAt = parseAdminRisingStarsIsoDate(req.body.endsAt, "endsAt");
   assertAdminRisingStarsDateOrder(startsAt, endsAt);
   const status = parseAdminRisingStarsSeasonStatus(req.body.status);
   try {
@@ -582,11 +582,11 @@ export async function handleAdminRisingStarsCreateCategory(req: AuthedRequest, r
   noStore(res);
   const actorId = requireActor(req);
   if (!isRecord(req.body)) throw new AppError("validation_error", "Invalid body", 400);
-  rejectUnknownFields(req.body, ["season_id", "slug", "title", "sort_order"]);
-  const seasonId = parseAdminRisingStarsId(req.body.season_id, "season_id");
+  rejectUnknownFields(req.body, ["seasonId", "slug", "title", "sortOrder"]);
+  const seasonId = parseAdminRisingStarsId(req.body.seasonId, "seasonId");
   const slug = parseAdminRisingStarsSlug(req.body.slug, 2, 60);
   const title = parseAdminRisingStarsTitle(req.body.title, 2, 80);
-  const sortOrder = parseAdminRisingStarsSortOrder(req.body.sort_order);
+  const sortOrder = parseAdminRisingStarsSortOrder(req.body.sortOrder);
   try {
     const category = await withTransaction(async (client) => {
       await requireSeason(client, seasonId);
@@ -620,12 +620,12 @@ export async function handleAdminRisingStarsCreateRegion(req: AuthedRequest, res
   noStore(res);
   const actorId = requireActor(req);
   if (!isRecord(req.body)) throw new AppError("validation_error", "Invalid body", 400);
-  rejectUnknownFields(req.body, ["season_id", "slug", "title", "country_codes", "sort_order"]);
-  const seasonId = parseAdminRisingStarsId(req.body.season_id, "season_id");
+  rejectUnknownFields(req.body, ["seasonId", "slug", "title", "countryCodes", "sortOrder"]);
+  const seasonId = parseAdminRisingStarsId(req.body.seasonId, "seasonId");
   const slug = parseAdminRisingStarsSlug(req.body.slug, 2, 60);
   const title = parseAdminRisingStarsTitle(req.body.title, 2, 80);
-  const countryCodes = parseAdminRisingStarsCountryCodes(req.body.country_codes);
-  const sortOrder = parseAdminRisingStarsSortOrder(req.body.sort_order);
+  const countryCodes = parseAdminRisingStarsCountryCodes(req.body.countryCodes);
+  const sortOrder = parseAdminRisingStarsSortOrder(req.body.sortOrder);
   try {
     const region = await withTransaction(async (client) => {
       await requireSeason(client, seasonId);
@@ -693,41 +693,41 @@ export async function handleAdminRisingStarsCreateChallenge(req: AuthedRequest, 
   const actorId = requireActor(req);
   if (!isRecord(req.body)) throw new AppError("validation_error", "Invalid body", 400);
   rejectUnknownFields(req.body, [
-    "season_id",
-    "category_id",
-    "region_id",
-    "week_index",
+    "seasonId",
+    "categoryId",
+    "regionId",
+    "weekIndex",
     "title",
     "description",
-    "sound_track_id",
-    "sound_meta",
-    "opens_at",
-    "closes_at",
-    "exclusive_until",
+    "soundTrackId",
+    "soundMeta",
+    "opensAt",
+    "closesAt",
+    "exclusiveUntil",
     "status",
   ]);
-  const seasonId = parseAdminRisingStarsId(req.body.season_id, "season_id");
-  const categoryId = parseAdminRisingStarsId(req.body.category_id, "category_id");
+  const seasonId = parseAdminRisingStarsId(req.body.seasonId, "seasonId");
+  const categoryId = parseAdminRisingStarsId(req.body.categoryId, "categoryId");
   const regionId =
-    req.body.region_id == null || req.body.region_id === ""
+    req.body.regionId == null || req.body.regionId === ""
       ? null
-      : parseAdminRisingStarsId(req.body.region_id, "region_id");
-  const weekIndex = parseAdminRisingStarsWeekIndex(req.body.week_index);
+      : parseAdminRisingStarsId(req.body.regionId, "regionId");
+  const weekIndex = parseAdminRisingStarsWeekIndex(req.body.weekIndex);
   const title = parseAdminRisingStarsTitle(req.body.title, 2, 120);
   const description = parseAdminRisingStarsDescription(req.body.description);
-  if (typeof req.body.sound_track_id !== "string" || !req.body.sound_track_id.trim()) {
-    throw new AppError("validation_error", "sound_track_id required", 400);
+  if (typeof req.body.soundTrackId !== "string" || !req.body.soundTrackId.trim()) {
+    throw new AppError("validation_error", "soundTrackId required", 400);
   }
-  const soundTrackId = req.body.sound_track_id.trim();
-  if (soundTrackId.length > 200) throw new AppError("validation_error", "sound_track_id too long", 400);
-  const soundMeta = parseAdminRisingStarsPayload(req.body.sound_meta);
-  const opensAt = parseAdminRisingStarsIsoDate(req.body.opens_at, "opens_at");
-  const closesAt = parseAdminRisingStarsIsoDate(req.body.closes_at, "closes_at");
+  const soundTrackId = req.body.soundTrackId.trim();
+  if (soundTrackId.length > 200) throw new AppError("validation_error", "soundTrackId too long", 400);
+  const soundMeta = parseAdminRisingStarsPayload(req.body.soundMeta);
+  const opensAt = parseAdminRisingStarsIsoDate(req.body.opensAt, "opensAt");
+  const closesAt = parseAdminRisingStarsIsoDate(req.body.closesAt, "closesAt");
   assertAdminRisingStarsDateOrder(opensAt, closesAt);
   const exclusiveUntil =
-    req.body.exclusive_until == null || req.body.exclusive_until === ""
+    req.body.exclusiveUntil == null || req.body.exclusiveUntil === ""
       ? null
-      : parseAdminRisingStarsIsoDate(req.body.exclusive_until, "exclusive_until");
+      : parseAdminRisingStarsIsoDate(req.body.exclusiveUntil, "exclusiveUntil");
   const status = parseAdminRisingStarsChallengeStatus(req.body.status, true);
   try {
     const challenge = await withTransaction(async (client) => {
@@ -774,7 +774,7 @@ export async function handleAdminRisingStarsCreateChallenge(req: AuthedRequest, 
       if (!row) throw new AppError("unavailable", "CREATE_FAILED", 500);
       const mapped = mapChallenge(row);
       await writeRsAudit(client, actorId, "create_challenge", "challenge", mapped.id, {
-        sound_track_id: mapped.sound_track_id,
+        soundTrackId: mapped.soundTrackId,
       });
       return mapped;
     });
@@ -871,7 +871,7 @@ export async function handleAdminRisingStarsFreeze(req: AuthedRequest, res: Resp
       }>(`${CHALLENGE_SELECT} WHERE id = $1 FOR UPDATE`, [challengeId]);
       if (!locked.rows[0]) throw new AppError("not_found", "NOT_FOUND", 404);
       const current = mapChallenge(locked.rows[0]);
-      if (current.leaderboard_frozen === frozen) return current;
+      if (current.leaderboardFrozen === frozen) return current;
       const updated = await client.query<{
         id: string;
         season_id: string;
@@ -895,8 +895,8 @@ export async function handleAdminRisingStarsFreeze(req: AuthedRequest, res: Resp
       );
       const mapped = mapChallenge(updated.rows[0]);
       await writeRsAudit(client, actorId, "freeze_leaderboard", "challenge", mapped.id, {
-        previous: current.leaderboard_frozen,
-        frozen: mapped.leaderboard_frozen,
+        previous: current.leaderboardFrozen,
+        frozen: mapped.leaderboardFrozen,
       });
       return mapped;
     });
@@ -1036,8 +1036,8 @@ export async function handleAdminRisingStarsDisqualify(req: AuthedRequest, res: 
       const current = locked.rows[0];
       const mapped: AdminRsEntry = {
         id: current.id,
-        challenge_id: current.challenge_id,
-        creator_user_id: current.user_id,
+        challengeId: current.challenge_id,
+        creatorUserId: current.user_id,
         status: current.status,
       };
       if (current.status === "disqualified") return mapped;
@@ -1055,12 +1055,12 @@ export async function handleAdminRisingStarsDisqualify(req: AuthedRequest, res: 
       const next = updated.rows[0];
       await writeRsAudit(client, actorId, "disqualify_entry", "entry", next.id, {
         previous: current.status,
-        challenge_id: next.challenge_id,
+        challengeId: next.challenge_id,
       });
       return {
         id: next.id,
-        challenge_id: next.challenge_id,
-        creator_user_id: next.user_id,
+        challengeId: next.challenge_id,
+        creatorUserId: next.user_id,
         status: next.status,
       };
     });
@@ -1075,11 +1075,11 @@ export async function handleAdminRisingStarsCreateBadge(req: AuthedRequest, res:
   noStore(res);
   const actorId = requireActor(req);
   if (!isRecord(req.body)) throw new AppError("validation_error", "Invalid body", 400);
-  rejectUnknownFields(req.body, ["season_id", "code", "title", "image_url", "kind"]);
-  const seasonId = parseAdminRisingStarsId(req.body.season_id, "season_id");
+  rejectUnknownFields(req.body, ["seasonId", "code", "title", "imageUrl", "kind"]);
+  const seasonId = parseAdminRisingStarsId(req.body.seasonId, "seasonId");
   const code = parseAdminRisingStarsSlug(req.body.code, 2, 60);
   const title = parseAdminRisingStarsTitle(req.body.title, 2, 120);
-  const imageUrl = parseAdminRisingStarsOptionalUrl(req.body.image_url);
+  const imageUrl = parseAdminRisingStarsOptionalUrl(req.body.imageUrl);
   const kind = parseAdminRisingStarsBadgeKind(req.body.kind);
   try {
     const badge = await withTransaction(async (client) => {
@@ -1104,10 +1104,10 @@ export async function handleAdminRisingStarsCreateBadge(req: AuthedRequest, res:
       }
       const mapped: AdminRsBadge = {
         id: row.id,
-        season_id: row.season_id,
+        seasonId: row.season_id,
         code: row.code,
         title: row.title,
-        image_url: row.image_url,
+        imageUrl: row.image_url,
         kind: row.kind as AdminRsBadgeKind,
       };
       await writeRsAudit(client, actorId, "create_badge", "badge", mapped.id, { code: mapped.code });
@@ -1165,33 +1165,33 @@ export async function handleAdminRisingStarsCreateRewardDefinition(req: AuthedRe
   const actorId = requireActor(req);
   if (!isRecord(req.body)) throw new AppError("validation_error", "Invalid body", 400);
   rejectUnknownFields(req.body, [
-    "season_id",
-    "place_from",
-    "place_to",
-    "category_id",
-    "region_id",
-    "reward_kind",
+    "seasonId",
+    "placeFrom",
+    "placeTo",
+    "categoryId",
+    "regionId",
+    "rewardKind",
     "payload",
   ]);
-  const seasonId = parseAdminRisingStarsId(req.body.season_id, "season_id");
-  if (typeof req.body.place_from !== "number" || !Number.isInteger(req.body.place_from) || req.body.place_from < 1) {
-    throw new AppError("validation_error", "Invalid place_from", 400);
+  const seasonId = parseAdminRisingStarsId(req.body.seasonId, "seasonId");
+  if (typeof req.body.placeFrom !== "number" || !Number.isInteger(req.body.placeFrom) || req.body.placeFrom < 1) {
+    throw new AppError("validation_error", "Invalid placeFrom", 400);
   }
-  if (typeof req.body.place_to !== "number" || !Number.isInteger(req.body.place_to) || req.body.place_to < 1) {
-    throw new AppError("validation_error", "Invalid place_to", 400);
+  if (typeof req.body.placeTo !== "number" || !Number.isInteger(req.body.placeTo) || req.body.placeTo < 1) {
+    throw new AppError("validation_error", "Invalid placeTo", 400);
   }
-  if (req.body.place_to < req.body.place_from) {
-    throw new AppError("validation_error", "place_to must be >= place_from", 400);
+  if (req.body.placeTo < req.body.placeFrom) {
+    throw new AppError("validation_error", "placeTo must be >= placeFrom", 400);
   }
   const categoryId =
-    req.body.category_id == null || req.body.category_id === ""
+    req.body.categoryId == null || req.body.categoryId === ""
       ? null
-      : parseAdminRisingStarsId(req.body.category_id, "category_id");
+      : parseAdminRisingStarsId(req.body.categoryId, "categoryId");
   const regionId =
-    req.body.region_id == null || req.body.region_id === ""
+    req.body.regionId == null || req.body.regionId === ""
       ? null
-      : parseAdminRisingStarsId(req.body.region_id, "region_id");
-  const rewardKind = parseAdminRisingStarsRewardKind(req.body.reward_kind);
+      : parseAdminRisingStarsId(req.body.regionId, "regionId");
+  const rewardKind = parseAdminRisingStarsRewardKind(req.body.rewardKind);
   const payload = parseAdminRisingStarsPayload(req.body.payload);
   try {
     const reward = await withTransaction(async (client) => {
@@ -1215,7 +1215,7 @@ export async function handleAdminRisingStarsCreateRewardDefinition(req: AuthedRe
          RETURNING id::text AS id, season_id::text AS season_id, place_from, place_to,
                    category_id::text AS category_id, region_id::text AS region_id,
                    reward_kind, payload, is_active`,
-        [seasonId, req.body.place_from, req.body.place_to, categoryId, regionId, rewardKind, JSON.stringify(payload)],
+        [seasonId, req.body.placeFrom, req.body.placeTo, categoryId, regionId, rewardKind, JSON.stringify(payload)],
       );
       const row = inserted.rows[0];
       if (!row) throw new AppError("unavailable", "CREATE_FAILED", 500);
@@ -1224,17 +1224,17 @@ export async function handleAdminRisingStarsCreateRewardDefinition(req: AuthedRe
       }
       const mapped: AdminRsRewardDefinition = {
         id: row.id,
-        season_id: row.season_id,
-        place_from: Number(row.place_from),
-        place_to: Number(row.place_to),
-        category_id: row.category_id,
-        region_id: row.region_id,
-        reward_kind: row.reward_kind as AdminRsRewardKind,
+        seasonId: row.season_id,
+        placeFrom: Number(row.place_from),
+        placeTo: Number(row.place_to),
+        categoryId: row.category_id,
+        regionId: row.region_id,
+        rewardKind: row.reward_kind as AdminRsRewardKind,
         payload: parseAdminRisingStarsPayload(row.payload),
-        is_active: Boolean(row.is_active),
+        isActive: Boolean(row.is_active),
       };
       await writeRsAudit(client, actorId, "create_reward_definition", "reward_definition", mapped.id, {
-        reward_kind: mapped.reward_kind,
+        rewardKind: mapped.rewardKind,
       });
       return mapped;
     });
@@ -1317,9 +1317,9 @@ export async function handleAdminRisingStarsGrantReward(req: AuthedRequest, res:
       }
       const mapped: AdminRsRewardGrant = {
         id: row.id,
-        definition_id: row.definition_id,
-        user_id: row.user_id,
-        challenge_id: row.challenge_id,
+        definitionId: row.definition_id,
+        userId: row.user_id,
+        challengeId: row.challenge_id,
         status: row.status as AdminRsGrantStatus,
         notes: row.notes,
       };
@@ -1362,9 +1362,9 @@ export async function handleAdminRisingStarsAudit(req: AuthedRequest, res: Respo
       return {
         id: row.id,
         action: row.action,
-        entity_type: row.entity_type,
-        entity_id: row.entity_id,
-        created_at: created,
+        entityType: row.entity_type,
+        entityId: row.entity_id,
+        createdAt: created,
       };
     });
     res.json({ audit });

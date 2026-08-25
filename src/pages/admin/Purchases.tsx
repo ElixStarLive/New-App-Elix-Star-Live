@@ -164,24 +164,24 @@ export default function AdminPurchases() {
                 {tab === "iap"
                   ? (rows as AdminIapPurchase[]).map((row) => (
                       <tr key={row.id} className="border-t border-white/5">
-                        <td className="p-2 text-white/60 whitespace-nowrap">{formatAdminPurchaseWhen(row.created_at)}</td>
-                        <td className="p-2 font-mono text-white/70">{formatAdminPurchaseId(row.user_id)}</td>
+                        <td className="p-2 text-white/60 whitespace-nowrap">{formatAdminPurchaseWhen(row.createdAt)}</td>
+                        <td className="p-2 font-mono text-white/70">{formatAdminPurchaseId(row.userId)}</td>
                         <td className="p-2 text-white/70 break-all">
-                          {row.product_id} · {row.provider} · {row.status}
+                          {row.productId} · {row.provider} · {row.status}
                         </td>
                         <td className="p-2 tabular-nums text-[#F5F5F7]">{String(row.coins)}</td>
                       </tr>
                     ))
                   : (rows as AdminShopPurchase[]).map((row) => (
                       <tr key={row.id} className="border-t border-white/5">
-                        <td className="p-2 text-white/60 whitespace-nowrap">{formatAdminPurchaseWhen(row.created_at)}</td>
+                        <td className="p-2 text-white/60 whitespace-nowrap">{formatAdminPurchaseWhen(row.createdAt)}</td>
                         <td className="p-2 font-mono text-white/70">
-                          {formatAdminPurchaseId(row.user_id || row.stripe_session_id)}
+                          {formatAdminPurchaseId(row.userId || row.stripeSessionId)}
                         </td>
                         <td className="p-2 text-white/70 break-all">
-                          {row.item_id} · {row.status}
+                          {row.itemId} · {row.status}
                         </td>
-                        <td className="p-2 tabular-nums text-[#F5F5F7]">{formatAdminPurchasePence(row.amount_pence)}</td>
+                        <td className="p-2 tabular-nums text-[#F5F5F7]">{formatAdminPurchasePence(row.amountPence)}</td>
                       </tr>
                     ))}
               </tbody>

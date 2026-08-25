@@ -22,6 +22,7 @@ import {
   type BattleEnergyCaps,
   type DailyRewardPolicy,
   type EngagementFlagKey,
+  type EngagementFlagRow,
   type EngagementFlags,
 } from "../engagement/settings.js";
 
@@ -35,16 +36,16 @@ export type MissionAudience = (typeof MISSION_AUDIENCES)[number];
 
 export type AdminXpConfig = {
   source: string;
-  xp_amount: number;
+  xpAmount: number;
   enabled: boolean;
   description: string;
 };
 
 export type AdminLevelRow = {
   level: number;
-  total_xp_required: number;
+  totalXpRequired: number;
   title: string | null;
-  badge_code: string | null;
+  badgeCode: string | null;
 };
 
 export type AdminMissionRow = {
@@ -52,38 +53,38 @@ export type AdminMissionRow = {
   scope: string;
   title: string;
   description: string;
-  goal_count: number;
-  reward_xp: number;
-  reward_promo_coins: number;
-  reward_energy: number;
-  metric_key: string;
+  goalCount: number;
+  rewardXp: number;
+  rewardPromoCoins: number;
+  rewardEnergy: number;
+  metricKey: string;
   enabled: boolean;
-  sort_order: number;
+  sortOrder: number;
   audience: MissionAudience;
-  starts_at: string | null;
-  ends_at: string | null;
+  startsAt: string | null;
+  endsAt: string | null;
   archived: boolean;
 };
 
 export type AdminDailyReward = {
-  streak_day: number;
-  reward_xp: number;
-  reward_promo_coins: number;
-  reward_label: string | null;
+  streakDay: number;
+  rewardXp: number;
+  rewardPromoCoins: number;
+  rewardLabel: string | null;
 };
 
 export type AdminProgressionSnapshot = {
-  starter_coin_balance: number;
-  total_xp: number;
-  current_level: number;
+  starterCoinBalance: number;
+  totalXp: number;
+  currentLevel: number;
 };
 
 export type AdminAuditEntry = {
   id: string;
-  admin_user_id: string;
+  adminUserId: string;
   action: string;
   target: string;
-  created_at: string;
+  createdAt: string;
 };
 
 export type MissionAdminMeta = {
@@ -92,6 +93,51 @@ export type MissionAdminMeta = {
   ends_at: string | null;
   archived: boolean;
 };
+
+function toAdminCapsJson(caps: BattleEnergyCaps) {
+  return {
+    watchAmount: caps.watch_amount,
+    commentAmount: caps.comment_amount,
+    shareAmount: caps.share_amount,
+    watchCap: caps.watch_cap,
+    commentCap: caps.comment_cap,
+    shareCap: caps.share_cap,
+    storageCap: caps.storage_cap,
+    sessionCap: caps.session_cap,
+    dailyCap: caps.daily_cap,
+    minimumBoost: caps.minimum_boost,
+    allowedBoostValues: caps.allowed_boost_values,
+    fanEnergyThreshold: caps.fan_energy_threshold,
+    scoreMultiplier: caps.score_multiplier,
+    boostDurationSec: caps.boost_duration_sec,
+    enabled: caps.enabled,
+  };
+}
+
+function toAdminPolicyJson(policy: DailyRewardPolicy) {
+  return {
+    streakResetPolicy: policy.streak_reset_policy,
+    effectiveStart: policy.effective_start,
+    effectiveEnd: policy.effective_end,
+    active: policy.active,
+  };
+}
+
+function toAdminFlagRowsJson(detail: { flags: EngagementFlags; rows: EngagementFlagRow[] }) {
+  return {
+    flags: detail.flags,
+    rows: detail.rows.map((row) => ({
+      key: row.key,
+      effective: row.effective,
+      defaultValue: row.default_value,
+      envValue: row.env_value,
+      adminValue: row.admin_value,
+      lastChangedBy: row.last_changed_by,
+      lastChangedAt: row.last_changed_at,
+      reason: row.reason,
+    })),
+  };
+}
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null && !Array.isArray(value);
@@ -196,32 +242,32 @@ async function readSetting(client: PoolClient, key: string): Promise<unknown> {
   return rows[0]?.value_json ?? null;
 }
 
-export function parseXpConfigPatch(body: unknown): { source: string; xp_amount: number; enabled: boolean } {
+export function parseXpConfigPatch(body: unknown): { source: string; xpAmount: number; enabled: boolean } {
   if (!isRecord(body)) throw new AppError("validation_error", "No fields to update", 400);
-  rejectUnknownFields(body, ["source", "xp_amount", "enabled", "description"]);
+  rejectUnknownFields(body, ["source", "xpAmount", "enabled", "description"]);
   if (typeof body.source !== "string" || !body.source.trim() || body.source.trim().length > 100) {
     throw new AppError("validation_error", "source invalid", 400);
   }
   return {
     source: body.source.trim(),
-    xp_amount: parseBoundedInt(body.xp_amount, "xp_amount", 0, XP_AMOUNT_MAX),
+    xpAmount: parseBoundedInt(body.xpAmount, "xpAmount", 0, XP_AMOUNT_MAX),
     enabled: parseOptionalBool(body.enabled, "enabled") ?? true,
   };
 }
 
 export function parseLevelPatch(body: unknown): {
   level: number;
-  total_xp_required: number;
+  totalXpRequired: number;
   title: string | null;
-  badge_code: string | null;
+  badgeCode: string | null;
 } {
   if (!isRecord(body)) throw new AppError("validation_error", "No fields to update", 400);
-  rejectUnknownFields(body, ["level", "total_xp_required", "title", "badge_code", "cosmetic_payload"]);
+  rejectUnknownFields(body, ["level", "totalXpRequired", "title", "badgeCode", "cosmeticPayload"]);
   return {
     level: parseBoundedInt(body.level, "level", 1, 1000),
-    total_xp_required: parseBoundedInt(body.total_xp_required, "total_xp_required", 1, LEVEL_XP_MAX),
+    totalXpRequired: parseBoundedInt(body.totalXpRequired, "totalXpRequired", 1, LEVEL_XP_MAX),
     title: parseOptionalText(body.title, "title", 100, true) ?? null,
-    badge_code: parseOptionalText(body.badge_code, "badge_code", 100, true) ?? null,
+    badgeCode: parseOptionalText(body.badgeCode, "badgeCode", 100, true) ?? null,
   };
 }
 
@@ -232,17 +278,17 @@ export function parseAdjustment(body: unknown): {
   idempotencyKey: string;
 } {
   if (!isRecord(body)) throw new AppError("validation_error", "No fields to update", 400);
-  rejectUnknownFields(body, ["user_id", "amount_delta", "reason", "idempotency_key"]);
-  const amountDelta = parseBoundedInt(body.amount_delta, "amount_delta", -ADJUST_ABS_MAX, ADJUST_ABS_MAX);
+  rejectUnknownFields(body, ["userId", "amountDelta", "reason", "idempotencyKey"]);
+  const amountDelta = parseBoundedInt(body.amountDelta, "amountDelta", -ADJUST_ABS_MAX, ADJUST_ABS_MAX);
   if (amountDelta === 0) throw new AppError("validation_error", "Adjustment cannot be zero", 400);
   const reason = parseOptionalText(body.reason, "reason", 1000, false);
   if (!reason || reason.length < 3) throw new AppError("validation_error", "reason required", 400);
-  const idempotencyKey = parseOptionalText(body.idempotency_key, "idempotency_key", 200, false);
+  const idempotencyKey = parseOptionalText(body.idempotencyKey, "idempotencyKey", 200, false);
   if (!idempotencyKey || idempotencyKey.length < 8) {
-    throw new AppError("validation_error", "idempotency_key required", 400);
+    throw new AppError("validation_error", "idempotencyKey required", 400);
   }
   return {
-    userId: parseUuid(body.user_id, "user_id"),
+    userId: parseUuid(body.userId, "userId"),
     amountDelta,
     reason,
     idempotencyKey,
@@ -252,29 +298,29 @@ export function parseAdjustment(body: unknown): {
 export function parseMissionPatch(body: unknown): {
   title?: string;
   description?: string | null;
-  goal_count?: number;
-  reward_xp?: number;
-  reward_promo_coins?: number;
-  reward_energy?: number;
+  goalCount?: number;
+  rewardXp?: number;
+  rewardPromoCoins?: number;
+  rewardEnergy?: number;
   enabled?: boolean;
-  sort_order?: number;
+  sortOrder?: number;
   audience?: MissionAudience;
-  starts_at?: string | null;
-  ends_at?: string | null;
+  startsAt?: string | null;
+  endsAt?: string | null;
 } {
   if (!isRecord(body)) throw new AppError("validation_error", "No fields to update", 400);
   rejectUnknownFields(body, [
     "title",
     "description",
-    "goal_count",
-    "reward_xp",
-    "reward_promo_coins",
-    "reward_energy",
+    "goalCount",
+    "rewardXp",
+    "rewardPromoCoins",
+    "rewardEnergy",
     "enabled",
-    "sort_order",
+    "sortOrder",
     "audience",
-    "starts_at",
-    "ends_at",
+    "startsAt",
+    "endsAt",
   ]);
   const audience = body.audience;
   if (audience !== undefined) {
@@ -285,46 +331,46 @@ export function parseMissionPatch(body: unknown): {
   return {
     title: parseOptionalText(body.title, "title", 200, false) ?? undefined,
     description: parseOptionalText(body.description, "description", 1000, true),
-    goal_count: parseOptionalInt(body.goal_count, "goal_count", 1, 1_000_000),
-    reward_xp: parseOptionalInt(body.reward_xp, "reward_xp", 0, XP_AMOUNT_MAX),
-    reward_promo_coins: parseOptionalInt(body.reward_promo_coins, "reward_promo_coins", 0, XP_AMOUNT_MAX),
-    reward_energy: parseOptionalInt(body.reward_energy, "reward_energy", 0, XP_AMOUNT_MAX),
+    goalCount: parseOptionalInt(body.goalCount, "goalCount", 1, 1_000_000),
+    rewardXp: parseOptionalInt(body.rewardXp, "rewardXp", 0, XP_AMOUNT_MAX),
+    rewardPromoCoins: parseOptionalInt(body.rewardPromoCoins, "rewardPromoCoins", 0, XP_AMOUNT_MAX),
+    rewardEnergy: parseOptionalInt(body.rewardEnergy, "rewardEnergy", 0, XP_AMOUNT_MAX),
     enabled: parseOptionalBool(body.enabled, "enabled"),
-    sort_order: parseOptionalInt(body.sort_order, "sort_order", 0, 10_000),
+    sortOrder: parseOptionalInt(body.sortOrder, "sortOrder", 0, 10_000),
     audience: audience as MissionAudience | undefined,
-    starts_at: parseOptionalText(body.starts_at, "starts_at", 40, true),
-    ends_at: parseOptionalText(body.ends_at, "ends_at", 40, true),
+    startsAt: parseOptionalText(body.startsAt, "startsAt", 40, true),
+    endsAt: parseOptionalText(body.endsAt, "endsAt", 40, true),
   };
 }
 
 export function parseDailyRewardPatch(body: unknown): AdminDailyReward {
   if (!isRecord(body)) throw new AppError("validation_error", "No fields to update", 400);
-  rejectUnknownFields(body, ["streak_day", "reward_xp", "reward_promo_coins", "reward_label", "cosmetic_ref"]);
-  const label = parseOptionalText(body.reward_label ?? body.cosmetic_ref, "reward_label", 200, false);
-  if (!label) throw new AppError("validation_error", "reward_label required", 400);
+  rejectUnknownFields(body, ["streakDay", "rewardXp", "rewardPromoCoins", "rewardLabel", "cosmeticRef"]);
+  const label = parseOptionalText(body.rewardLabel ?? body.cosmeticRef, "rewardLabel", 200, false);
+  if (!label) throw new AppError("validation_error", "rewardLabel required", 400);
   return {
-    streak_day: parseBoundedInt(body.streak_day, "streak_day", 1, 7),
-    reward_xp: parseBoundedInt(body.reward_xp, "reward_xp", 0, XP_AMOUNT_MAX),
-    reward_promo_coins: parseBoundedInt(body.reward_promo_coins, "reward_promo_coins", 0, XP_AMOUNT_MAX),
-    reward_label: label,
+    streakDay: parseBoundedInt(body.streakDay, "streakDay", 1, 7),
+    rewardXp: parseBoundedInt(body.rewardXp, "rewardXp", 0, XP_AMOUNT_MAX),
+    rewardPromoCoins: parseBoundedInt(body.rewardPromoCoins, "rewardPromoCoins", 0, XP_AMOUNT_MAX),
+    rewardLabel: label,
   };
 }
 
 export function parseDailyPolicyPatch(body: unknown): Partial<DailyRewardPolicy> {
   if (!isRecord(body)) throw new AppError("validation_error", "No fields to update", 400);
-  rejectUnknownFields(body, ["streak_reset_policy", "effective_start", "effective_end", "active"]);
+  rejectUnknownFields(body, ["streakResetPolicy", "effectiveStart", "effectiveEnd", "active"]);
   const policy: Partial<DailyRewardPolicy> = {};
-  if (body.streak_reset_policy !== undefined) {
-    if (body.streak_reset_policy !== "miss_one_day" && body.streak_reset_policy !== "never") {
-      throw new AppError("validation_error", "streak_reset_policy invalid", 400);
+  if (body.streakResetPolicy !== undefined) {
+    if (body.streakResetPolicy !== "miss_one_day" && body.streakResetPolicy !== "never") {
+      throw new AppError("validation_error", "streakResetPolicy invalid", 400);
     }
-    policy.streak_reset_policy = body.streak_reset_policy;
+    policy.streak_reset_policy = body.streakResetPolicy;
   }
-  if (body.effective_start !== undefined) {
-    policy.effective_start = parseOptionalText(body.effective_start, "effective_start", 40, true) ?? null;
+  if (body.effectiveStart !== undefined) {
+    policy.effective_start = parseOptionalText(body.effectiveStart, "effectiveStart", 40, true) ?? null;
   }
-  if (body.effective_end !== undefined) {
-    policy.effective_end = parseOptionalText(body.effective_end, "effective_end", 40, true) ?? null;
+  if (body.effectiveEnd !== undefined) {
+    policy.effective_end = parseOptionalText(body.effectiveEnd, "effectiveEnd", 40, true) ?? null;
   }
   if (body.active !== undefined) policy.active = parseOptionalBool(body.active, "active");
   return policy;
@@ -333,57 +379,57 @@ export function parseDailyPolicyPatch(body: unknown): Partial<DailyRewardPolicy>
 export function parseBattleEnergyCapsPatch(body: unknown): Partial<BattleEnergyCaps> {
   if (!isRecord(body)) throw new AppError("validation_error", "No fields to update", 400);
   rejectUnknownFields(body, [
-    "watch_amount",
-    "comment_amount",
-    "share_amount",
-    "watch_cap",
-    "comment_cap",
-    "share_cap",
-    "storage_cap",
-    "session_cap",
-    "daily_cap",
-    "minimum_boost",
-    "allowed_boost_values",
-    "fan_energy_threshold",
-    "score_multiplier",
-    "boost_duration_sec",
+    "watchAmount",
+    "commentAmount",
+    "shareAmount",
+    "watchCap",
+    "commentCap",
+    "shareCap",
+    "storageCap",
+    "sessionCap",
+    "dailyCap",
+    "minimumBoost",
+    "allowedBoostValues",
+    "fanEnergyThreshold",
+    "scoreMultiplier",
+    "boostDurationSec",
     "enabled",
   ]);
   const patch: Partial<BattleEnergyCaps> = {};
   const intFields = [
-    ["watch_amount", 0, 10_000],
-    ["comment_amount", 0, 10_000],
-    ["share_amount", 0, 10_000],
-    ["watch_cap", 0, 1_000_000],
-    ["comment_cap", 0, 1_000_000],
-    ["share_cap", 0, 1_000_000],
-    ["storage_cap", 0, 10_000_000],
-    ["session_cap", 0, 1_000_000],
-    ["daily_cap", 0, 10_000_000],
-    ["minimum_boost", 1, 100],
-    ["fan_energy_threshold", 1, 100_000_000],
-    ["boost_duration_sec", 1, 120],
+    ["watchAmount", "watch_amount", 0, 10_000],
+    ["commentAmount", "comment_amount", 0, 10_000],
+    ["shareAmount", "share_amount", 0, 10_000],
+    ["watchCap", "watch_cap", 0, 1_000_000],
+    ["commentCap", "comment_cap", 0, 1_000_000],
+    ["shareCap", "share_cap", 0, 1_000_000],
+    ["storageCap", "storage_cap", 0, 10_000_000],
+    ["sessionCap", "session_cap", 0, 1_000_000],
+    ["dailyCap", "daily_cap", 0, 10_000_000],
+    ["minimumBoost", "minimum_boost", 1, 100],
+    ["fanEnergyThreshold", "fan_energy_threshold", 1, 100_000_000],
+    ["boostDurationSec", "boost_duration_sec", 1, 120],
   ] as const;
-  for (const [field, min, max] of intFields) {
-    if (body[field] !== undefined) {
-      (patch as Record<string, number>)[field] = parseBoundedInt(body[field], field, min, max);
+  for (const [jsonField, internal, min, max] of intFields) {
+    if (body[jsonField] !== undefined) {
+      (patch as Record<string, number>)[internal] = parseBoundedInt(body[jsonField], jsonField, min, max);
     }
   }
-  if (body.score_multiplier !== undefined) {
-    if (typeof body.score_multiplier !== "number" || !Number.isFinite(body.score_multiplier)) {
-      throw new AppError("validation_error", "score_multiplier invalid", 400);
+  if (body.scoreMultiplier !== undefined) {
+    if (typeof body.scoreMultiplier !== "number" || !Number.isFinite(body.scoreMultiplier)) {
+      throw new AppError("validation_error", "scoreMultiplier invalid", 400);
     }
-    if (body.score_multiplier < 1 || body.score_multiplier > 5) {
-      throw new AppError("validation_error", "score_multiplier invalid", 400);
+    if (body.scoreMultiplier < 1 || body.scoreMultiplier > 5) {
+      throw new AppError("validation_error", "scoreMultiplier invalid", 400);
     }
-    patch.score_multiplier = body.score_multiplier;
+    patch.score_multiplier = body.scoreMultiplier;
   }
-  if (body.allowed_boost_values !== undefined) {
-    if (!Array.isArray(body.allowed_boost_values) || body.allowed_boost_values.length > 20) {
-      throw new AppError("validation_error", "allowed_boost_values invalid", 400);
+  if (body.allowedBoostValues !== undefined) {
+    if (!Array.isArray(body.allowedBoostValues) || body.allowedBoostValues.length > 20) {
+      throw new AppError("validation_error", "allowedBoostValues invalid", 400);
     }
-    patch.allowed_boost_values = body.allowed_boost_values.map((value, index) =>
-      parseBoundedInt(value, `allowed_boost_values.${index}`, 1, 100),
+    patch.allowed_boost_values = body.allowedBoostValues.map((value, index) =>
+      parseBoundedInt(value, `allowedBoostValues.${index}`, 1, 100),
     );
   }
   if (body.enabled !== undefined) patch.enabled = parseOptionalBool(body.enabled, "enabled");
@@ -454,7 +500,7 @@ async function listXpConfig(): Promise<AdminXpConfig[]> {
   );
   return rows.map((row) => ({
     source: row.source,
-    xp_amount: requiredCount(row.xp_amount, "XP amount"),
+    xpAmount: requiredCount(row.xp_amount, "XP amount"),
     enabled: row.enabled === true,
     description: row.description,
   }));
@@ -473,9 +519,9 @@ async function listLevels(): Promise<AdminLevelRow[]> {
   );
   return rows.map((row) => ({
     level: requiredCount(row.level, "level"),
-    total_xp_required: requiredCount(row.total_xp_required, "XP threshold"),
+    totalXpRequired: requiredCount(row.total_xp_required, "XP threshold"),
     title: row.title,
-    badge_code: row.badge_code,
+    badgeCode: row.badge_code,
   }));
 }
 
@@ -508,16 +554,16 @@ async function listMissions(): Promise<AdminMissionRow[]> {
         scope: row.scope,
         title: row.title,
         description: row.description,
-        goal_count: requiredCount(row.goal_count, "goal"),
-        reward_xp: requiredCount(row.reward_xp, "mission XP"),
-        reward_promo_coins: requiredCount(row.reward_promo_coins, "mission promo"),
-        reward_energy: requiredCount(row.reward_energy, "mission energy"),
-        metric_key: row.metric_key,
+        goalCount: requiredCount(row.goal_count, "goal"),
+        rewardXp: requiredCount(row.reward_xp, "mission XP"),
+        rewardPromoCoins: requiredCount(row.reward_promo_coins, "mission promo"),
+        rewardEnergy: requiredCount(row.reward_energy, "mission energy"),
+        metricKey: row.metric_key,
         enabled: row.enabled === true,
-        sort_order: requiredCount(row.sort_order, "sort_order"),
+        sortOrder: requiredCount(row.sort_order, "sort_order"),
         audience: extra.audience,
-        starts_at: extra.starts_at,
-        ends_at: extra.ends_at,
+        startsAt: extra.starts_at,
+        endsAt: extra.ends_at,
         archived: extra.archived,
       };
     });
@@ -537,10 +583,10 @@ async function listDailyRewards(): Promise<AdminDailyReward[]> {
      ORDER BY streak_day ASC`,
   );
   return rows.map((row) => ({
-    streak_day: requiredCount(row.streak_day, "streak_day"),
-    reward_xp: requiredCount(row.reward_xp, "daily XP"),
-    reward_promo_coins: requiredCount(row.reward_promo_coins, "daily promo"),
-    reward_label: row.reward_label,
+    streakDay: requiredCount(row.streak_day, "streak_day"),
+    rewardXp: requiredCount(row.reward_xp, "daily XP"),
+    rewardPromoCoins: requiredCount(row.reward_promo_coins, "daily promo"),
+    rewardLabel: row.reward_label,
   }));
 }
 
@@ -560,10 +606,10 @@ async function listAudit(limit: number): Promise<AdminAuditEntry[]> {
   );
   return rows.map((row) => ({
     id: row.id,
-    admin_user_id: row.admin_user_id,
+    adminUserId: row.admin_user_id,
     action: row.action,
     target: row.target,
-    created_at: row.created_at instanceof Date ? row.created_at.toISOString() : String(row.created_at),
+    createdAt: row.created_at instanceof Date ? row.created_at.toISOString() : String(row.created_at),
   }));
 }
 
@@ -586,9 +632,9 @@ async function snapshotUser(client: PoolClient, userId: string): Promise<AdminPr
   );
   if (!progress.rows[0]) throw new AppError("unavailable", "Progression not found", 503);
   return {
-    starter_coin_balance: requiredCount(wallet.rows[0].starter_coins, "Starter"),
-    total_xp: requiredCount(progress.rows[0].total_xp, "XP"),
-    current_level: requiredCount(progress.rows[0].fan_level, "Level"),
+    starterCoinBalance: requiredCount(wallet.rows[0].starter_coins, "Starter"),
+    totalXp: requiredCount(progress.rows[0].total_xp, "XP"),
+    currentLevel: requiredCount(progress.rows[0].fan_level, "Level"),
   };
 }
 
@@ -647,14 +693,14 @@ export async function handleAdminProgressionPatchConfig(req: AuthedRequest, res:
             SET xp_amount = $2, enabled = $3, updated_at = NOW()
           WHERE source = $1
           RETURNING source, xp_amount::text AS xp_amount, enabled, description`,
-        [patch.source, patch.xp_amount, patch.enabled],
+        [patch.source, patch.xpAmount, patch.enabled],
       );
       const next = updated.rows[0];
       if (!next) throw new AppError("unavailable", "CONFIG_UPDATE_FAILED", 500);
       await writeAudit(client, actorId, "xp_config_update", patch.source, prev.rows[0], next);
       return {
         source: next.source,
-        xp_amount: requiredCount(next.xp_amount, "XP amount"),
+        xpAmount: requiredCount(next.xp_amount, "XP amount"),
         enabled: next.enabled === true,
         description: next.description,
       };
@@ -703,7 +749,7 @@ export async function handleAdminProgressionPutLevel(req: AuthedRequest, res: Re
       );
       const previousXp = neighbors.rows[0]?.previous_xp == null ? null : requiredCount(neighbors.rows[0].previous_xp, "previous XP");
       const nextXp = neighbors.rows[0]?.next_xp == null ? null : requiredCount(neighbors.rows[0].next_xp, "next XP");
-      if ((previousXp != null && patch.total_xp_required <= previousXp) || (nextXp != null && patch.total_xp_required >= nextXp)) {
+      if ((previousXp != null && patch.totalXpRequired <= previousXp) || (nextXp != null && patch.totalXpRequired >= nextXp)) {
         throw new AppError(
           "validation_error",
           "Level XP must be greater than the previous level and lower than the next level.",
@@ -720,7 +766,7 @@ export async function handleAdminProgressionPutLevel(req: AuthedRequest, res: Re
             SET total_xp_required = $2, title = $3, badge_code = $4, updated_at = NOW()
           WHERE level = $1
           RETURNING level, total_xp_required::text AS total_xp_required, title, badge_code`,
-        [patch.level, patch.total_xp_required, patch.title, patch.badge_code],
+        [patch.level, patch.totalXpRequired, patch.title, patch.badgeCode],
       );
       const next = updated.rows[0];
       if (!next) throw new AppError("unavailable", "LEVEL_UPDATE_FAILED", 500);
@@ -735,9 +781,9 @@ export async function handleAdminProgressionPutLevel(req: AuthedRequest, res: Re
       await writeAudit(client, actorId, "level_update", `level_${patch.level}`, existing.rows[0], next);
       return {
         level: requiredCount(next.level, "level"),
-        total_xp_required: requiredCount(next.total_xp_required, "XP threshold"),
+        totalXpRequired: requiredCount(next.total_xp_required, "XP threshold"),
         title: next.title,
-        badge_code: next.badge_code,
+        badgeCode: next.badge_code,
       };
     });
     res.json({ level });
@@ -782,28 +828,28 @@ export async function handleAdminProgressionUser(req: AuthedRequest, res: Respon
       );
       return {
         progression,
-        xp_history: xp.rows.map((row) => {
+        xpHistory: xp.rows.map((row) => {
           const amount = Number(row.xp_amount);
           if (!Number.isInteger(amount) || !Number.isSafeInteger(amount)) {
-            throw new AppError("unavailable", "xp_amount is unreadable", 503);
+            throw new AppError("unavailable", "xpAmount is unreadable", 503);
           }
           return {
             id: row.id,
-            xp_amount: amount,
+            xpAmount: amount,
             source: row.source,
-            created_at: row.created_at instanceof Date ? row.created_at.toISOString() : String(row.created_at),
+            createdAt: row.created_at instanceof Date ? row.created_at.toISOString() : String(row.created_at),
           };
         }),
-        starter_history: starter.rows.map((row) => {
+        starterHistory: starter.rows.map((row) => {
           const delta = Number(row.amount_delta);
           if (!Number.isInteger(delta) || !Number.isSafeInteger(delta)) {
-            throw new AppError("unavailable", "amount_delta is unreadable", 503);
+            throw new AppError("unavailable", "amountDelta is unreadable", 503);
           }
           return {
             id: row.id,
-            amount_delta: delta,
+            amountDelta: delta,
             kind: row.kind,
-            balance_after: requiredCount(row.balance_after, "balance_after"),
+            balanceAfter: requiredCount(row.balance_after, "balanceAfter"),
           };
         }),
       };
@@ -855,8 +901,8 @@ export async function handleAdminProgressionXpAdjust(req: AuthedRequest, res: Re
       await recomputeFanLevel(client, patch.userId, newXp);
       const next = await snapshotUser(client, patch.userId);
       await writeAudit(client, actorId, "xp_adjustment", patch.userId, { total_xp: oldXp }, {
-        total_xp: next.total_xp,
-        current_level: next.current_level,
+        total_xp: next.totalXp,
+        current_level: next.currentLevel,
         amount_delta: applied,
         reason: patch.reason,
         idempotency_key: key,
@@ -883,7 +929,7 @@ export async function handleAdminProgressionStarterAdjust(req: AuthedRequest, re
       );
       if (existing.rows[0]) return snapshotUser(client, patch.userId);
       const before = await snapshotUser(client, patch.userId);
-      const applied = Math.max(-before.starter_coin_balance, patch.amountDelta);
+      const applied = Math.max(-before.starterCoinBalance, patch.amountDelta);
       if (applied === 0) return before;
       await applyWalletDelta(client, {
         userId: patch.userId,
@@ -895,8 +941,8 @@ export async function handleAdminProgressionStarterAdjust(req: AuthedRequest, re
         refId: actorId,
       });
       const next = await snapshotUser(client, patch.userId);
-      await writeAudit(client, actorId, "starter_adjustment", patch.userId, { starter_coin_balance: before.starter_coin_balance }, {
-        starter_coin_balance: next.starter_coin_balance,
+      await writeAudit(client, actorId, "starter_adjustment", patch.userId, { starter_coin_balance: before.starterCoinBalance }, {
+        starter_coin_balance: next.starterCoinBalance,
         amount_delta: applied,
         reason: patch.reason,
         idempotency_key: key,
@@ -957,14 +1003,14 @@ export async function handleAdminProgressionPatchMission(req: AuthedRequest, res
       const row = prev.rows[0];
       const nextGoal = lockRewards
         ? requiredCount(row.goal_count, "goal")
-        : (patch.goal_count ?? requiredCount(row.goal_count, "goal"));
-      const nextXp = lockRewards ? requiredCount(row.reward_xp, "mission XP") : (patch.reward_xp ?? requiredCount(row.reward_xp, "mission XP"));
+        : (patch.goalCount ?? requiredCount(row.goal_count, "goal"));
+      const nextXp = lockRewards ? requiredCount(row.reward_xp, "mission XP") : (patch.rewardXp ?? requiredCount(row.reward_xp, "mission XP"));
       const nextPromo = lockRewards
         ? requiredCount(row.reward_promo_coins, "mission promo")
-        : (patch.reward_promo_coins ?? requiredCount(row.reward_promo_coins, "mission promo"));
+        : (patch.rewardPromoCoins ?? requiredCount(row.reward_promo_coins, "mission promo"));
       const nextEnergy = lockRewards
         ? requiredCount(row.reward_energy, "mission energy")
-        : (patch.reward_energy ?? requiredCount(row.reward_energy, "mission energy"));
+        : (patch.rewardEnergy ?? requiredCount(row.reward_energy, "mission energy"));
       const updated = await client.query<{
         id: string;
         scope: string;
@@ -1000,7 +1046,7 @@ export async function handleAdminProgressionPatchMission(req: AuthedRequest, res
           nextPromo,
           nextEnergy,
           patch.enabled ?? row.enabled,
-          patch.sort_order ?? requiredCount(row.sort_order, "sort_order"),
+          patch.sortOrder ?? requiredCount(row.sort_order, "sort_order"),
         ],
       );
       const next = updated.rows[0];
@@ -1009,8 +1055,8 @@ export async function handleAdminProgressionPatchMission(req: AuthedRequest, res
       const prevMeta = allMeta[missionId] || defaultMissionMeta();
       const nextMeta: MissionAdminMeta = {
         audience: patch.audience ?? prevMeta.audience,
-        starts_at: patch.starts_at !== undefined ? patch.starts_at : prevMeta.starts_at,
-        ends_at: patch.ends_at !== undefined ? patch.ends_at : prevMeta.ends_at,
+        starts_at: patch.startsAt !== undefined ? patch.startsAt : prevMeta.starts_at,
+        ends_at: patch.endsAt !== undefined ? patch.endsAt : prevMeta.ends_at,
         archived: prevMeta.archived,
       };
       allMeta[missionId] = nextMeta;
@@ -1021,16 +1067,16 @@ export async function handleAdminProgressionPatchMission(req: AuthedRequest, res
         scope: next.scope,
         title: next.title,
         description: next.description,
-        goal_count: requiredCount(next.goal_count, "goal"),
-        reward_xp: requiredCount(next.reward_xp, "mission XP"),
-        reward_promo_coins: requiredCount(next.reward_promo_coins, "mission promo"),
-        reward_energy: requiredCount(next.reward_energy, "mission energy"),
-        metric_key: next.metric_key,
+        goalCount: requiredCount(next.goal_count, "goal"),
+        rewardXp: requiredCount(next.reward_xp, "mission XP"),
+        rewardPromoCoins: requiredCount(next.reward_promo_coins, "mission promo"),
+        rewardEnergy: requiredCount(next.reward_energy, "mission energy"),
+        metricKey: next.metric_key,
         enabled: next.enabled === true,
-        sort_order: requiredCount(next.sort_order, "sort_order"),
+        sortOrder: requiredCount(next.sort_order, "sort_order"),
         audience: nextMeta.audience,
-        starts_at: nextMeta.starts_at,
-        ends_at: nextMeta.ends_at,
+        startsAt: nextMeta.starts_at,
+        endsAt: nextMeta.ends_at,
         archived: nextMeta.archived,
       };
     });
@@ -1081,7 +1127,7 @@ export async function handleAdminProgressionDailyRewards(req: AuthedRequest, res
   try {
     res.json({
       rewards: await listDailyRewards(),
-      policy: await resolveDailyRewardPolicy(),
+      policy: toAdminPolicyJson(await resolveDailyRewardPolicy()),
     });
   } catch (error) {
     if (error instanceof AppError) throw error;
@@ -1104,7 +1150,7 @@ export async function handleAdminProgressionPutDailyReward(req: AuthedRequest, r
         `SELECT streak_day, reward_xp::text AS reward_xp,
                 reward_promo_coins::text AS reward_promo_coins, reward_label
          FROM daily_reward_config WHERE streak_day = $1 FOR UPDATE`,
-        [patch.streak_day],
+        [patch.streakDay],
       );
       if (!prev.rows[0]) throw new AppError("validation_error", "INVALID_STREAK_DAY", 400);
       const updated = await client.query<{
@@ -1118,16 +1164,16 @@ export async function handleAdminProgressionPutDailyReward(req: AuthedRequest, r
           WHERE streak_day = $1
           RETURNING streak_day, reward_xp::text AS reward_xp,
                     reward_promo_coins::text AS reward_promo_coins, reward_label`,
-        [patch.streak_day, patch.reward_xp, patch.reward_promo_coins, patch.reward_label],
+        [patch.streakDay, patch.rewardXp, patch.rewardPromoCoins, patch.rewardLabel],
       );
       const next = updated.rows[0];
       if (!next) throw new AppError("unavailable", "DAILY_REWARD_UPDATE_FAILED", 500);
-      await writeAudit(client, actorId, "daily_reward_update", `day_${patch.streak_day}`, prev.rows[0], next);
+      await writeAudit(client, actorId, "daily_reward_update", `day_${patch.streakDay}`, prev.rows[0], next);
       return {
-        streak_day: requiredCount(next.streak_day, "streak_day"),
-        reward_xp: requiredCount(next.reward_xp, "daily XP"),
-        reward_promo_coins: requiredCount(next.reward_promo_coins, "daily promo"),
-        reward_label: next.reward_label,
+        streakDay: requiredCount(next.streak_day, "streak_day"),
+        rewardXp: requiredCount(next.reward_xp, "daily XP"),
+        rewardPromoCoins: requiredCount(next.reward_promo_coins, "daily promo"),
+        rewardLabel: next.reward_label,
       };
     });
     res.json({ reward });
@@ -1161,7 +1207,7 @@ export async function handleAdminProgressionPutDailyPolicy(req: AuthedRequest, r
       await writeAudit(client, actorId, "daily_policy_update", "daily_reward_policy", prev, next);
       return next;
     });
-    res.json({ policy });
+    res.json({ policy: toAdminPolicyJson(policy) });
   } catch (error) {
     if (error instanceof AppError) throw error;
     writeDatabaseFailure(res, error, "admin daily policy update");
@@ -1172,7 +1218,7 @@ export async function handleAdminProgressionBattleCaps(req: AuthedRequest, res: 
   noStore(res);
   requireActor(req);
   try {
-    res.json({ caps: await resolveBattleEnergyCaps() });
+    res.json({ caps: toAdminCapsJson(await resolveBattleEnergyCaps()) });
   } catch (error) {
     if (error instanceof AppError) throw error;
     writeDatabaseFailure(res, error, "admin energy caps load");
@@ -1197,7 +1243,7 @@ export async function handleAdminProgressionPutBattleCaps(req: AuthedRequest, re
       await writeAudit(client, actorId, "battle_energy_caps_update", "battle_energy_caps", prev, next);
       return next;
     });
-    res.json({ caps });
+    res.json({ caps: toAdminCapsJson(caps) });
   } catch (error) {
     if (error instanceof AppError) throw error;
     writeDatabaseFailure(res, error, "admin energy caps update");
@@ -1208,7 +1254,7 @@ export async function handleAdminProgressionFeatureFlags(req: AuthedRequest, res
   noStore(res);
   requireActor(req);
   try {
-    res.json(await listEngagementFlagDetail());
+    res.json(toAdminFlagRowsJson(await listEngagementFlagDetail()));
   } catch (error) {
     if (error instanceof AppError) throw error;
     writeDatabaseFailure(res, error, "admin feature flags load");
@@ -1245,7 +1291,7 @@ export async function handleAdminProgressionPatchFeatureFlags(req: AuthedRequest
       });
       return listEngagementFlagDetail(client);
     });
-    res.json(detail);
+    res.json(toAdminFlagRowsJson(detail));
   } catch (error) {
     if (error instanceof AppError) throw error;
     writeDatabaseFailure(res, error, "admin feature flags update");

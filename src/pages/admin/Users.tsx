@@ -110,7 +110,7 @@ export default function AdminUsers() {
     }
     setUsers((current) =>
       current
-        ? current.map((row) => (row.id === target.id ? { ...row, is_banned: true } : row))
+        ? current.map((row) => (row.id === target.id ? { ...row, isBanned: true } : row))
         : current,
     );
     showToast(ADMIN_USERS_BAN_SUCCESS);
@@ -133,7 +133,7 @@ export default function AdminUsers() {
     }
     setUsers((current) =>
       current
-        ? current.map((row) => (row.id === target.id ? { ...row, is_banned: false } : row))
+        ? current.map((row) => (row.id === target.id ? { ...row, isBanned: false } : row))
         : current,
     );
     showToast(ADMIN_USERS_UNBAN_SUCCESS);
@@ -194,7 +194,7 @@ export default function AdminUsers() {
                         <div className="flex items-center gap-3 min-w-0">
                           <div className="w-10 h-10 rounded-full overflow-hidden shrink-0">
                             <img
-                              src={user.avatar_url || ADMIN_USERS_DEFAULT_AVATAR}
+                              src={user.avatarUrl || ADMIN_USERS_DEFAULT_AVATAR}
                               alt={user.username}
                               className="w-full h-full object-cover object-center"
                             />
@@ -203,7 +203,7 @@ export default function AdminUsers() {
                         </div>
                       </td>
                       <td className="px-4 py-3 text-gray-400 max-w-[12rem] truncate">{user.email}</td>
-                      <td className="px-4 py-3 text-gray-400 whitespace-nowrap">{formatAdminJoinedDate(user.created_at)}</td>
+                      <td className="px-4 py-3 text-gray-400 whitespace-nowrap">{formatAdminJoinedDate(user.createdAt)}</td>
                       <td className="px-4 py-3">
                         <div className="flex items-center justify-end gap-2">
                           <button
@@ -213,7 +213,7 @@ export default function AdminUsers() {
                           >
                             View
                           </button>
-                          {user.is_banned ? (
+                          {user.isBanned ? (
                             <button
                               type="button"
                               disabled={Boolean(pendingIds[user.id])}

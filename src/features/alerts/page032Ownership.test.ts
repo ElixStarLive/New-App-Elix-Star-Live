@@ -28,6 +28,10 @@ describe("PAGE-032 Alerts ownership", () => {
     expect(api).toMatch(/\/api\/notifications\/read/);
     expect(query).toMatch(/listAlerts/);
     expect(query).toMatch(/kind IN \('system', 'live_started'\)/);
+    expect(query).toMatch(/n\.payload->>'roomId'/);
+    expect(query).toMatch(/n\.payload->>'hostUserId'/);
+    expect(query).not.toMatch(/payload->>'streamKey'|payload->>'hostId'|payload->>'host_user_id'/);
+    expect(page).not.toMatch(/data\.hostId/);
     expect(notify).toMatch(/listAlerts/);
     expect(nav).toMatch(/path === "\/alerts"\) return INBOX_HOME/);
   });

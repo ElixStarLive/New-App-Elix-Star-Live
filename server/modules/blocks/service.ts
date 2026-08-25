@@ -4,11 +4,11 @@ import { AppError } from "../../middleware/errors.js";
 const USER_ID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 
 export type BlockedUserRow = {
-  blocked_user_id: string;
+  blockedUserId: string;
   username: string;
-  display_name: string;
-  avatar_url: string | null;
-  created_at: string;
+  displayName: string;
+  avatarUrl: string | null;
+  createdAt: string;
 };
 
 function assertUserId(value: string, message: string): string {
@@ -51,11 +51,11 @@ export async function listBlockedUsers(blockerId: string): Promise<BlockedUserRo
     [blockerId],
   );
   return rows.map((row) => ({
-    blocked_user_id: row.blocked_user_id,
+    blockedUserId: row.blocked_user_id,
     username: row.username,
-    display_name: row.display_name,
-    avatar_url: row.avatar_url,
-    created_at: row.created_at.toISOString(),
+    displayName: row.display_name,
+    avatarUrl: row.avatar_url,
+    createdAt: row.created_at.toISOString(),
   }));
 }
 

@@ -8,13 +8,13 @@ describe("PAGE-072 admin reports parse", () => {
         reports: [
           {
             id: "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",
-            reporter_id: "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb",
-            target_type: "user",
-            target_id: "cccccccc-cccc-4ccc-8ccc-cccccccccccc",
+            reporterId: "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb",
+            targetType: "user",
+            targetId: "cccccccc-cccc-4ccc-8ccc-cccccccccccc",
             reason: "spam",
             details: "too many links",
             status: "open",
-            created_at: "2026-01-02T00:00:00.000Z",
+            createdAt: "2026-01-02T00:00:00.000Z",
             reporter: { username: "maya" },
           },
         ],
@@ -22,13 +22,13 @@ describe("PAGE-072 admin reports parse", () => {
     ).toEqual([
       {
         id: "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",
-        reporter_id: "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb",
-        target_type: "user",
-        target_id: "cccccccc-cccc-4ccc-8ccc-cccccccccccc",
+        reporterId: "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb",
+        targetType: "user",
+        targetId: "cccccccc-cccc-4ccc-8ccc-cccccccccccc",
         reason: "spam",
         details: "too many links",
         status: "open",
-        created_at: "2026-01-02T00:00:00.000Z",
+        createdAt: "2026-01-02T00:00:00.000Z",
         reporter: { username: "maya" },
       },
     ]);

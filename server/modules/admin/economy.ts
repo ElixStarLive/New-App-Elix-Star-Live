@@ -23,22 +23,22 @@ export const ADMIN_PACKAGES_LIST_SQL = `
 export type AdminEconomyGift = {
   id: string;
   name: string;
-  coin_cost: number;
-  is_active: boolean;
+  coinCost: number;
+  isActive: boolean;
 };
 
 export type AdminEconomyPackage = {
   id: string;
-  product_id: string;
+  productId: string;
   provider: string;
   title: string;
   coins: number;
-  price_display: string;
+  priceDisplay: string;
 };
 
 export type AdminGiftPatch = {
-  coin_cost?: number;
-  is_active?: boolean;
+  coinCost?: number;
+  isActive?: boolean;
 };
 
 function isRecord(value: unknown): value is Record<string, unknown> {
@@ -70,22 +70,22 @@ export function parseAdminGiftId(raw: unknown): string {
 export function parseAdminGiftPatch(body: unknown): AdminGiftPatch {
   if (!isRecord(body)) throw new AppError("validation_error", "No fields to update", 400);
   const patch: AdminGiftPatch = {};
-  if (Object.prototype.hasOwnProperty.call(body, "coin_cost")) {
-    if (typeof body.coin_cost !== "number" || !Number.isInteger(body.coin_cost)) {
+  if (Object.prototype.hasOwnProperty.call(body, "coinCost")) {
+    if (typeof body.coinCost !== "number" || !Number.isInteger(body.coinCost)) {
       throw new AppError("validation_error", "Invalid price", 400);
     }
-    if (body.coin_cost <= 0 || body.coin_cost > ADMIN_GIFT_COIN_COST_MAX) {
+    if (body.coinCost <= 0 || body.coinCost > ADMIN_GIFT_COIN_COST_MAX) {
       throw new AppError("validation_error", "Invalid price", 400);
     }
-    patch.coin_cost = body.coin_cost;
+    patch.coinCost = body.coinCost;
   }
-  if (Object.prototype.hasOwnProperty.call(body, "is_active")) {
-    if (typeof body.is_active !== "boolean") {
+  if (Object.prototype.hasOwnProperty.call(body, "isActive")) {
+    if (typeof body.isActive !== "boolean") {
       throw new AppError("validation_error", "Invalid status", 400);
     }
-    patch.is_active = body.is_active;
+    patch.isActive = body.isActive;
   }
-  if (patch.coin_cost === undefined && patch.is_active === undefined) {
+  if (patch.coinCost === undefined && patch.isActive === undefined) {
     throw new AppError("validation_error", "No fields to update", 400);
   }
   return patch;
@@ -102,8 +102,8 @@ function mapGiftRow(row: { id: string; name: string; coin_cost: number; active: 
   return {
     id: row.id,
     name: row.name,
-    coin_cost: row.coin_cost,
-    is_active: row.active === true,
+    coinCost: row.coin_cost,
+    isActive: row.active === true,
   };
 }
 
@@ -129,11 +129,11 @@ export async function loadAdminEconomy(): Promise<{
     gifts: giftsResult.rows.map(mapGiftRow),
     packages: packagesResult.rows.map((row) => ({
       id: `${row.provider}:${row.product_id}`,
-      product_id: row.product_id,
+      productId: row.product_id,
       provider: row.provider,
       title: row.label,
       coins: row.coins,
-      price_display: formatAdminPackagePriceDisplay(Number(row.price_pence)),
+      priceDisplay: formatAdminPackagePriceDisplay(Number(row.price_pence)),
     })),
     boosters: [],
   };
@@ -146,12 +146,12 @@ export async function applyAdminGiftPatch(
 ): Promise<AdminEconomyGift> {
   const sets: string[] = [];
   const params: Array<string | number | boolean> = [];
-  if (patch.coin_cost !== undefined) {
-    params.push(patch.coin_cost);
+  if (patch.coinCost !== undefined) {
+    params.push(patch.coinCost);
     sets.push(`coin_cost = $${params.length}`);
   }
-  if (patch.is_active !== undefined) {
-    params.push(patch.is_active);
+  if (patch.isActive !== undefined) {
+    params.push(patch.isActive);
     sets.push(`active = $${params.length}`);
   }
   params.push(giftId);
@@ -170,8 +170,8 @@ export async function applyAdminGiftPatch(
     {
       giftId,
       by: actorId,
-      coin_cost: patch.coin_cost,
-      is_active: patch.is_active,
+      coin_cost: patch.coinCost,
+      is_active: patch.isActive,
     },
     "admin gift catalog updated",
   );

@@ -44,13 +44,13 @@ export const ADMIN_REPORTS_LIST_SQL = `
 
 export type AdminReportRow = {
   id: string;
-  reporter_id: string;
-  target_type: string;
-  target_id: string;
+  reporterId: string;
+  targetType: string;
+  targetId: string;
   reason: string;
   details: string;
   status: string;
-  created_at: string;
+  createdAt: string;
   reporter?: { username: string };
 };
 
@@ -120,13 +120,13 @@ function mapReportRow(row: {
     row.created_at instanceof Date ? row.created_at.toISOString() : String(row.created_at || "");
   const mapped: AdminReportRow = {
     id: row.id,
-    reporter_id: row.reporter_id,
-    target_type: row.target_type,
-    target_id: row.target_id ?? "",
+    reporterId: row.reporter_id,
+    targetType: row.target_type,
+    targetId: row.target_id ?? "",
     reason: row.reason,
     details: row.details ?? "",
     status: row.status,
-    created_at: created,
+    createdAt: created,
   };
   if (row.reporter_username) mapped.reporter = { username: row.reporter_username };
   return mapped;
@@ -331,7 +331,7 @@ export async function handleAdminPatchReport(req: AuthedRequest, res: Response):
   if (!isAdminReportId(reportId)) throw new AppError("validation_error", "Invalid report", 400);
   const status = parseAdminReportStatus(req.body?.status);
   const action = parseOptionalAdminReportAction(req.body?.action);
-  parseOptionalAdminNote(req.body?.admin_note);
+  parseOptionalAdminNote(req.body?.adminNote);
   try {
     const result = await applyAdminReportPatch(req.userId as string, reportId, status, action);
     res.json({ report: result.report });

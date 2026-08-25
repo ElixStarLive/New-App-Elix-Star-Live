@@ -199,15 +199,15 @@ export default function AdminWithdrawals() {
                     <p className="text-xs text-white/40 break-all">{row.id}</p>
                   </div>
                   <div className="text-right">
-                    <p className="text-[#F5F5F7] font-bold tabular-nums">{formatAdminWithdrawalPence(row.amount_pence)}</p>
+                    <p className="text-[#F5F5F7] font-bold tabular-nums">{formatAdminWithdrawalPence(row.amountPence)}</p>
                     <p className="text-xs text-white/50">{formatAdminWithdrawalStatus(row.status)}</p>
                   </div>
                 </div>
-                {row.processed_by ? (
+                {row.processedBy ? (
                   <p className="text-[11px] text-white/35 mb-2 break-words">
-                    By {row.processed_by}
-                    {row.processed_at ? ` · ${new Date(row.processed_at).toLocaleString()}` : ""}
-                    {row.admin_note ? ` · ${row.admin_note}` : ""}
+                    By {row.processedBy}
+                    {row.processedAt ? ` · ${new Date(row.processedAt).toLocaleString()}` : ""}
+                    {row.adminNote ? ` · ${row.adminNote}` : ""}
                   </p>
                 ) : null}
                 <div className="flex flex-wrap gap-2">

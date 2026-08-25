@@ -58,9 +58,11 @@ export default function Inbox() {
       session.applyStreamStarted(card.hostId, card.roomId);
     };
     const onEnded = (data: unknown) => {
-      const hostId = isRecord(data) && typeof data.hostId === "string" ? data.hostId : "";
-      const keys = liveEndedKeys(data);
-      session.applyStreamEnded(hostId, keys[0] || "");
+      const roomId =
+        isRecord(data) && typeof data.roomId === "string" && data.roomId.trim()
+          ? data.roomId.trim()
+          : liveEndedKeys(data)[0] || "";
+      session.applyStreamEnded("", roomId);
     };
     wsClient.on("dm_message", onDm);
     wsClient.on("dm_thread_updated", onDm);

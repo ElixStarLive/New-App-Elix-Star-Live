@@ -34,10 +34,10 @@ const monetisationApi = vi.hoisted(() => ({
       withdrawals: [
         {
           id: "wd-1",
-          user_id: "<script>alert(1)</script>",
-          amount_pence: 2500,
+          userId: "<script>alert(1)</script>",
+          amountPence: 2500,
           status: "requested",
-          created_at: "2026-08-22T00:00:00.000Z",
+          createdAt: "2026-08-22T00:00:00.000Z",
         },
       ],
     },
@@ -135,10 +135,10 @@ describe("PAGE-074 Admin Monetisation", () => {
         withdrawals: [
           {
             id: "wd-1",
-            user_id: "<script>alert(1)</script>",
-            amount_pence: 2500,
+            userId: "<script>alert(1)</script>",
+            amountPence: 2500,
             status: "requested",
-            created_at: "2026-08-22T00:00:00.000Z",
+            createdAt: "2026-08-22T00:00:00.000Z",
           },
         ],
       },

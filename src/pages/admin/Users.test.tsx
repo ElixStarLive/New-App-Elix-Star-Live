@@ -24,15 +24,15 @@ const usersApi = vi.hoisted(() => ({
         id: "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb",
         username: "target",
         email: "target@example.com",
-        avatar_url: null,
-        created_at: "2026-01-02T00:00:00.000Z",
-        is_banned: false,
+        avatarUrl: null,
+        createdAt: "2026-01-02T00:00:00.000Z",
+        isBanned: false,
       },
     ],
     error: null as string | null,
   },
-  ban: { ok: true as const, is_banned: true as const },
-  unban: { ok: true as const, is_banned: false as const },
+  ban: { ok: true as const, isBanned: true as const },
+  unban: { ok: true as const, isBanned: false as const },
 }));
 
 vi.mock("@/store/useAuthStore", () => ({
@@ -102,15 +102,15 @@ describe("PAGE-071 Admin Users", () => {
           id: "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb",
           username: "target",
           email: "target@example.com",
-          avatar_url: null,
-          created_at: "2026-01-02T00:00:00.000Z",
-          is_banned: false,
+          avatarUrl: null,
+          createdAt: "2026-01-02T00:00:00.000Z",
+          isBanned: false,
         },
       ],
       error: null,
     };
-    usersApi.ban = { ok: true, is_banned: true };
-    usersApi.unban = { ok: true, is_banned: false };
+    usersApi.ban = { ok: true, isBanned: true };
+    usersApi.unban = { ok: true, isBanned: false };
     vi.restoreAllMocks();
   });
 
@@ -193,7 +193,7 @@ describe("PAGE-071 Admin Users", () => {
   });
 
   it("unbans only after confirm and server success", async () => {
-    usersApi.result.users[0].is_banned = true;
+    usersApi.result.users[0].isBanned = true;
     const confirm = vi.spyOn(window, "confirm").mockReturnValue(true);
     const view = renderPage();
     root = view.root;

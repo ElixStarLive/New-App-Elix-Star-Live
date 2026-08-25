@@ -91,7 +91,7 @@ export function createBlockedUsersSession(deps: BlockedUsersDeps) {
     }
     assign({
       kind: "ready",
-      users: view.users.filter((row) => row.blocked_user_id !== blockedUserId),
+      users: view.users.filter((row) => row.blockedUserId !== blockedUserId),
       error: null,
     });
   };

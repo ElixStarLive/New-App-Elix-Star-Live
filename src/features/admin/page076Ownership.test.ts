@@ -37,7 +37,7 @@ describe("PAGE-076 Admin Withdrawals ownership", () => {
   it("uses canonical withdrawals_gbp and users.is_admin only", () => {
     expect(api).toMatch(/\/api\/admin\/withdrawals\?status=/);
     expect(api).toMatch(/\/api\/admin\/withdrawals\/\$\{encodeURIComponent\(withdrawalId\)\}\/\$\{action\}/);
-    expect(api).toMatch(/body: JSON\.stringify\(\{ admin_note: note \}\)/);
+    expect(api).toMatch(/body: JSON\.stringify\(\{ adminNote: note \}\)/);
     expect(withdrawals).toMatch(/FROM withdrawals_gbp/);
     expect(withdrawals).toMatch(/FOR UPDATE/);
     expect(withdrawals).toMatch(/req\.userId/);

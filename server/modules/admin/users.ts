@@ -31,9 +31,9 @@ export type AdminUserRow = {
   id: string;
   username: string;
   email: string;
-  avatar_url: string | null;
-  created_at: string;
-  is_banned: boolean;
+  avatarUrl: string | null;
+  createdAt: string;
+  isBanned: boolean;
 };
 
 export function isAdminUserId(value: string): boolean {
@@ -93,9 +93,9 @@ function mapUserRow(row: {
     id: row.id,
     username: row.username,
     email: row.email,
-    avatar_url: row.avatar_url,
-    created_at: created,
-    is_banned: row.is_banned === true,
+    avatarUrl: row.avatar_url,
+    createdAt: created,
+    isBanned: row.is_banned === true,
   };
 }
 
@@ -136,7 +136,7 @@ export async function applyAdminBan(
   userId: string,
   until: Date | null,
   reason: string | null,
-): Promise<{ ok: true; userId: string; banned_until: string; is_banned: true }> {
+): Promise<{ ok: true; userId: string; bannedUntil: string; isBanned: true }> {
   await requireTargetUser(userId);
   const bannedUntil = until ?? new Date(Date.now() + 100 * 365 * 24 * 60 * 60 * 1000);
   await withTransaction(async (client) => {
@@ -157,15 +157,15 @@ export async function applyAdminBan(
   return {
     ok: true,
     userId,
-    banned_until: bannedUntil.toISOString(),
-    is_banned: true,
+    bannedUntil: bannedUntil.toISOString(),
+    isBanned: true,
   };
 }
 
 export async function applyAdminUnban(
   actorId: string,
   userId: string,
-): Promise<{ ok: true; userId: string; is_banned: false }> {
+): Promise<{ ok: true; userId: string; isBanned: false }> {
   await requireTargetUser(userId);
   const updated = await getPool().query(
     `UPDATE users
@@ -175,7 +175,7 @@ export async function applyAdminUnban(
   );
   if (!updated.rowCount) throw new AppError("not_found", "User not found", 404);
   logger.info({ userId, by: actorId }, "admin ban lifted");
-  return { ok: true, userId, is_banned: false };
+  return { ok: true, userId, isBanned: false };
 }
 
 export async function handleAdminUsers(req: AuthedRequest, res: Response): Promise<void> {

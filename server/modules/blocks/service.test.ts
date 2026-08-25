@@ -33,11 +33,11 @@ describe("PAGE-044 block relationship service", () => {
     });
     await expect(listBlockedUsers(blocker)).resolves.toEqual([
       {
-        blocked_user_id: target,
+        blockedUserId: target,
         username: "maya",
-        display_name: "Maya",
-        avatar_url: null,
-        created_at: "2026-08-21T00:00:00.000Z",
+        displayName: "Maya",
+        avatarUrl: null,
+        createdAt: "2026-08-21T00:00:00.000Z",
       },
     ]);
     expect(String(queryMock.mock.calls[0]?.[0])).toContain("ORDER BY b.created_at DESC");

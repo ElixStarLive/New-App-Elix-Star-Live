@@ -75,8 +75,8 @@ export default function AdminRisingStars() {
     slug: "",
     title: "",
     description: "",
-    starts_at: "",
-    ends_at: "",
+    startsAt: "",
+    endsAt: "",
     status: "draft",
   });
   const [categoryForm, setCategoryForm] = useState({
@@ -88,13 +88,13 @@ export default function AdminRisingStars() {
     title: ADMIN_RISING_STARS_DEFAULT_REGION.title,
   });
   const [challengeForm, setChallengeForm] = useState({
-    category_id: "",
-    region_id: "",
-    week_index: 1,
+    categoryId: "",
+    regionId: "",
+    weekIndex: 1,
     title: "",
-    sound_track_id: "",
-    opens_at: "",
-    closes_at: "",
+    soundTrackId: "",
+    opensAt: "",
+    closesAt: "",
     status: "scheduled",
   });
 
@@ -252,8 +252,8 @@ export default function AdminRisingStars() {
 
   const createSeason = async () => {
     if (busy) return;
-    const startsAt = datetimeLocalToIso(seasonForm.starts_at);
-    const endsAt = datetimeLocalToIso(seasonForm.ends_at);
+    const startsAt = datetimeLocalToIso(seasonForm.startsAt);
+    const endsAt = datetimeLocalToIso(seasonForm.endsAt);
     if (!startsAt || !endsAt) {
       showToast(ADMIN_RISING_STARS_ERROR);
       return;
@@ -263,8 +263,8 @@ export default function AdminRisingStars() {
       slug: seasonForm.slug,
       title: seasonForm.title,
       description: seasonForm.description,
-      starts_at: startsAt,
-      ends_at: endsAt,
+      startsAt: startsAt,
+      endsAt: endsAt,
       status: seasonForm.status,
     });
     if (!stillAdmin()) {
@@ -287,7 +287,7 @@ export default function AdminRisingStars() {
     if (busy || !selectedSeasonId) return;
     setBusy(true);
     const result = await apiAdminRisingStarsCreateCategory({
-      season_id: selectedSeasonId,
+      seasonId: selectedSeasonId,
       slug: categoryForm.slug,
       title: categoryForm.title,
     });
@@ -302,7 +302,7 @@ export default function AdminRisingStars() {
       setBusy(false);
       return;
     }
-    setChallengeForm((form) => ({ ...form, category_id: result.category.id }));
+    setChallengeForm((form) => ({ ...form, categoryId: result.category.id }));
     showToast(ADMIN_RISING_STARS_CATEGORY_CREATED);
     setBusy(false);
   };
@@ -311,10 +311,10 @@ export default function AdminRisingStars() {
     if (busy || !selectedSeasonId) return;
     setBusy(true);
     const result = await apiAdminRisingStarsCreateRegion({
-      season_id: selectedSeasonId,
+      seasonId: selectedSeasonId,
       slug: regionForm.slug,
       title: regionForm.title,
-      country_codes: [...ADMIN_RISING_STARS_DEFAULT_REGION_CODES],
+      countryCodes: [...ADMIN_RISING_STARS_DEFAULT_REGION_CODES],
     });
     if (!stillAdmin()) {
       setBusy(false);
@@ -327,33 +327,33 @@ export default function AdminRisingStars() {
       setBusy(false);
       return;
     }
-    setChallengeForm((form) => ({ ...form, region_id: result.region.id }));
+    setChallengeForm((form) => ({ ...form, regionId: result.region.id }));
     showToast(ADMIN_RISING_STARS_REGION_CREATED);
     setBusy(false);
   };
 
   const createChallenge = async () => {
     if (busy) return;
-    if (!selectedSeasonId || !challengeForm.category_id) {
+    if (!selectedSeasonId || !challengeForm.categoryId) {
       showToast(ADMIN_RISING_STARS_NEED_SEASON_CATEGORY);
       return;
     }
-    const opensAt = datetimeLocalToIso(challengeForm.opens_at);
-    const closesAt = datetimeLocalToIso(challengeForm.closes_at);
+    const opensAt = datetimeLocalToIso(challengeForm.opensAt);
+    const closesAt = datetimeLocalToIso(challengeForm.closesAt);
     if (!opensAt || !closesAt) {
       showToast(ADMIN_RISING_STARS_ERROR);
       return;
     }
     setBusy(true);
     const result = await apiAdminRisingStarsCreateChallenge({
-      season_id: selectedSeasonId,
-      category_id: challengeForm.category_id,
-      region_id: challengeForm.region_id || null,
-      week_index: Number(challengeForm.week_index) || 1,
+      seasonId: selectedSeasonId,
+      categoryId: challengeForm.categoryId,
+      regionId: challengeForm.regionId || null,
+      weekIndex: Number(challengeForm.weekIndex) || 1,
       title: challengeForm.title,
-      sound_track_id: challengeForm.sound_track_id,
-      opens_at: opensAt,
-      closes_at: closesAt,
+      soundTrackId: challengeForm.soundTrackId,
+      opensAt: opensAt,
+      closesAt: closesAt,
       status: challengeForm.status,
     });
     if (!stillAdmin()) {
@@ -466,15 +466,15 @@ export default function AdminRisingStars() {
               className={inputClass}
               type="datetime-local"
               aria-label="starts_at"
-              value={seasonForm.starts_at}
-              onChange={(event) => setSeasonForm({ ...seasonForm, starts_at: event.target.value })}
+              value={seasonForm.startsAt}
+              onChange={(event) => setSeasonForm({ ...seasonForm, startsAt: event.target.value })}
             />
             <input
               className={inputClass}
               type="datetime-local"
               aria-label="ends_at"
-              value={seasonForm.ends_at}
-              onChange={(event) => setSeasonForm({ ...seasonForm, ends_at: event.target.value })}
+              value={seasonForm.endsAt}
+              onChange={(event) => setSeasonForm({ ...seasonForm, endsAt: event.target.value })}
             />
             <select
               className={inputClass}
@@ -567,15 +567,15 @@ export default function AdminRisingStars() {
               className={inputClass}
               placeholder="category_id (uuid)"
               aria-label="category_id (uuid)"
-              value={challengeForm.category_id}
-              onChange={(event) => setChallengeForm({ ...challengeForm, category_id: event.target.value })}
+              value={challengeForm.categoryId}
+              onChange={(event) => setChallengeForm({ ...challengeForm, categoryId: event.target.value })}
             />
             <input
               className={inputClass}
               placeholder="region_id optional"
               aria-label="region_id optional"
-              value={challengeForm.region_id}
-              onChange={(event) => setChallengeForm({ ...challengeForm, region_id: event.target.value })}
+              value={challengeForm.regionId}
+              onChange={(event) => setChallengeForm({ ...challengeForm, regionId: event.target.value })}
             />
             <input
               className={inputClass}
@@ -588,11 +588,11 @@ export default function AdminRisingStars() {
               className={inputClass}
               placeholder="Epidemic sound_track_id"
               aria-label="Epidemic sound_track_id"
-              value={challengeForm.sound_track_id}
+              value={challengeForm.soundTrackId}
               onChange={(event) =>
                 setChallengeForm({
                   ...challengeForm,
-                  sound_track_id: event.target.value,
+                  soundTrackId: event.target.value,
                 })
               }
             />
@@ -601,11 +601,11 @@ export default function AdminRisingStars() {
               type="number"
               placeholder="week_index"
               aria-label="week_index"
-              value={challengeForm.week_index}
+              value={challengeForm.weekIndex}
               onChange={(event) =>
                 setChallengeForm({
                   ...challengeForm,
-                  week_index: Number(event.target.value) || 1,
+                  weekIndex: Number(event.target.value) || 1,
                 })
               }
             />
@@ -613,11 +613,11 @@ export default function AdminRisingStars() {
               className={inputClass}
               type="datetime-local"
               aria-label="opens_at"
-              value={challengeForm.opens_at}
+              value={challengeForm.opensAt}
               onChange={(event) =>
                 setChallengeForm({
                   ...challengeForm,
-                  opens_at: event.target.value,
+                  opensAt: event.target.value,
                 })
               }
             />
@@ -625,11 +625,11 @@ export default function AdminRisingStars() {
               className={inputClass}
               type="datetime-local"
               aria-label="closes_at"
-              value={challengeForm.closes_at}
+              value={challengeForm.closesAt}
               onChange={(event) =>
                 setChallengeForm({
                   ...challengeForm,
-                  closes_at: event.target.value,
+                  closesAt: event.target.value,
                 })
               }
             />
@@ -666,7 +666,7 @@ export default function AdminRisingStars() {
                   <div className="flex-1 min-w-[180px]">
                     <div className="font-medium break-words">{challenge.title}</div>
                     <div className="text-xs text-white/50 break-words">
-                      week {challenge.week_index} · {challenge.status} · sound {challenge.sound_track_id}
+                      week {challenge.weekIndex} · {challenge.status} · sound {challenge.soundTrackId}
                     </div>
                   </div>
                   <button
@@ -712,8 +712,8 @@ export default function AdminRisingStars() {
           <div className="space-y-2 max-h-80 overflow-y-auto text-xs">
             {(audit ?? []).map((row) => (
               <div key={row.id} className="border-b border-white/5 pb-2 break-words">
-                <span className="text-[#F5F5F7]">{row.action}</span> {row.entity_type} {row.entity_id || ""} ·{" "}
-                {row.created_at || ""}
+                <span className="text-[#F5F5F7]">{row.action}</span> {row.entityType} {row.entityId || ""} ·{" "}
+                {row.createdAt || ""}
               </div>
             ))}
           </div>

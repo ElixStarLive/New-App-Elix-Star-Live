@@ -29,22 +29,22 @@ describe("PAGE-073 admin economy contract", () => {
     expect(() => parseAdminGiftId(12)).toThrow(/giftId is required/);
   });
 
-  it("whitelists coin_cost and is_active and rejects mass assignment", () => {
-    expect(parseAdminGiftPatch({ coin_cost: 25 })).toEqual({ coin_cost: 25 });
-    expect(parseAdminGiftPatch({ is_active: false })).toEqual({ is_active: false });
-    expect(parseAdminGiftPatch({ coin_cost: 10, is_admin: true, updatedBy: "attacker" })).toEqual({
-      coin_cost: 10,
+  it("whitelists coinCost and isActive and rejects mass assignment", () => {
+    expect(parseAdminGiftPatch({ coinCost: 25 })).toEqual({ coinCost: 25 });
+    expect(parseAdminGiftPatch({ isActive: false })).toEqual({ isActive: false });
+    expect(parseAdminGiftPatch({ coinCost: 10, is_admin: true, updatedBy: "attacker" })).toEqual({
+      coinCost: 10,
     });
     expect(() => parseAdminGiftPatch({ is_admin: true })).toThrow(/No fields to update/);
     expect(() => parseAdminGiftPatch({})).toThrow(/No fields to update/);
-    expect(() => parseAdminGiftPatch({ coin_cost: 0 })).toThrow(/Invalid price/);
-    expect(() => parseAdminGiftPatch({ coin_cost: -4 })).toThrow(/Invalid price/);
-    expect(() => parseAdminGiftPatch({ coin_cost: 1.5 })).toThrow(/Invalid price/);
-    expect(() => parseAdminGiftPatch({ coin_cost: "12" })).toThrow(/Invalid price/);
-    expect(() => parseAdminGiftPatch({ coin_cost: Number.NaN })).toThrow(/Invalid price/);
-    expect(() => parseAdminGiftPatch({ coin_cost: ADMIN_GIFT_COIN_COST_MAX + 1 })).toThrow(/Invalid price/);
-    expect(() => parseAdminGiftPatch({ coin_cost: null })).toThrow(/Invalid price/);
-    expect(() => parseAdminGiftPatch({ is_active: "true" })).toThrow(/Invalid status/);
+    expect(() => parseAdminGiftPatch({ coinCost: 0 })).toThrow(/Invalid price/);
+    expect(() => parseAdminGiftPatch({ coinCost: -4 })).toThrow(/Invalid price/);
+    expect(() => parseAdminGiftPatch({ coinCost: 1.5 })).toThrow(/Invalid price/);
+    expect(() => parseAdminGiftPatch({ coinCost: "12" })).toThrow(/Invalid price/);
+    expect(() => parseAdminGiftPatch({ coinCost: Number.NaN })).toThrow(/Invalid price/);
+    expect(() => parseAdminGiftPatch({ coinCost: ADMIN_GIFT_COIN_COST_MAX + 1 })).toThrow(/Invalid price/);
+    expect(() => parseAdminGiftPatch({ coinCost: null })).toThrow(/Invalid price/);
+    expect(() => parseAdminGiftPatch({ isActive: "true" })).toThrow(/Invalid status/);
   });
 
   it("formats package pence as presentation only", () => {

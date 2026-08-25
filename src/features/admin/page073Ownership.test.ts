@@ -43,7 +43,7 @@ describe("PAGE-073 Admin Economy ownership", () => {
     expect(api).toMatch(/\/api\/admin\/economy/);
     expect(api).toMatch(/\/api\/admin\/gifts\/catalog\//);
     expect(api).toMatch(/method: "PATCH"/);
-    expect(api).toMatch(/body: JSON\.stringify\(\{ coin_cost: coinCost \}\)/);
+    expect(api).toMatch(/body: JSON\.stringify\(\{ coinCost: coinCost \}\)/);
     expect(economy).toMatch(/ADMIN_GIFT_COIN_COST_MAX = 10_000_000/);
     expect(economy).toMatch(/FROM gifts/);
     expect(economy).toMatch(/FROM coin_packages/);

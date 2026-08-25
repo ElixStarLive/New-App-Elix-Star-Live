@@ -8,24 +8,24 @@ export const ADMIN_SHOP_PURCHASES_LIMIT = 100;
 
 export type AdminIapPurchase = {
   id: string;
-  user_id: string;
+  userId: string;
   provider: string;
-  product_id: string;
-  transaction_id: string;
+  productId: string;
+  transactionId: string;
   coins: number;
   status: string;
-  created_at: string;
+  createdAt: string;
 };
 
 export type AdminShopPurchase = {
   id: string;
-  user_id: string;
-  stripe_session_id: string;
-  item_id: string;
+  userId: string;
+  stripeSessionId: string;
+  itemId: string;
   quantity: number;
-  amount_pence: number;
+  amountPence: number;
   status: string;
-  created_at: string;
+  createdAt: string;
 };
 
 function postgresUnavailableCode(error: unknown): string | undefined {
@@ -77,13 +77,13 @@ export async function loadAdminIapPurchases(): Promise<AdminIapPurchase[]> {
   );
   return rows.map((row) => ({
     id: row.id,
-    user_id: row.user_id,
+    userId: row.user_id,
     provider: row.provider,
-    product_id: row.product_id,
-    transaction_id: String(row.transaction_id),
+    productId: row.product_id,
+    transactionId: String(row.transaction_id),
     coins: asInt(row.coins),
     status: row.status,
-    created_at: asIso(row.created_at),
+    createdAt: asIso(row.created_at),
   }));
 }
 
@@ -112,13 +112,13 @@ export async function loadAdminShopPurchases(): Promise<AdminShopPurchase[]> {
   );
   return rows.map((row) => ({
     id: row.id,
-    user_id: row.user_id,
-    stripe_session_id: row.stripe_session_id,
-    item_id: row.item_id,
+    userId: row.user_id,
+    stripeSessionId: row.stripe_session_id,
+    itemId: row.item_id,
     quantity: asInt(row.quantity),
-    amount_pence: asInt(row.amount_pence),
+    amountPence: asInt(row.amount_pence),
     status: row.status,
-    created_at: asIso(row.created_at),
+    createdAt: asIso(row.created_at),
   }));
 }
 

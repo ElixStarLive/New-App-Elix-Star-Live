@@ -21,6 +21,8 @@ import {
   deviceTokenRegisterBodySchema,
   deviceTokenDeleteBodySchema,
   appleNativeBodySchema,
+  blockedUserRowSchema,
+  profilesDirectoryResponseSchema,
 } from "./index.js";
 
 describe("contracts", () => {
@@ -362,5 +364,40 @@ describe("contracts", () => {
     expect(deviceTokenRegisterBodySchema.safeParse({ token: "device-token-1", platform: "windows" }).success).toBe(false);
     expect(deviceTokenDeleteBodySchema.safeParse({ platform: "ios" }).success).toBe(true);
     expect(deviceTokenDeleteBodySchema.safeParse({ platform: "unknown" }).success).toBe(false);
+  });
+
+  it("requires NEW camel blocked-user and profiles-directory rows", () => {
+    expect(
+      blockedUserRowSchema.safeParse({
+        blockedUserId: "11111111-1111-4111-8111-111111111111",
+        username: "maya",
+        displayName: "Maya",
+        avatarUrl: null,
+        createdAt: "2026-08-21T00:00:00.000Z",
+      }).success,
+    ).toBe(true);
+    expect(
+      blockedUserRowSchema.safeParse({
+        blocked_user_id: "11111111-1111-4111-8111-111111111111",
+        display_name: "Maya",
+      }).success,
+    ).toBe(false);
+    expect(
+      profilesDirectoryResponseSchema.safeParse({
+        profiles: [
+          {
+            id: "11111111-1111-4111-8111-111111111111",
+            username: "maya",
+            displayName: "Maya",
+            avatarUrl: null,
+          },
+        ],
+      }).success,
+    ).toBe(true);
+    expect(
+      profilesDirectoryResponseSchema.safeParse({
+        profiles: [{ user_id: "11111111-1111-4111-8111-111111111111", display_name: "Maya", avatar_url: "" }],
+      }).success,
+    ).toBe(false);
   });
 });

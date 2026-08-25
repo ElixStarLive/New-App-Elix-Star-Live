@@ -7,8 +7,8 @@ const LIVE_STILL_LIVE_NEW = `
     SELECT 1 FROM live_streams s
     WHERE s.status = 'live'
       AND (
-        s.room_id = COALESCE(NULLIF(n.payload->>'roomId', ''), NULLIF(n.payload->>'streamKey', ''))
-        OR s.host_id::text = COALESCE(NULLIF(n.payload->>'hostUserId', ''), NULLIF(n.payload->>'hostId', ''))
+        s.room_id = NULLIF(n.payload->>'roomId', '')
+        OR s.host_id::text = NULLIF(n.payload->>'hostUserId', '')
       )
   )
 `;
@@ -67,8 +67,8 @@ export async function listAlerts(viewerId: string): Promise<{ items: AlertRow[];
               FROM live_streams s
               WHERE s.status = 'live'
                 AND (
-                  s.room_id = COALESCE(NULLIF(n.payload->>'roomId', ''), NULLIF(n.payload->>'streamKey', ''))
-                  OR s.host_id::text = COALESCE(NULLIF(n.payload->>'hostUserId', ''), NULLIF(n.payload->>'hostId', ''))
+                  s.room_id = NULLIF(n.payload->>'roomId', '')
+                  OR s.host_id::text = NULLIF(n.payload->>'hostUserId', '')
                 )
               ORDER BY s.started_at DESC
               LIMIT 1
@@ -77,7 +77,7 @@ export async function listAlerts(viewerId: string): Promise<{ items: AlertRow[];
               SELECT u.avatar_url
               FROM users u
               WHERE u.deleted_at IS NULL
-                AND u.id::text = COALESCE(NULLIF(n.payload->>'hostUserId', ''), NULLIF(n.payload->>'hostId', ''))
+                AND u.id::text = NULLIF(n.payload->>'hostUserId', '')
               LIMIT 1
             ) AS host_avatar_url
      FROM notifications n

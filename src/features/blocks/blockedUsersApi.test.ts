@@ -26,11 +26,11 @@ describe("PAGE-044 blocked-users API", () => {
       data: {
         data: [
           {
-            blocked_user_id: targetId,
+            blockedUserId: targetId,
             username: "maya",
-            display_name: "Maya",
-            avatar_url: "https://cdn.example/m.png",
-            created_at: "2026-08-21T00:00:00.000Z",
+            displayName: "Maya",
+            avatarUrl: "https://cdn.example/m.png",
+            createdAt: "2026-08-21T00:00:00.000Z",
           },
         ],
       },
@@ -40,11 +40,11 @@ describe("PAGE-044 blocked-users API", () => {
       ok: true,
       rows: [
         {
-          blocked_user_id: targetId,
+          blockedUserId: targetId,
           username: "maya",
-          display_name: "Maya",
-          avatar_url: "https://cdn.example/m.png",
-          created_at: "2026-08-21T00:00:00.000Z",
+          displayName: "Maya",
+          avatarUrl: "https://cdn.example/m.png",
+          createdAt: "2026-08-21T00:00:00.000Z",
         },
       ],
     });

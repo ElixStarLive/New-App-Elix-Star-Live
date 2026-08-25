@@ -66,13 +66,13 @@ describe("PAGE-077 admin Rising Stars contract", () => {
     expect(parseAdminRisingStarsChallengeStatus(undefined, true)).toBe("scheduled");
     expect(parseAdminRisingStarsChallengeStatus("voting", false)).toBe("voting");
     expect(() => parseAdminRisingStarsChallengeStatus("live", false)).toThrow(/Invalid challenge status/);
-    const start = parseAdminRisingStarsIsoDate("2026-08-01T00:00:00.000Z", "starts_at");
-    const end = parseAdminRisingStarsIsoDate("2026-09-01T00:00:00.000Z", "ends_at");
+    const start = parseAdminRisingStarsIsoDate("2026-08-01T00:00:00.000Z", "startsAt");
+    const end = parseAdminRisingStarsIsoDate("2026-09-01T00:00:00.000Z", "endsAt");
     expect(start < end).toBe(true);
     expect(() => assertAdminRisingStarsDateOrder(end, start)).toThrow(/start must be before end/);
-    expect(() => parseAdminRisingStarsIsoDate("not-a-date", "starts_at")).toThrow(/invalid/);
+    expect(() => parseAdminRisingStarsIsoDate("not-a-date", "startsAt")).toThrow(/invalid/);
     expect(parseAdminRisingStarsCountryCodes(["gb", "IE"])).toEqual(["GB", "IE"]);
-    expect(() => parseAdminRisingStarsCountryCodes(["United Kingdom"])).toThrow(/Invalid country_codes/);
+    expect(() => parseAdminRisingStarsCountryCodes(["United Kingdom"])).toThrow(/Invalid countryCodes/);
     expect(parseAdminRisingStarsSnapshotPhase("qualifier")).toBe("qualifier");
     expect(() => parseAdminRisingStarsSnapshotPhase("semi")).toThrow(/Invalid phase/);
     expect(parseAdminRisingStarsAdvanceTopN(10)).toBe(10);
@@ -82,7 +82,7 @@ describe("PAGE-077 admin Rising Stars contract", () => {
     expect(parseAdminRisingStarsBadgeKind("winner")).toBe("winner");
     expect(() => parseAdminRisingStarsBadgeKind("gold")).toThrow(/Invalid badge kind/);
     expect(parseAdminRisingStarsRewardKind("creator_credit_manual")).toBe("creator_credit_manual");
-    expect(() => parseAdminRisingStarsRewardKind("paid_iap")).toThrow(/Invalid reward_kind/);
+    expect(() => parseAdminRisingStarsRewardKind("paid_iap")).toThrow(/Invalid rewardKind/);
     expect(parseAdminRisingStarsGrantStatus(undefined)).toBe("pending");
     expect(() => parseAdminRisingStarsGrantStatus("paid")).toThrow(/Invalid grant status/);
     expect(parseAdminRisingStarsPayload({})).toEqual({});

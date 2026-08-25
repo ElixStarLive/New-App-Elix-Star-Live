@@ -161,11 +161,11 @@ export const unblockUserBodySchema = z.object({
 });
 
 export const blockedUserRowSchema = z.object({
-  blocked_user_id: z.string().uuid(),
+  blockedUserId: z.string().uuid(),
   username: z.string().optional(),
-  display_name: z.string().optional(),
-  avatar_url: z.string().nullable().optional(),
-  created_at: z.string().optional(),
+  displayName: z.string().optional(),
+  avatarUrl: z.string().nullable().optional(),
+  createdAt: z.string().optional(),
 });
 
 export const blockedUsersResponseSchema = z.object({
@@ -175,3 +175,19 @@ export const blockedUsersResponseSchema = z.object({
 export const unblockUserResponseSchema = z.object({
   success: z.literal(true),
 });
+
+/** Slim directory row for GET /api/profiles (STEM/Following strips) — UserPublic field names. */
+export const profilesDirectoryRowSchema = userPublicSchema.pick({
+  id: true,
+  username: true,
+  displayName: true,
+  avatarUrl: true,
+});
+
+export const profilesDirectoryResponseSchema = z.object({
+  profiles: z.array(profilesDirectoryRowSchema),
+});
+
+export type BlockedUserRow = z.infer<typeof blockedUserRowSchema>;
+export type ProfilesDirectoryRow = z.infer<typeof profilesDirectoryRowSchema>;
+export type ProfilesDirectoryResponse = z.infer<typeof profilesDirectoryResponseSchema>;

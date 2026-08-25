@@ -70,30 +70,30 @@ export default function BlockedAccounts() {
               {filteredUsers.length > 0 ? (
                 <div className="space-y-2.5">
                   {filteredUsers.map((block) => {
-                    const pending = view.pendingIds.includes(block.blocked_user_id);
+                    const pending = view.pendingIds.includes(block.blockedUserId);
                     return (
                       <div
-                        key={block.blocked_user_id}
+                        key={block.blockedUserId}
                         className="flex items-center gap-3 p-3 rounded-xl border border-white/10"
                       >
                         <AvatarRing
-                          src={block.avatar_url || "/elix-logo.png"}
-                          alt={block.username || block.display_name || "User"}
+                          src={block.avatarUrl || "/elix-logo.png"}
+                          alt={block.username || block.displayName || "User"}
                           size={48}
                         />
                         <div className="flex-1 min-w-0">
                           <p className="font-semibold text-[15px] text-white truncate">
-                            {block.display_name || block.username || "User"}
+                            {block.displayName || block.username || "User"}
                           </p>
                           <p className="text-xs text-white/55 mt-0.5">
-                            Blocked {formatBlockedDate(block.created_at || "")}
+                            Blocked {formatBlockedDate(block.createdAt || "")}
                           </p>
                         </div>
                         <button
                           type="button"
                           disabled={pending}
                           onClick={() => {
-                            void session.unblock(block.blocked_user_id);
+                            void session.unblock(block.blockedUserId);
                           }}
                           className="px-4 py-2 bg-transparent border border-[#D8D9DD]/40 text-[#F5F5F7] rounded-full text-sm font-semibold hover:bg-white/10 transition shrink-0"
                         >

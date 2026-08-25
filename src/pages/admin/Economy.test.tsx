@@ -26,26 +26,26 @@ const economyApi = vi.hoisted(() => ({
         {
           id: "rose",
           name: "<script>alert(1)</script>",
-          coin_cost: 1,
-          is_active: true,
+          coinCost: 1,
+          isActive: true,
         },
       ],
       packages: [
         {
           id: "google:coins100",
-          product_id: "coins100",
+          productId: "coins100",
           provider: "google",
           title: "100 Coins",
           coins: 100,
-          price_display: "£0.99",
+          priceDisplay: "£0.99",
         },
       ],
       boosters: [] as Array<{
         id: string;
         name: string;
-        coin_cost: number;
-        effect_type: string;
-        is_active: boolean;
+        coinCost: number;
+        effectType: string;
+        isActive: boolean;
       }>,
     },
     error: null as string | null,
@@ -55,11 +55,11 @@ const economyApi = vi.hoisted(() => ({
     gift: {
       id: "rose",
       name: "<script>alert(1)</script>",
-      coin_cost: 7,
-      is_active: true,
+      coinCost: 7,
+      isActive: true,
     },
   } as
-    | { ok: true; gift: { id: string; name: string; coin_cost: number; is_active: boolean } }
+    | { ok: true; gift: { id: string; name: string; coinCost: number; isActive: boolean } }
     | { ok: false; error: string },
   lastPrice: 0,
   fetchCount: 0,
@@ -149,18 +149,18 @@ describe("PAGE-073 Admin Economy", () => {
           {
             id: "rose",
             name: "<script>alert(1)</script>",
-            coin_cost: 1,
-            is_active: true,
+            coinCost: 1,
+            isActive: true,
           },
         ],
         packages: [
           {
             id: "google:coins100",
-            product_id: "coins100",
+            productId: "coins100",
             provider: "google",
             title: "100 Coins",
             coins: 100,
-            price_display: "£0.99",
+            priceDisplay: "£0.99",
           },
         ],
         boosters: [],
@@ -172,8 +172,8 @@ describe("PAGE-073 Admin Economy", () => {
       gift: {
         id: "rose",
         name: "<script>alert(1)</script>",
-        coin_cost: 7,
-        is_active: true,
+        coinCost: 7,
+        isActive: true,
       },
     };
     prompt.mockReset();

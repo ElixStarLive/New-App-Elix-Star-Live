@@ -271,8 +271,8 @@ export default function AdminMonetisation() {
                       className="flex flex-wrap items-center gap-2 border border-white/10 rounded-lg p-3 text-sm"
                     >
                       <span className="font-mono text-xs">{row.id}</span>
-                      <span>{row.user_id}</span>
-                      <span className="tabular-nums">{row.amount_pence}p</span>
+                      <span>{row.userId}</span>
+                      <span className="tabular-nums">{row.amountPence}p</span>
                       <span>{row.status}</span>
                     </div>
                   ))

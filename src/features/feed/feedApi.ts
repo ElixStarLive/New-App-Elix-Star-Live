@@ -6,6 +6,7 @@ import {
   liveStreamCardSchema,
   liveStreamsResponseSchema,
   liveTokenResponseSchema,
+  profilesDirectoryResponseSchema,
   relationFeedResponseSchema,
   type FeedVideo,
   type ForYouFeedResponse,
@@ -301,31 +302,18 @@ export async function apiFetchProfile(userId: string): Promise<{
 
 export async function apiFetchProfiles(): Promise<{
   profiles: Array<{
-    user_id: string;
+    id: string;
     username: string;
-    display_name: string;
-    avatar_url: string;
+    displayName: string;
+    avatarUrl: string | null;
   }>;
   error: string | null;
 }> {
   const { data, error } = await apiRequest<unknown>("/api/profiles");
   if (error) return { profiles: [], error: error.message };
-  const rows = isRecord(data) && Array.isArray(data.profiles) ? data.profiles : [];
-  const profiles = rows
-    .map((row) => {
-      if (!isRecord(row)) return null;
-      const user_id = typeof row.user_id === "string" ? row.user_id : "";
-      if (!user_id) return null;
-      const username = typeof row.username === "string" ? row.username : "user";
-      return {
-        user_id,
-        username,
-        display_name: typeof row.display_name === "string" ? row.display_name : username,
-        avatar_url: typeof row.avatar_url === "string" ? row.avatar_url : "",
-      };
-    })
-    .filter((row): row is NonNullable<typeof row> => Boolean(row));
-  return { profiles, error: null };
+  const parsed = profilesDirectoryResponseSchema.safeParse(data);
+  if (!parsed.success) return { profiles: [], error: "Invalid profiles" };
+  return { profiles: parsed.data.profiles, error: null };
 }
 
 export async function apiFollow(userId: string): Promise<{ ok: true } | { ok: false; error: string }> {

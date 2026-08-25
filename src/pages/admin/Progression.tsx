@@ -279,9 +279,9 @@ export default function AdminProgression() {
                       </div>
                       {row ? (
                         <div className="text-[10px] text-white/35">
-                          effective={String(row.effective)} · env={String(row.env_value)} · admin={String(row.admin_value)} ·
-                          default={String(row.default_value)}
-                          {row.last_changed_at ? ` · changed ${row.last_changed_at}` : ""}
+                          effective={String(row.effective)} · env={String(row.envValue)} · admin={String(row.adminValue)} ·
+                          default={String(row.defaultValue)}
+                          {row.lastChangedAt ? ` · changed ${row.lastChangedAt}` : ""}
                           {row.reason ? ` · ${row.reason}` : ""}
                         </div>
                       ) : null}
@@ -299,7 +299,7 @@ export default function AdminProgression() {
                     <div className="flex justify-between gap-2 text-xs">
                       <span className="font-semibold text-white">{mission.title}</span>
                       <span className="text-white/40">
-                        {mission.scope} · {mission.metric_key}
+                        {mission.scope} · {mission.metricKey}
                       </span>
                     </div>
                     <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
@@ -309,11 +309,11 @@ export default function AdminProgression() {
                           type="number"
                           aria-label={`${mission.title} Goal`}
                           className={inputClass}
-                          value={mission.goal_count}
+                          value={mission.goalCount}
                           onChange={(event) =>
                             setMissions((current) =>
                               (current || []).map((row, i) =>
-                                i === index ? { ...row, goal_count: Number(event.target.value) || 1 } : row,
+                                i === index ? { ...row, goalCount: Number(event.target.value) || 1 } : row,
                               ),
                             )
                           }
@@ -325,11 +325,11 @@ export default function AdminProgression() {
                           type="number"
                           aria-label={`${mission.title} XP`}
                           className={inputClass}
-                          value={mission.reward_xp}
+                          value={mission.rewardXp}
                           onChange={(event) =>
                             setMissions((current) =>
                               (current || []).map((row, i) =>
-                                i === index ? { ...row, reward_xp: Number(event.target.value) || 0 } : row,
+                                i === index ? { ...row, rewardXp: Number(event.target.value) || 0 } : row,
                               ),
                             )
                           }
@@ -341,11 +341,11 @@ export default function AdminProgression() {
                           type="number"
                           aria-label={`${mission.title} Promo coins`}
                           className={inputClass}
-                          value={mission.reward_promo_coins}
+                          value={mission.rewardPromoCoins}
                           onChange={(event) =>
                             setMissions((current) =>
                               (current || []).map((row, i) =>
-                                i === index ? { ...row, reward_promo_coins: Number(event.target.value) || 0 } : row,
+                                i === index ? { ...row, rewardPromoCoins: Number(event.target.value) || 0 } : row,
                               ),
                             )
                           }
@@ -357,11 +357,11 @@ export default function AdminProgression() {
                           type="number"
                           aria-label={`${mission.title} Energy`}
                           className={inputClass}
-                          value={mission.reward_energy}
+                          value={mission.rewardEnergy}
                           onChange={(event) =>
                             setMissions((current) =>
                               (current || []).map((row, i) =>
-                                i === index ? { ...row, reward_energy: Number(event.target.value) || 0 } : row,
+                                i === index ? { ...row, rewardEnergy: Number(event.target.value) || 0 } : row,
                               ),
                             )
                           }
@@ -411,13 +411,13 @@ export default function AdminProgression() {
                         onClick={() => {
                           void runBusy(async () => {
                             const result = await apiAdminProgressionSaveMission(mission.id, {
-                              goal_count: mission.goal_count,
-                              reward_xp: mission.reward_xp,
-                              reward_promo_coins: mission.reward_promo_coins,
-                              reward_energy: mission.reward_energy,
+                              goalCount: mission.goalCount,
+                              rewardXp: mission.rewardXp,
+                              rewardPromoCoins: mission.rewardPromoCoins,
+                              rewardEnergy: mission.rewardEnergy,
                               enabled: mission.enabled,
                               audience: mission.audience || "all_authenticated",
-                              sort_order: mission.sort_order,
+                              sortOrder: mission.sortOrder,
                             });
                             if (!stillAdmin()) return;
                             if (result.error) showToast(result.error);
@@ -457,42 +457,42 @@ export default function AdminProgression() {
               <h2 className="font-semibold mb-3">{ADMIN_PROGRESSION_DAILY_TITLE}</h2>
               <div className="space-y-2">
                 {dailyRewards.map((reward, index) => (
-                  <div key={reward.streak_day} className="grid grid-cols-[50px_1fr_1fr_1fr_70px] gap-2 items-center">
-                    <span className="text-xs">Day {reward.streak_day}</span>
+                  <div key={reward.streakDay} className="grid grid-cols-[50px_1fr_1fr_1fr_70px] gap-2 items-center">
+                    <span className="text-xs">Day {reward.streakDay}</span>
                     <input
                       type="number"
-                      aria-label={`Day ${reward.streak_day} XP`}
+                      aria-label={`Day ${reward.streakDay} XP`}
                       className={inputClass}
-                      value={reward.reward_xp}
+                      value={reward.rewardXp}
                       onChange={(event) =>
                         setDailyRewards((current) =>
                           (current || []).map((row, i) =>
-                            i === index ? { ...row, reward_xp: Number(event.target.value) || 0 } : row,
+                            i === index ? { ...row, rewardXp: Number(event.target.value) || 0 } : row,
                           ),
                         )
                       }
                     />
                     <input
                       type="number"
-                      aria-label={`Day ${reward.streak_day} promo`}
+                      aria-label={`Day ${reward.streakDay} promo`}
                       className={inputClass}
-                      value={reward.reward_promo_coins}
+                      value={reward.rewardPromoCoins}
                       onChange={(event) =>
                         setDailyRewards((current) =>
                           (current || []).map((row, i) =>
-                            i === index ? { ...row, reward_promo_coins: Number(event.target.value) || 0 } : row,
+                            i === index ? { ...row, rewardPromoCoins: Number(event.target.value) || 0 } : row,
                           ),
                         )
                       }
                     />
                     <input
-                      aria-label={`Day ${reward.streak_day} label`}
+                      aria-label={`Day ${reward.streakDay} label`}
                       className={inputClass}
-                      value={reward.reward_label || ""}
+                      value={reward.rewardLabel || ""}
                       onChange={(event) =>
                         setDailyRewards((current) =>
                           (current || []).map((row, i) =>
-                            i === index ? { ...row, reward_label: event.target.value } : row,
+                            i === index ? { ...row, rewardLabel: event.target.value } : row,
                           ),
                         )
                       }
@@ -521,13 +521,13 @@ export default function AdminProgression() {
                   <select
                     className={inputClass}
                     aria-label="Streak reset"
-                    value={dailyPolicy.streak_reset_policy}
+                    value={dailyPolicy.streakResetPolicy}
                     onChange={(event) =>
                       setDailyPolicy((policy) =>
                         policy
                           ? {
                               ...policy,
-                              streak_reset_policy: event.target.value as "miss_one_day" | "never",
+                              streakResetPolicy: event.target.value as "miss_one_day" | "never",
                             }
                           : policy,
                       )
@@ -552,10 +552,10 @@ export default function AdminProgression() {
                   <input
                     className={inputClass}
                     aria-label="Effective start (ISO)"
-                    value={dailyPolicy.effective_start}
+                    value={dailyPolicy.effectiveStart}
                     onChange={(event) =>
                       setDailyPolicy((policy) =>
-                        policy ? { ...policy, effective_start: event.target.value } : policy,
+                        policy ? { ...policy, effectiveStart: event.target.value } : policy,
                       )
                     }
                   />
@@ -565,9 +565,9 @@ export default function AdminProgression() {
                   <input
                     className={inputClass}
                     aria-label="Effective end (ISO)"
-                    value={dailyPolicy.effective_end}
+                    value={dailyPolicy.effectiveEnd}
                     onChange={(event) =>
-                      setDailyPolicy((policy) => (policy ? { ...policy, effective_end: event.target.value } : policy))
+                      setDailyPolicy((policy) => (policy ? { ...policy, effectiveEnd: event.target.value } : policy))
                     }
                   />
                 </label>
@@ -579,10 +579,10 @@ export default function AdminProgression() {
                 onClick={() => {
                   void runBusy(async () => {
                     const result = await apiAdminProgressionSaveDailyPolicy({
-                      streak_reset_policy: dailyPolicy.streak_reset_policy,
+                      streakResetPolicy: dailyPolicy.streakResetPolicy,
                       active: dailyPolicy.active,
-                      effective_start: dailyPolicy.effective_start || null,
-                      effective_end: dailyPolicy.effective_end || null,
+                      effectiveStart: dailyPolicy.effectiveStart || null,
+                      effectiveEnd: dailyPolicy.effectiveEnd || null,
                     });
                     if (!stillAdmin()) return;
                     if (result.error) showToast(result.error);
@@ -616,17 +616,17 @@ export default function AdminProgression() {
                   </label>
                 ))}
                 <label className="text-[10px] text-white/40">
-                  allowed_boost_values (csv)
+                  allowedBoostValues (csv)
                   <input
                     className={inputClass}
-                    aria-label="allowed_boost_values (csv)"
-                    value={energyCaps.allowed_boost_values.join(",")}
+                    aria-label="allowedBoostValues (csv)"
+                    value={energyCaps.allowedBoostValues.join(",")}
                     onChange={(event) =>
                       setEnergyCaps((caps) =>
                         caps
                           ? {
                               ...caps,
-                              allowed_boost_values: event.target.value
+                              allowedBoostValues: event.target.value
                                 .split(",")
                                 .map((item) => Number(item.trim()))
                                 .filter((n) => Number.isFinite(n) && n >= 1),
@@ -681,11 +681,11 @@ export default function AdminProgression() {
                       min={0}
                       aria-label={`${row.source} XP`}
                       className={inputClass}
-                      value={row.xp_amount}
+                      value={row.xpAmount}
                       onChange={(event) =>
                         setConfig((current) =>
                           (current || []).map((item, i) =>
-                            i === index ? { ...item, xp_amount: Number(event.target.value) || 0 } : item,
+                            i === index ? { ...item, xpAmount: Number(event.target.value) || 0 } : item,
                           ),
                         )
                       }
@@ -737,11 +737,11 @@ export default function AdminProgression() {
                       type="number"
                       aria-label={`Level ${row.level} XP`}
                       className={inputClass}
-                      value={row.total_xp_required}
+                      value={row.totalXpRequired}
                       onChange={(event) =>
                         setLevels((current) =>
                           (current || []).map((item, i) =>
-                            i === index ? { ...item, total_xp_required: Number(event.target.value) || 1 } : item,
+                            i === index ? { ...item, totalXpRequired: Number(event.target.value) || 1 } : item,
                           ),
                         )
                       }
@@ -763,11 +763,11 @@ export default function AdminProgression() {
                       className={inputClass}
                       placeholder="Badge code"
                       aria-label={`Level ${row.level} Badge code`}
-                      value={row.badge_code || ""}
+                      value={row.badgeCode || ""}
                       onChange={(event) =>
                         setLevels((current) =>
                           (current || []).map((item, i) =>
-                            i === index ? { ...item, badge_code: event.target.value } : item,
+                            i === index ? { ...item, badgeCode: event.target.value } : item,
                           ),
                         )
                       }
@@ -821,8 +821,8 @@ export default function AdminProgression() {
                         return;
                       }
                       setUserProgression(result.progression);
-                      setXpHistory(result.xp_history);
-                      setStarterHistory(result.starter_history);
+                      setXpHistory(result.xpHistory);
+                      setStarterHistory(result.starterHistory);
                     })();
                   }}
                   className="px-4 rounded-lg bg-white/10 text-sm"
@@ -837,16 +837,16 @@ export default function AdminProgression() {
                       <div className="text-xs text-white/40">Starter Coins</div>
                       <div className="font-bold flex items-center gap-1">
                         <Coins className="w-4 h-4 text-[#D9A62E]" />
-                        {userProgression.starter_coin_balance.toLocaleString()}
+                        {userProgression.starterCoinBalance.toLocaleString()}
                       </div>
                     </div>
                     <div className="rounded-lg bg-white/5 p-3">
                       <div className="text-xs text-white/40">Total XP</div>
-                      <div className="font-bold">{userProgression.total_xp.toLocaleString()}</div>
+                      <div className="font-bold">{userProgression.totalXp.toLocaleString()}</div>
                     </div>
                     <div className="rounded-lg bg-white/5 p-3">
                       <div className="text-xs text-white/40">Level</div>
-                      <div className="font-bold">{userProgression.current_level}</div>
+                      <div className="font-bold">{userProgression.currentLevel}</div>
                     </div>
                   </div>
                   <div className="grid md:grid-cols-[140px_1fr_auto_auto] gap-2 mb-5">
@@ -876,10 +876,10 @@ export default function AdminProgression() {
                             return;
                           }
                           const result = await apiAdminProgressionAdjust("xp-adjustments", {
-                            user_id: lookupUserId.trim(),
-                            amount_delta: amount,
+                            userId: lookupUserId.trim(),
+                            amountDelta: amount,
                             reason: adjustment.reason.trim(),
-                            idempotency_key: crypto.randomUUID(),
+                            idempotencyKey: crypto.randomUUID(),
                           });
                           if (!stillAdmin()) return;
                           if (result.error) showToast(result.error);
@@ -889,8 +889,8 @@ export default function AdminProgression() {
                             const loaded = await apiAdminProgressionLoadUser(lookupUserId.trim());
                             if (loaded.progression) {
                               setUserProgression(loaded.progression);
-                              setXpHistory(loaded.xp_history);
-                              setStarterHistory(loaded.starter_history);
+                              setXpHistory(loaded.xpHistory);
+                              setStarterHistory(loaded.starterHistory);
                             }
                           }
                         });
@@ -910,10 +910,10 @@ export default function AdminProgression() {
                             return;
                           }
                           const result = await apiAdminProgressionAdjust("starter-adjustments", {
-                            user_id: lookupUserId.trim(),
-                            amount_delta: amount,
+                            userId: lookupUserId.trim(),
+                            amountDelta: amount,
                             reason: adjustment.reason.trim(),
-                            idempotency_key: crypto.randomUUID(),
+                            idempotencyKey: crypto.randomUUID(),
                           });
                           if (!stillAdmin()) return;
                           if (result.error) showToast(result.error);
@@ -923,8 +923,8 @@ export default function AdminProgression() {
                             const loaded = await apiAdminProgressionLoadUser(lookupUserId.trim());
                             if (loaded.progression) {
                               setUserProgression(loaded.progression);
-                              setXpHistory(loaded.xp_history);
-                              setStarterHistory(loaded.starter_history);
+                              setXpHistory(loaded.xpHistory);
+                              setStarterHistory(loaded.starterHistory);
                             }
                           }
                         });
@@ -940,8 +940,8 @@ export default function AdminProgression() {
                       <div className="max-h-64 overflow-y-auto text-xs space-y-1">
                         {xpHistory.map((row) => (
                           <div key={row.id} className="border-b border-white/5 py-1">
-                            {row.xp_amount > 0 ? "+" : ""}
-                            {String(row.xp_amount)} XP · {row.source} · {row.created_at}
+                            {row.xpAmount > 0 ? "+" : ""}
+                            {String(row.xpAmount)} XP · {row.source} · {row.createdAt}
                           </div>
                         ))}
                       </div>
@@ -951,8 +951,8 @@ export default function AdminProgression() {
                       <div className="max-h-64 overflow-y-auto text-xs space-y-1">
                         {starterHistory.map((row) => (
                           <div key={row.id} className="border-b border-white/5 py-1">
-                            {row.amount_delta > 0 ? "+" : ""}
-                            {String(row.amount_delta)} · {row.kind} · balance {String(row.balance_after)}
+                            {row.amountDelta > 0 ? "+" : ""}
+                            {String(row.amountDelta)} · {row.kind} · balance {String(row.balanceAfter)}
                           </div>
                         ))}
                       </div>
@@ -970,7 +970,7 @@ export default function AdminProgression() {
                 ) : (
                   auditEntries.map((row) => (
                     <div key={row.id} className="border-b border-white/5 py-1">
-                      {row.created_at} · {row.admin_user_id} · {row.action} · {row.target}
+                      {row.createdAt} · {row.adminUserId} · {row.action} · {row.target}
                     </div>
                   ))
                 )}

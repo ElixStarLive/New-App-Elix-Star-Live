@@ -62,9 +62,9 @@ export type AdminUserRow = {
   id: string;
   username: string;
   email: string;
-  avatar_url: string | null;
-  created_at: string;
-  is_banned: boolean;
+  avatarUrl: string | null;
+  createdAt: string;
+  isBanned: boolean;
 };
 
 export function parseAdminUsers(data: unknown): AdminUserRow[] | null {
@@ -73,17 +73,17 @@ export function parseAdminUsers(data: unknown): AdminUserRow[] | null {
   for (const raw of data.users) {
     if (!isRecord(raw) || typeof raw.id !== "string") return null;
     if (typeof raw.username !== "string" || typeof raw.email !== "string") return null;
-    if (typeof raw.is_banned !== "boolean") return null;
-    if (raw.avatar_url != null && typeof raw.avatar_url !== "string") return null;
-    const createdAt = raw.created_at == null ? "" : typeof raw.created_at === "string" ? raw.created_at : null;
+    if (typeof raw.isBanned !== "boolean") return null;
+    if (raw.avatarUrl != null && typeof raw.avatarUrl !== "string") return null;
+    const createdAt = raw.createdAt == null ? "" : typeof raw.createdAt === "string" ? raw.createdAt : null;
     if (createdAt == null) return null;
     users.push({
       id: raw.id,
       username: raw.username,
       email: raw.email,
-      avatar_url: raw.avatar_url ?? null,
-      created_at: createdAt,
-      is_banned: raw.is_banned,
+      avatarUrl: raw.avatarUrl ?? null,
+      createdAt,
+      isBanned: raw.isBanned,
     });
   }
   return users;
@@ -104,40 +104,40 @@ export async function apiFetchAdminUsers(
 export async function apiAdminBanUser(
   userId: string,
   reason: string,
-): Promise<{ ok: true; is_banned: true } | { ok: false; error: string }> {
+): Promise<{ ok: true; isBanned: true } | { ok: false; error: string }> {
   const { data, error } = await apiRequest<unknown>(`/api/admin/users/${encodeURIComponent(userId)}/ban`, {
     method: "POST",
     body: JSON.stringify({ reason }),
   });
   if (error) return { ok: false, error: error.message };
-  if (!isRecord(data) || data.ok !== true || data.is_banned !== true) {
+  if (!isRecord(data) || data.ok !== true || data.isBanned !== true) {
     return { ok: false, error: "Invalid ban" };
   }
-  return { ok: true, is_banned: true };
+  return { ok: true, isBanned: true };
 }
 
 export async function apiAdminUnbanUser(
   userId: string,
-): Promise<{ ok: true; is_banned: false } | { ok: false; error: string }> {
+): Promise<{ ok: true; isBanned: false } | { ok: false; error: string }> {
   const { data, error } = await apiRequest<unknown>(`/api/admin/users/${encodeURIComponent(userId)}/ban`, {
     method: "DELETE",
   });
   if (error) return { ok: false, error: error.message };
-  if (!isRecord(data) || data.ok !== true || data.is_banned !== false) {
+  if (!isRecord(data) || data.ok !== true || data.isBanned !== false) {
     return { ok: false, error: "Invalid unban" };
   }
-  return { ok: true, is_banned: false };
+  return { ok: true, isBanned: false };
 }
 
 export type AdminReportRow = {
   id: string;
-  reporter_id: string;
-  target_type: string;
-  target_id: string;
+  reporterId: string;
+  targetType: string;
+  targetId: string;
   reason: string;
   details: string;
   status: string;
-  created_at: string;
+  createdAt: string;
   reporter?: { username: string };
 };
 
@@ -146,11 +146,11 @@ export function parseAdminReports(data: unknown): AdminReportRow[] | null {
   const reports: AdminReportRow[] = [];
   for (const raw of data.reports) {
     if (!isRecord(raw) || typeof raw.id !== "string") return null;
-    if (typeof raw.target_type !== "string" || typeof raw.target_id !== "string") return null;
+    if (typeof raw.targetType !== "string" || typeof raw.targetId !== "string") return null;
     if (typeof raw.reason !== "string" || typeof raw.status !== "string") return null;
-    if (typeof raw.reporter_id !== "string") return null;
+    if (typeof raw.reporterId !== "string") return null;
     const details = raw.details == null ? "" : typeof raw.details === "string" ? raw.details : null;
-    const createdAt = raw.created_at == null ? "" : typeof raw.created_at === "string" ? raw.created_at : null;
+    const createdAt = raw.createdAt == null ? "" : typeof raw.createdAt === "string" ? raw.createdAt : null;
     if (details == null || createdAt == null) return null;
     let reporter: { username: string } | undefined;
     if (raw.reporter != null) {
@@ -159,13 +159,13 @@ export function parseAdminReports(data: unknown): AdminReportRow[] | null {
     }
     reports.push({
       id: raw.id,
-      reporter_id: raw.reporter_id,
-      target_type: raw.target_type,
-      target_id: raw.target_id,
+      reporterId: raw.reporterId,
+      targetType: raw.targetType,
+      targetId: raw.targetId,
       reason: raw.reason,
       details,
       status: raw.status,
-      created_at: createdAt,
+      createdAt: createdAt,
       ...(reporter ? { reporter } : {}),
     });
   }
@@ -197,7 +197,7 @@ export async function apiAdminResolveReport(
     body: JSON.stringify({
       status: "actioned",
       action,
-      admin_note: `Outcome: ${action}`,
+      adminNote: `Outcome: ${action}`,
     }),
   });
   if (error) return { ok: false, error: error.message };
@@ -210,25 +210,25 @@ export async function apiAdminResolveReport(
 export type AdminEconomyGift = {
   id: string;
   name: string;
-  coin_cost: number;
-  is_active: boolean;
+  coinCost: number;
+  isActive: boolean;
 };
 
 export type AdminEconomyPackage = {
   id: string;
-  product_id: string;
+  productId: string;
   provider: string;
   title: string;
   coins: number;
-  price_display: string;
+  priceDisplay: string;
 };
 
 export type AdminEconomyBooster = {
   id: string;
   name: string;
-  coin_cost: number;
-  effect_type: string;
-  is_active: boolean;
+  coinCost: number;
+  effectType: string;
+  isActive: boolean;
 };
 
 export type AdminEconomy = {
@@ -254,43 +254,43 @@ function requiredNonNegativeInt(value: unknown): number | null {
 function parseAdminEconomyGift(raw: unknown): AdminEconomyGift | null {
   if (!isRecord(raw) || typeof raw.id !== "string" || !raw.id) return null;
   if (typeof raw.name !== "string") return null;
-  const coinCost = requiredPositiveInt(raw.coin_cost);
-  if (coinCost == null || typeof raw.is_active !== "boolean") return null;
+  const coinCost = requiredPositiveInt(raw.coinCost);
+  if (coinCost == null || typeof raw.isActive !== "boolean") return null;
   return {
     id: raw.id,
     name: raw.name,
-    coin_cost: coinCost,
-    is_active: raw.is_active,
+    coinCost: coinCost,
+    isActive: raw.isActive,
   };
 }
 
 function parseAdminEconomyPackage(raw: unknown): AdminEconomyPackage | null {
-  if (!isRecord(raw) || typeof raw.product_id !== "string" || !raw.product_id) return null;
+  if (!isRecord(raw) || typeof raw.productId !== "string" || !raw.productId) return null;
   if (typeof raw.provider !== "string" || typeof raw.title !== "string") return null;
   const coins = requiredPositiveInt(raw.coins);
-  if (coins == null || typeof raw.price_display !== "string") return null;
-  const id = typeof raw.id === "string" && raw.id ? raw.id : `${raw.provider}:${raw.product_id}`;
+  if (coins == null || typeof raw.priceDisplay !== "string") return null;
+  const id = typeof raw.id === "string" && raw.id ? raw.id : `${raw.provider}:${raw.productId}`;
   return {
     id,
-    product_id: raw.product_id,
+    productId: raw.productId,
     provider: raw.provider,
     title: raw.title,
     coins,
-    price_display: raw.price_display,
+    priceDisplay: raw.priceDisplay,
   };
 }
 
 function parseAdminEconomyBooster(raw: unknown): AdminEconomyBooster | null {
   if (!isRecord(raw) || typeof raw.id !== "string" || !raw.id) return null;
-  if (typeof raw.name !== "string" || typeof raw.effect_type !== "string") return null;
-  const coinCost = requiredNonNegativeInt(raw.coin_cost);
-  if (coinCost == null || typeof raw.is_active !== "boolean") return null;
+  if (typeof raw.name !== "string" || typeof raw.effectType !== "string") return null;
+  const coinCost = requiredNonNegativeInt(raw.coinCost);
+  if (coinCost == null || typeof raw.isActive !== "boolean") return null;
   return {
     id: raw.id,
     name: raw.name,
-    coin_cost: coinCost,
-    effect_type: raw.effect_type,
-    is_active: raw.is_active,
+    coinCost: coinCost,
+    effectType: raw.effectType,
+    isActive: raw.isActive,
   };
 }
 
@@ -338,7 +338,7 @@ export async function apiAdminUpdateGiftPrice(
     `/api/admin/gifts/catalog/${encodeURIComponent(giftId)}`,
     {
       method: "PATCH",
-      body: JSON.stringify({ coin_cost: coinCost }),
+      body: JSON.stringify({ coinCost: coinCost }),
     },
   );
   if (error) return { ok: false, error: error.message };
@@ -358,10 +358,10 @@ export type AdminMonetisationConfig = {
 
 export type AdminMonetisationWithdrawal = {
   id: string;
-  user_id: string;
-  amount_pence: number;
+  userId: string;
+  amountPence: number;
   status: string;
-  created_at: string;
+  createdAt: string;
 };
 
 export type AdminMonetisation = {
@@ -388,16 +388,16 @@ function parseAdminMonetisationConfig(raw: unknown): AdminMonetisationConfig | n
 
 function parseAdminMonetisationWithdrawal(raw: unknown): AdminMonetisationWithdrawal | null {
   if (!isRecord(raw) || typeof raw.id !== "string" || !raw.id) return null;
-  if (typeof raw.user_id !== "string" || typeof raw.status !== "string") return null;
-  const amount = requiredNonNegativeInt(raw.amount_pence);
-  const createdAt = raw.created_at == null ? "" : typeof raw.created_at === "string" ? raw.created_at : null;
+  if (typeof raw.userId !== "string" || typeof raw.status !== "string") return null;
+  const amount = requiredNonNegativeInt(raw.amountPence);
+  const createdAt = raw.createdAt == null ? "" : typeof raw.createdAt === "string" ? raw.createdAt : null;
   if (amount == null || createdAt == null) return null;
   return {
     id: raw.id,
-    user_id: raw.user_id,
-    amount_pence: amount,
+    userId: raw.userId,
+    amountPence: amount,
     status: raw.status,
-    created_at: createdAt,
+    createdAt: createdAt,
   };
 }
 
@@ -452,66 +452,66 @@ export type AdminPurchaseTab = "iap" | "shop";
 
 export type AdminIapPurchase = {
   id: string;
-  user_id: string;
+  userId: string;
   provider: string;
-  product_id: string;
-  transaction_id: string;
+  productId: string;
+  transactionId: string;
   coins: number;
   status: string;
-  created_at: string;
+  createdAt: string;
 };
 
 export type AdminShopPurchase = {
   id: string;
-  user_id: string;
-  stripe_session_id: string;
-  item_id: string;
+  userId: string;
+  stripeSessionId: string;
+  itemId: string;
   quantity: number;
-  amount_pence: number;
+  amountPence: number;
   status: string;
-  created_at: string;
+  createdAt: string;
 };
 
 function parseAdminIapPurchase(raw: unknown): AdminIapPurchase | null {
   if (!isRecord(raw) || typeof raw.id !== "string" || !raw.id) return null;
-  if (typeof raw.user_id !== "string" || typeof raw.provider !== "string") return null;
+  if (typeof raw.userId !== "string" || typeof raw.provider !== "string") return null;
   if (raw.provider !== "apple" && raw.provider !== "google") return null;
-  if (typeof raw.product_id !== "string" || typeof raw.transaction_id !== "string") return null;
+  if (typeof raw.productId !== "string" || typeof raw.transactionId !== "string") return null;
   if (typeof raw.status !== "string") return null;
   const coins = requiredJsonInt(raw.coins, 0, Number.MAX_SAFE_INTEGER);
-  const createdAt = raw.created_at == null ? "" : typeof raw.created_at === "string" ? raw.created_at : null;
+  const createdAt = raw.createdAt == null ? "" : typeof raw.createdAt === "string" ? raw.createdAt : null;
   if (coins == null || createdAt == null) return null;
   if ("raw_payload" in raw || "purchaseToken" in raw || "receipt" in raw) return null;
   return {
     id: raw.id,
-    user_id: raw.user_id,
+    userId: raw.userId,
     provider: raw.provider,
-    product_id: raw.product_id,
-    transaction_id: raw.transaction_id,
+    productId: raw.productId,
+    transactionId: raw.transactionId,
     coins,
     status: raw.status,
-    created_at: createdAt,
+    createdAt: createdAt,
   };
 }
 
 function parseAdminShopPurchase(raw: unknown): AdminShopPurchase | null {
   if (!isRecord(raw) || typeof raw.id !== "string" || !raw.id) return null;
-  if (typeof raw.user_id !== "string" || typeof raw.stripe_session_id !== "string") return null;
-  if (typeof raw.item_id !== "string" || typeof raw.status !== "string") return null;
+  if (typeof raw.userId !== "string" || typeof raw.stripeSessionId !== "string") return null;
+  if (typeof raw.itemId !== "string" || typeof raw.status !== "string") return null;
   const quantity = requiredJsonInt(raw.quantity, 0, Number.MAX_SAFE_INTEGER);
-  const amountPence = requiredJsonInt(raw.amount_pence, 0, Number.MAX_SAFE_INTEGER);
-  const createdAt = raw.created_at == null ? "" : typeof raw.created_at === "string" ? raw.created_at : null;
+  const amountPence = requiredJsonInt(raw.amountPence, 0, Number.MAX_SAFE_INTEGER);
+  const createdAt = raw.createdAt == null ? "" : typeof raw.createdAt === "string" ? raw.createdAt : null;
   if (quantity == null || amountPence == null || createdAt == null) return null;
   if ("client_secret" in raw || "payment_intent" in raw) return null;
   return {
     id: raw.id,
-    user_id: raw.user_id,
-    stripe_session_id: raw.stripe_session_id,
-    item_id: raw.item_id,
+    userId: raw.userId,
+    stripeSessionId: raw.stripeSessionId,
+    itemId: raw.itemId,
     quantity,
-    amount_pence: amountPence,
+    amountPence: amountPence,
     status: raw.status,
-    created_at: createdAt,
+    createdAt: createdAt,
   };
 }
 
@@ -561,31 +561,31 @@ export async function apiFetchAdminShopPurchases(): Promise<{
 
 export type AdminWithdrawalRow = {
   id: string;
-  user_id: string;
+  userId: string;
   username: string;
-  display_name: string;
-  amount_pence: number;
+  displayName: string;
+  amountPence: number;
   currency: "GBP";
   status: string;
-  admin_note: string | null;
-  processed_by: string | null;
-  processed_at: string | null;
-  created_at: string;
+  adminNote: string | null;
+  processedBy: string | null;
+  processedAt: string | null;
+  createdAt: string;
 };
 
 export type AdminWithdrawalAction = "review" | "approve" | "reject" | "cancel" | "mark-paid";
 
 function parseAdminWithdrawalRow(raw: unknown): AdminWithdrawalRow | null {
   if (!isRecord(raw) || typeof raw.id !== "string" || !raw.id) return null;
-  if (typeof raw.user_id !== "string" || typeof raw.status !== "string") return null;
-  if (typeof raw.username !== "string" || typeof raw.display_name !== "string") return null;
-  const amount = requiredJsonInt(raw.amount_pence, 1, Number.MAX_SAFE_INTEGER);
+  if (typeof raw.userId !== "string" || typeof raw.status !== "string") return null;
+  if (typeof raw.username !== "string" || typeof raw.displayName !== "string") return null;
+  const amount = requiredJsonInt(raw.amountPence, 1, Number.MAX_SAFE_INTEGER);
   if (amount == null || raw.currency !== "GBP") return null;
-  const createdAt = raw.created_at == null ? "" : typeof raw.created_at === "string" ? raw.created_at : null;
+  const createdAt = raw.createdAt == null ? "" : typeof raw.createdAt === "string" ? raw.createdAt : null;
   if (createdAt == null) return null;
-  if (raw.admin_note != null && typeof raw.admin_note !== "string") return null;
-  if (raw.processed_by != null && typeof raw.processed_by !== "string") return null;
-  if (raw.processed_at != null && typeof raw.processed_at !== "string") return null;
+  if (raw.adminNote != null && typeof raw.adminNote !== "string") return null;
+  if (raw.processedBy != null && typeof raw.processedBy !== "string") return null;
+  if (raw.processedAt != null && typeof raw.processedAt !== "string") return null;
   if (
     "client_secret" in raw ||
     "password_hash" in raw ||
@@ -597,16 +597,16 @@ function parseAdminWithdrawalRow(raw: unknown): AdminWithdrawalRow | null {
   }
   return {
     id: raw.id,
-    user_id: raw.user_id,
+    userId: raw.userId,
     username: raw.username,
-    display_name: raw.display_name,
-    amount_pence: amount,
+    displayName: raw.displayName,
+    amountPence: amount,
     currency: "GBP",
     status: raw.status,
-    admin_note: raw.admin_note ?? null,
-    processed_by: raw.processed_by ?? null,
-    processed_at: raw.processed_at ?? null,
-    created_at: createdAt,
+    adminNote: raw.adminNote ?? null,
+    processedBy: raw.processedBy ?? null,
+    processedAt: raw.processedAt ?? null,
+    createdAt: createdAt,
   };
 }
 
@@ -641,7 +641,7 @@ export async function apiAdminWithdrawalAction(
     `/api/admin/withdrawals/${encodeURIComponent(withdrawalId)}/${action}`,
     {
       method: "POST",
-      body: JSON.stringify({ admin_note: note }),
+      body: JSON.stringify({ adminNote: note }),
     },
   );
   if (error) return { ok: false, error: error.message };
@@ -656,46 +656,46 @@ export type AdminRisingStarsSeason = {
   slug: string;
   title: string;
   description: string | null;
-  starts_at: string;
-  ends_at: string;
+  startsAt: string;
+  endsAt: string;
   status: string;
-  created_by: string | null;
-  created_at: string;
+  createdBy: string | null;
+  createdAt: string;
 };
 
 export type AdminRisingStarsChallenge = {
   id: string;
-  season_id: string;
-  category_id: string;
-  region_id: string | null;
-  week_index: number;
+  seasonId: string;
+  categoryId: string;
+  regionId: string | null;
+  weekIndex: number;
   title: string;
   description: string | null;
-  sound_track_id: string;
-  opens_at: string;
-  closes_at: string;
+  soundTrackId: string;
+  opensAt: string;
+  closesAt: string;
   status: string;
-  leaderboard_frozen: boolean;
+  leaderboardFrozen: boolean;
 };
 
 export type AdminRisingStarsAudit = {
   id: string;
   action: string;
-  entity_type: string;
-  entity_id: string | null;
-  created_at: string;
+  entityType: string;
+  entityId: string | null;
+  createdAt: string;
 };
 
 export type AdminRisingStarsCategory = {
   id: string;
-  season_id: string;
+  seasonId: string;
   slug: string;
   title: string;
 };
 
 export type AdminRisingStarsRegion = {
   id: string;
-  season_id: string;
+  seasonId: string;
   slug: string;
   title: string;
 };
@@ -703,66 +703,66 @@ export type AdminRisingStarsRegion = {
 function parseAdminRisingStarsSeason(raw: unknown): AdminRisingStarsSeason | null {
   if (!isRecord(raw) || typeof raw.id !== "string" || !raw.id) return null;
   if (typeof raw.slug !== "string" || typeof raw.title !== "string") return null;
-  if (typeof raw.status !== "string" || typeof raw.starts_at !== "string" || typeof raw.ends_at !== "string") {
+  if (typeof raw.status !== "string" || typeof raw.startsAt !== "string" || typeof raw.endsAt !== "string") {
     return null;
   }
   if (raw.description != null && typeof raw.description !== "string") return null;
-  if (raw.created_by != null && typeof raw.created_by !== "string") return null;
-  if (typeof raw.created_at !== "string") return null;
+  if (raw.createdBy != null && typeof raw.createdBy !== "string") return null;
+  if (typeof raw.createdAt !== "string") return null;
   if ("client_secret" in raw || "password_hash" in raw || "DATABASE_URL" in raw) return null;
   return {
     id: raw.id,
     slug: raw.slug,
     title: raw.title,
     description: raw.description ?? null,
-    starts_at: raw.starts_at,
-    ends_at: raw.ends_at,
+    startsAt: raw.startsAt,
+    endsAt: raw.endsAt,
     status: raw.status,
-    created_by: raw.created_by ?? null,
-    created_at: raw.created_at,
+    createdBy: raw.createdBy ?? null,
+    createdAt: raw.createdAt,
   };
 }
 
 function parseAdminRisingStarsChallenge(raw: unknown): AdminRisingStarsChallenge | null {
   if (!isRecord(raw) || typeof raw.id !== "string" || !raw.id) return null;
-  if (typeof raw.season_id !== "string" || typeof raw.category_id !== "string") return null;
-  if (raw.region_id != null && typeof raw.region_id !== "string") return null;
+  if (typeof raw.seasonId !== "string" || typeof raw.categoryId !== "string") return null;
+  if (raw.regionId != null && typeof raw.regionId !== "string") return null;
   if (typeof raw.title !== "string" || typeof raw.status !== "string") return null;
-  if (typeof raw.sound_track_id !== "string") return null;
-  const week = requiredJsonInt(raw.week_index, 1, 520);
+  if (typeof raw.soundTrackId !== "string") return null;
+  const week = requiredJsonInt(raw.weekIndex, 1, 520);
   if (week == null) return null;
-  if (typeof raw.opens_at !== "string" || typeof raw.closes_at !== "string") return null;
-  if (typeof raw.leaderboard_frozen !== "boolean") return null;
+  if (typeof raw.opensAt !== "string" || typeof raw.closesAt !== "string") return null;
+  if (typeof raw.leaderboardFrozen !== "boolean") return null;
   if (raw.description != null && typeof raw.description !== "string") return null;
   if ("client_secret" in raw || "password_hash" in raw) return null;
   return {
     id: raw.id,
-    season_id: raw.season_id,
-    category_id: raw.category_id,
-    region_id: raw.region_id ?? null,
-    week_index: week,
+    seasonId: raw.seasonId,
+    categoryId: raw.categoryId,
+    regionId: raw.regionId ?? null,
+    weekIndex: week,
     title: raw.title,
     description: raw.description ?? null,
-    sound_track_id: raw.sound_track_id,
-    opens_at: raw.opens_at,
-    closes_at: raw.closes_at,
+    soundTrackId: raw.soundTrackId,
+    opensAt: raw.opensAt,
+    closesAt: raw.closesAt,
     status: raw.status,
-    leaderboard_frozen: raw.leaderboard_frozen,
+    leaderboardFrozen: raw.leaderboardFrozen,
   };
 }
 
 function parseAdminRisingStarsAuditRow(raw: unknown): AdminRisingStarsAudit | null {
   if (!isRecord(raw) || typeof raw.id !== "string" || !raw.id) return null;
-  if (typeof raw.action !== "string" || typeof raw.entity_type !== "string") return null;
-  if (raw.entity_id != null && typeof raw.entity_id !== "string") return null;
-  if (typeof raw.created_at !== "string") return null;
+  if (typeof raw.action !== "string" || typeof raw.entityType !== "string") return null;
+  if (raw.entityId != null && typeof raw.entityId !== "string") return null;
+  if (typeof raw.createdAt !== "string") return null;
   if ("details" in raw || "client_secret" in raw || "password_hash" in raw) return null;
   return {
     id: raw.id,
     action: raw.action,
-    entity_type: raw.entity_type,
-    entity_id: raw.entity_id ?? null,
-    created_at: raw.created_at,
+    entityType: raw.entityType,
+    entityId: raw.entityId ?? null,
+    createdAt: raw.createdAt,
   };
 }
 
@@ -833,8 +833,8 @@ export async function apiAdminRisingStarsCreateSeason(body: {
   slug: string;
   title: string;
   description: string;
-  starts_at: string;
-  ends_at: string;
+  startsAt: string;
+  endsAt: string;
   status: string;
 }): Promise<{ ok: true } | { ok: false; error: string }> {
   const { error } = await apiRequest<unknown>("/api/admin/rising-stars/seasons", {
@@ -846,7 +846,7 @@ export async function apiAdminRisingStarsCreateSeason(body: {
 }
 
 export async function apiAdminRisingStarsCreateCategory(body: {
-  season_id: string;
+  seasonId: string;
   slug: string;
   title: string;
 }): Promise<{ ok: true; category: AdminRisingStarsCategory } | { ok: false; error: string }> {
@@ -858,7 +858,7 @@ export async function apiAdminRisingStarsCreateCategory(body: {
   if (!isRecord(data) || !isRecord(data.category) || typeof data.category.id !== "string") {
     return { ok: false, error: "Invalid category" };
   }
-  if (typeof data.category.season_id !== "string" || typeof data.category.slug !== "string") {
+  if (typeof data.category.seasonId !== "string" || typeof data.category.slug !== "string") {
     return { ok: false, error: "Invalid category" };
   }
   if (typeof data.category.title !== "string") return { ok: false, error: "Invalid category" };
@@ -866,7 +866,7 @@ export async function apiAdminRisingStarsCreateCategory(body: {
     ok: true,
     category: {
       id: data.category.id,
-      season_id: data.category.season_id,
+      seasonId: data.category.seasonId,
       slug: data.category.slug,
       title: data.category.title,
     },
@@ -874,10 +874,10 @@ export async function apiAdminRisingStarsCreateCategory(body: {
 }
 
 export async function apiAdminRisingStarsCreateRegion(body: {
-  season_id: string;
+  seasonId: string;
   slug: string;
   title: string;
-  country_codes: string[];
+  countryCodes: string[];
 }): Promise<{ ok: true; region: AdminRisingStarsRegion } | { ok: false; error: string }> {
   const { data, error } = await apiRequest<unknown>("/api/admin/rising-stars/regions", {
     method: "POST",
@@ -887,7 +887,7 @@ export async function apiAdminRisingStarsCreateRegion(body: {
   if (!isRecord(data) || !isRecord(data.region) || typeof data.region.id !== "string") {
     return { ok: false, error: "Invalid region" };
   }
-  if (typeof data.region.season_id !== "string" || typeof data.region.slug !== "string") {
+  if (typeof data.region.seasonId !== "string" || typeof data.region.slug !== "string") {
     return { ok: false, error: "Invalid region" };
   }
   if (typeof data.region.title !== "string") return { ok: false, error: "Invalid region" };
@@ -895,7 +895,7 @@ export async function apiAdminRisingStarsCreateRegion(body: {
     ok: true,
     region: {
       id: data.region.id,
-      season_id: data.region.season_id,
+      seasonId: data.region.seasonId,
       slug: data.region.slug,
       title: data.region.title,
     },
@@ -903,14 +903,14 @@ export async function apiAdminRisingStarsCreateRegion(body: {
 }
 
 export async function apiAdminRisingStarsCreateChallenge(body: {
-  season_id: string;
-  category_id: string;
-  region_id: string | null;
-  week_index: number;
+  seasonId: string;
+  categoryId: string;
+  regionId: string | null;
+  weekIndex: number;
   title: string;
-  sound_track_id: string;
-  opens_at: string;
-  closes_at: string;
+  soundTrackId: string;
+  opensAt: string;
+  closesAt: string;
   status: string;
 }): Promise<{ ok: true } | { ok: false; error: string }> {
   const { error } = await apiRequest<unknown>("/api/admin/rising-stars/challenges", {
@@ -964,102 +964,102 @@ function requiredInt(value: unknown): number | null {
 
 export type AdminXpConfig = {
   source: string;
-  xp_amount: number;
+  xpAmount: number;
   enabled: boolean;
   description: string;
 };
 
 export type AdminLevelRow = {
   level: number;
-  total_xp_required: number;
+  totalXpRequired: number;
   title: string | null;
-  badge_code: string | null;
+  badgeCode: string | null;
 };
 
 export type AdminMissionRow = {
   id: string;
   title: string;
-  goal_count: number;
-  reward_xp: number;
-  reward_promo_coins: number;
-  reward_energy: number;
+  goalCount: number;
+  rewardXp: number;
+  rewardPromoCoins: number;
+  rewardEnergy: number;
   enabled: boolean;
-  metric_key: string;
+  metricKey: string;
   scope: string;
   audience: string;
-  starts_at: string | null;
-  ends_at: string | null;
-  sort_order: number;
+  startsAt: string | null;
+  endsAt: string | null;
+  sortOrder: number;
 };
 
 export type AdminDailyReward = {
-  streak_day: number;
-  reward_xp: number;
-  reward_promo_coins: number;
-  reward_label: string | null;
+  streakDay: number;
+  rewardXp: number;
+  rewardPromoCoins: number;
+  rewardLabel: string | null;
 };
 
 export type AdminDailyPolicy = {
-  streak_reset_policy: "miss_one_day" | "never";
-  effective_start: string;
-  effective_end: string;
+  streakResetPolicy: "miss_one_day" | "never";
+  effectiveStart: string;
+  effectiveEnd: string;
   active: boolean;
 };
 
 export type AdminBattleEnergyCaps = {
-  watch_amount: number;
-  comment_amount: number;
-  share_amount: number;
-  watch_cap: number;
-  comment_cap: number;
-  share_cap: number;
-  storage_cap: number;
-  session_cap: number;
-  daily_cap: number;
-  minimum_boost: number;
-  allowed_boost_values: number[];
-  fan_energy_threshold: number;
-  score_multiplier: number;
-  boost_duration_sec: number;
+  watchAmount: number;
+  commentAmount: number;
+  shareAmount: number;
+  watchCap: number;
+  commentCap: number;
+  shareCap: number;
+  storageCap: number;
+  sessionCap: number;
+  dailyCap: number;
+  minimumBoost: number;
+  allowedBoostValues: number[];
+  fanEnergyThreshold: number;
+  scoreMultiplier: number;
+  boostDurationSec: number;
   enabled: boolean;
 };
 
 export type AdminFeatureFlagRow = {
   key: string;
   effective: boolean;
-  default_value: boolean;
-  env_value: boolean;
-  admin_value: boolean | null;
-  last_changed_by: string | null;
-  last_changed_at: string | null;
+  defaultValue: boolean;
+  envValue: boolean;
+  adminValue: boolean | null;
+  lastChangedBy: string | null;
+  lastChangedAt: string | null;
   reason: string | null;
 };
 
 export type AdminProgressionUser = {
-  starter_coin_balance: number;
-  total_xp: number;
-  current_level: number;
+  starterCoinBalance: number;
+  totalXp: number;
+  currentLevel: number;
 };
 
 export type AdminProgressionAudit = {
   id: string;
-  admin_user_id: string;
+  adminUserId: string;
   action: string;
   target: string;
-  created_at: string;
+  createdAt: string;
 };
 
-export type AdminXpHistory = { id: string; xp_amount: number; source: string; created_at: string };
-export type AdminStarterHistory = { id: string; amount_delta: number; kind: string; balance_after: number };
+export type AdminXpHistory = { id: string; xpAmount: number; source: string; createdAt: string };
+export type AdminStarterHistory = { id: string; amountDelta: number; kind: string; balanceAfter: number };
 
 function parseXpConfigList(data: unknown): AdminXpConfig[] | null {
   if (!isRecord(data) || !Array.isArray(data.config)) return null;
   const rows: AdminXpConfig[] = [];
   for (const raw of data.config) {
     if (!isRecord(raw) || typeof raw.source !== "string" || typeof raw.description !== "string") return null;
-    const xpAmount = requiredInt(raw.xp_amount);
+    const xpAmount = requiredInt(raw.xpAmount);
     if (xpAmount == null || typeof raw.enabled !== "boolean") return null;
-    rows.push({ source: raw.source, xp_amount: xpAmount, enabled: raw.enabled, description: raw.description });
+    rows.push({ source: raw.source, xpAmount: xpAmount, enabled: raw.enabled, description: raw.description });
   }
   return rows;
 }
@@ -1070,15 +1070,15 @@ function parseLevelList(data: unknown): AdminLevelRow[] | null {
   for (const raw of data.levels) {
     if (!isRecord(raw)) return null;
     const level = requiredInt(raw.level);
-    const total = requiredInt(raw.total_xp_required);
+    const total = requiredInt(raw.totalXpRequired);
     if (level == null || total == null) return null;
     if (raw.title != null && typeof raw.title !== "string") return null;
-    if (raw.badge_code != null && typeof raw.badge_code !== "string") return null;
+    if (raw.badgeCode != null && typeof raw.badgeCode !== "string") return null;
     rows.push({
       level,
-      total_xp_required: total,
+      totalXpRequired: total,
       title: typeof raw.title === "string" ? raw.title : null,
-      badge_code: typeof raw.badge_code === "string" ? raw.badge_code : null,
+      badgeCode: typeof raw.badgeCode === "string" ? raw.badgeCode : null,
     });
   }
   return rows;
@@ -1089,28 +1089,28 @@ function parseMissionList(data: unknown): AdminMissionRow[] | null {
   const rows: AdminMissionRow[] = [];
   for (const raw of data.missions) {
     if (!isRecord(raw) || typeof raw.id !== "string" || typeof raw.title !== "string") return null;
-    if (typeof raw.metric_key !== "string" || typeof raw.scope !== "string") return null;
-    const goal = requiredInt(raw.goal_count);
-    const xp = requiredInt(raw.reward_xp);
-    const promo = requiredInt(raw.reward_promo_coins);
-    const energy = requiredInt(raw.reward_energy);
-    const sort = requiredInt(raw.sort_order ?? 0);
+    if (typeof raw.metricKey !== "string" || typeof raw.scope !== "string") return null;
+    const goal = requiredInt(raw.goalCount);
+    const xp = requiredInt(raw.rewardXp);
+    const promo = requiredInt(raw.rewardPromoCoins);
+    const energy = requiredInt(raw.rewardEnergy);
+    const sort = requiredInt(raw.sortOrder ?? 0);
     if (goal == null || xp == null || promo == null || energy == null || sort == null) return null;
     if (typeof raw.enabled !== "boolean") return null;
     rows.push({
       id: raw.id,
       title: raw.title,
-      goal_count: goal,
-      reward_xp: xp,
-      reward_promo_coins: promo,
-      reward_energy: energy,
+      goalCount: goal,
+      rewardXp: xp,
+      rewardPromoCoins: promo,
+      rewardEnergy: energy,
       enabled: raw.enabled,
-      metric_key: raw.metric_key,
+      metricKey: raw.metricKey,
       scope: raw.scope,
       audience: typeof raw.audience === "string" ? raw.audience : "all_authenticated",
-      starts_at: typeof raw.starts_at === "string" ? raw.starts_at : null,
-      ends_at: typeof raw.ends_at === "string" ? raw.ends_at : null,
-      sort_order: sort,
+      startsAt: typeof raw.startsAt === "string" ? raw.startsAt : null,
+      endsAt: typeof raw.endsAt === "string" ? raw.endsAt : null,
+      sortOrder: sort,
     });
   }
   return rows;
@@ -1121,26 +1121,26 @@ function parseDailyRewards(data: unknown): { rewards: AdminDailyReward[]; policy
   const rewards: AdminDailyReward[] = [];
   for (const raw of data.rewards) {
     if (!isRecord(raw)) return null;
-    const day = requiredInt(raw.streak_day);
-    const xp = requiredInt(raw.reward_xp);
-    const promo = requiredInt(raw.reward_promo_coins);
+    const day = requiredInt(raw.streakDay);
+    const xp = requiredInt(raw.rewardXp);
+    const promo = requiredInt(raw.rewardPromoCoins);
     if (day == null || xp == null || promo == null) return null;
     rewards.push({
-      streak_day: day,
-      reward_xp: xp,
-      reward_promo_coins: promo,
-      reward_label: typeof raw.reward_label === "string" ? raw.reward_label : null,
+      streakDay: day,
+      rewardXp: xp,
+      rewardPromoCoins: promo,
+      rewardLabel: typeof raw.rewardLabel === "string" ? raw.rewardLabel : null,
     });
   }
   const policy = data.policy;
-  if (policy.streak_reset_policy !== "miss_one_day" && policy.streak_reset_policy !== "never") return null;
+  if (policy.streakResetPolicy !== "miss_one_day" && policy.streakResetPolicy !== "never") return null;
   if (typeof policy.active !== "boolean") return null;
   return {
     rewards,
     policy: {
-      streak_reset_policy: policy.streak_reset_policy,
-      effective_start: typeof policy.effective_start === "string" ? policy.effective_start : "",
-      effective_end: typeof policy.effective_end === "string" ? policy.effective_end : "",
+      streakResetPolicy: policy.streakResetPolicy,
+      effectiveStart: typeof policy.effectiveStart === "string" ? policy.effectiveStart : "",
+      effectiveEnd: typeof policy.effectiveEnd === "string" ? policy.effectiveEnd : "",
       active: policy.active,
     },
   };
@@ -1150,18 +1150,18 @@ function parseCaps(data: unknown): AdminBattleEnergyCaps | null {
   if (!isRecord(data) || !isRecord(data.caps)) return null;
   const raw = data.caps;
   const ints = [
-    "watch_amount",
-    "comment_amount",
-    "share_amount",
-    "watch_cap",
-    "comment_cap",
-    "share_cap",
-    "storage_cap",
-    "session_cap",
-    "daily_cap",
-    "minimum_boost",
-    "fan_energy_threshold",
-    "boost_duration_sec",
+    "watchAmount",
+    "commentAmount",
+    "shareAmount",
+    "watchCap",
+    "commentCap",
+    "shareCap",
+    "storageCap",
+    "sessionCap",
+    "dailyCap",
+    "minimumBoost",
+    "fanEnergyThreshold",
+    "boostDurationSec",
   ] as const;
   const parsed: Record<string, number> = {};
   for (const key of ints) {
@@ -1169,29 +1169,29 @@ function parseCaps(data: unknown): AdminBattleEnergyCaps | null {
     if (n == null) return null;
     parsed[key] = n;
   }
-  if (typeof raw.score_multiplier !== "number" || !Number.isFinite(raw.score_multiplier)) return null;
-  if (!Array.isArray(raw.allowed_boost_values) || typeof raw.enabled !== "boolean") return null;
+  if (typeof raw.scoreMultiplier !== "number" || !Number.isFinite(raw.scoreMultiplier)) return null;
+  if (!Array.isArray(raw.allowedBoostValues) || typeof raw.enabled !== "boolean") return null;
   const allowed: number[] = [];
-  for (const value of raw.allowed_boost_values) {
+  for (const value of raw.allowedBoostValues) {
     const n = requiredInt(value);
     if (n == null) return null;
     allowed.push(n);
   }
   return {
-    watch_amount: parsed.watch_amount,
-    comment_amount: parsed.comment_amount,
-    share_amount: parsed.share_amount,
-    watch_cap: parsed.watch_cap,
-    comment_cap: parsed.comment_cap,
-    share_cap: parsed.share_cap,
-    storage_cap: parsed.storage_cap,
-    session_cap: parsed.session_cap,
-    daily_cap: parsed.daily_cap,
-    minimum_boost: parsed.minimum_boost,
-    allowed_boost_values: allowed,
-    fan_energy_threshold: parsed.fan_energy_threshold,
-    score_multiplier: raw.score_multiplier,
-    boost_duration_sec: parsed.boost_duration_sec,
+    watchAmount: parsed.watchAmount,
+    commentAmount: parsed.commentAmount,
+    shareAmount: parsed.shareAmount,
+    watchCap: parsed.watchCap,
+    commentCap: parsed.commentCap,
+    shareCap: parsed.shareCap,
+    storageCap: parsed.storageCap,
+    sessionCap: parsed.sessionCap,
+    dailyCap: parsed.dailyCap,
+    minimumBoost: parsed.minimumBoost,
+    allowedBoostValues: allowed,
+    fanEnergyThreshold: parsed.fanEnergyThreshold,
+    scoreMultiplier: raw.scoreMultiplier,
+    boostDurationSec: parsed.boostDurationSec,
     enabled: raw.enabled,
   };
 }
@@ -1206,18 +1206,18 @@ function parseFlagDetail(data: unknown): { flags: Record<string, boolean>; rows:
   const rows: AdminFeatureFlagRow[] = [];
   for (const raw of data.rows) {
     if (!isRecord(raw) || typeof raw.key !== "string") return null;
-    if (typeof raw.effective !== "boolean" || typeof raw.default_value !== "boolean" || typeof raw.env_value !== "boolean") {
+    if (typeof raw.effective !== "boolean" || typeof raw.defaultValue !== "boolean" || typeof raw.envValue !== "boolean") {
       return null;
     }
-    if (raw.admin_value != null && typeof raw.admin_value !== "boolean") return null;
+    if (raw.adminValue != null && typeof raw.adminValue !== "boolean") return null;
     rows.push({
       key: raw.key,
       effective: raw.effective,
-      default_value: raw.default_value,
-      env_value: raw.env_value,
-      admin_value: typeof raw.admin_value === "boolean" ? raw.admin_value : null,
-      last_changed_by: typeof raw.last_changed_by === "string" ? raw.last_changed_by : null,
-      last_changed_at: typeof raw.last_changed_at === "string" ? raw.last_changed_at : null,
+      defaultValue: raw.defaultValue,
+      envValue: raw.envValue,
+      adminValue: typeof raw.adminValue === "boolean" ? raw.adminValue : null,
+      lastChangedBy: typeof raw.lastChangedBy === "string" ? raw.lastChangedBy : null,
+      lastChangedAt: typeof raw.lastChangedAt === "string" ? raw.lastChangedAt : null,
       reason: typeof raw.reason === "string" ? raw.reason : null,
     });
   }
@@ -1228,14 +1228,14 @@ function parseAuditEntries(data: unknown): AdminProgressionAudit[] | null {
   if (!isRecord(data) || !Array.isArray(data.entries)) return null;
   const rows: AdminProgressionAudit[] = [];
   for (const raw of data.entries) {
-    if (!isRecord(raw) || typeof raw.id !== "string" || typeof raw.admin_user_id !== "string") return null;
+    if (!isRecord(raw) || typeof raw.id !== "string" || typeof raw.adminUserId !== "string") return null;
     if (typeof raw.action !== "string" || typeof raw.target !== "string") return null;
     rows.push({
       id: raw.id,
-      admin_user_id: raw.admin_user_id,
+      adminUserId: raw.adminUserId,
       action: raw.action,
       target: raw.target,
-      created_at: typeof raw.created_at === "string" ? raw.created_at : "",
+      createdAt: typeof raw.createdAt === "string" ? raw.createdAt : "",
     });
   }
   return rows;
@@ -1326,7 +1326,7 @@ export async function apiAdminProgressionLoadEngagementAdmin(): Promise<{
 export async function apiAdminProgressionSaveConfig(row: AdminXpConfig): Promise<{ error: string | null }> {
   const { error } = await apiRequest<unknown>("/api/admin/progression/config", {
     method: "PATCH",
-    body: JSON.stringify({ source: row.source, xp_amount: row.xp_amount, enabled: row.enabled }),
+    body: JSON.stringify({ source: row.source, xpAmount: row.xpAmount, enabled: row.enabled }),
   });
   return { error: error?.message ?? null };
 }
@@ -1336,9 +1336,9 @@ export async function apiAdminProgressionSaveLevel(row: AdminLevelRow): Promise<
     method: "PUT",
     body: JSON.stringify({
       level: row.level,
-      total_xp_required: row.total_xp_required,
+      totalXpRequired: row.totalXpRequired,
       title: row.title,
-      badge_code: row.badge_code,
+      badgeCode: row.badgeCode,
     }),
   });
   return { error: error?.message ?? null };
@@ -1346,58 +1346,58 @@ export async function apiAdminProgressionSaveLevel(row: AdminLevelRow): Promise<
 
 export async function apiAdminProgressionLoadUser(userId: string): Promise<{
   progression: AdminProgressionUser | null;
-  xp_history: AdminXpHistory[];
-  starter_history: AdminStarterHistory[];
+  xpHistory: AdminXpHistory[];
+  starterHistory: AdminStarterHistory[];
   error: string | null;
 }> {
   const { data, error } = await apiRequest<unknown>(`/api/admin/progression/users/${encodeURIComponent(userId)}`);
-  if (error) return { progression: null, xp_history: [], starter_history: [], error: error.message };
-  if (!isRecord(data) || !isRecord(data.progression) || !Array.isArray(data.xp_history) || !Array.isArray(data.starter_history)) {
-    return { progression: null, xp_history: [], starter_history: [], error: "Invalid user progression" };
+  if (error) return { progression: null, xpHistory: [], starterHistory: [], error: error.message };
+  if (!isRecord(data) || !isRecord(data.progression) || !Array.isArray(data.xpHistory) || !Array.isArray(data.starterHistory)) {
+    return { progression: null, xpHistory: [], starterHistory: [], error: "Invalid user progression" };
   }
-  const starter = requiredInt(data.progression.starter_coin_balance);
-  const totalXp = requiredInt(data.progression.total_xp);
-  const level = requiredInt(data.progression.current_level);
+  const starter = requiredInt(data.progression.starterCoinBalance);
+  const totalXp = requiredInt(data.progression.totalXp);
+  const level = requiredInt(data.progression.currentLevel);
   if (starter == null || totalXp == null || level == null) {
-    return { progression: null, xp_history: [], starter_history: [], error: "Invalid user progression" };
+    return { progression: null, xpHistory: [], starterHistory: [], error: "Invalid user progression" };
   }
   const xpHistory: AdminXpHistory[] = [];
-  for (const raw of data.xp_history) {
+  for (const raw of data.xpHistory) {
     if (!isRecord(raw) || typeof raw.id !== "string" || typeof raw.source !== "string") {
-      return { progression: null, xp_history: [], starter_history: [], error: "Invalid user progression" };
+      return { progression: null, xpHistory: [], starterHistory: [], error: "Invalid user progression" };
     }
-    const amount = requiredInt(raw.xp_amount);
-    if (amount == null) return { progression: null, xp_history: [], starter_history: [], error: "Invalid user progression" };
+    const amount = requiredInt(raw.xpAmount);
+    if (amount == null) return { progression: null, xpHistory: [], starterHistory: [], error: "Invalid user progression" };
     xpHistory.push({
       id: raw.id,
-      xp_amount: amount,
+      xpAmount: amount,
       source: raw.source,
-      created_at: typeof raw.created_at === "string" ? raw.created_at : "",
+      createdAt: typeof raw.createdAt === "string" ? raw.createdAt : "",
     });
   }
   const starterHistory: AdminStarterHistory[] = [];
-  for (const raw of data.starter_history) {
+  for (const raw of data.starterHistory) {
     if (!isRecord(raw) || typeof raw.id !== "string" || typeof raw.kind !== "string") {
-      return { progression: null, xp_history: [], starter_history: [], error: "Invalid user progression" };
+      return { progression: null, xpHistory: [], starterHistory: [], error: "Invalid user progression" };
     }
-    const delta = requiredInt(raw.amount_delta);
-    const after = requiredInt(raw.balance_after);
+    const delta = requiredInt(raw.amountDelta);
+    const after = requiredInt(raw.balanceAfter);
     if (delta == null || after == null) {
-      return { progression: null, xp_history: [], starter_history: [], error: "Invalid user progression" };
+      return { progression: null, xpHistory: [], starterHistory: [], error: "Invalid user progression" };
     }
-    starterHistory.push({ id: raw.id, amount_delta: delta, kind: raw.kind, balance_after: after });
+    starterHistory.push({ id: raw.id, amountDelta: delta, kind: raw.kind, balanceAfter: after });
   }
   return {
-    progression: { starter_coin_balance: starter, total_xp: totalXp, current_level: level },
-    xp_history: xpHistory,
-    starter_history: starterHistory,
+    progression: { starterCoinBalance: starter, totalXp: totalXp, currentLevel: level },
+    xpHistory: xpHistory,
+    starterHistory: starterHistory,
     error: null,
   };
 }
 
 export async function apiAdminProgressionAdjust(
   endpoint: "xp-adjustments" | "starter-adjustments",
-  payload: { user_id: string; amount_delta: number; reason: string; idempotency_key: string },
+  payload: { userId: string; amountDelta: number; reason: string; idempotencyKey: string },
 ): Promise<{ error: string | null }> {
   const { error } = await apiRequest<unknown>(`/api/admin/progression/${endpoint}`, {
     method: "POST",
@@ -1422,13 +1422,13 @@ export async function apiAdminProgressionToggleFeatureFlag(
 export async function apiAdminProgressionSaveMission(
   missionId: string,
   payload: {
-    goal_count: number;
-    reward_xp: number;
-    reward_promo_coins: number;
-    reward_energy: number;
+    goalCount: number;
+    rewardXp: number;
+    rewardPromoCoins: number;
+    rewardEnergy: number;
     enabled: boolean;
     audience: string;
-    sort_order: number;
+    sortOrder: number;
   },
 ): Promise<{ error: string | null }> {
   const { error } = await apiRequest<unknown>(`/api/admin/progression/missions/${encodeURIComponent(missionId)}`, {
@@ -1455,10 +1455,10 @@ export async function apiAdminProgressionSaveDailyReward(payload: AdminDailyRewa
 }
 
 export async function apiAdminProgressionSaveDailyPolicy(payload: {
-  streak_reset_policy: "miss_one_day" | "never";
+  streakResetPolicy: "miss_one_day" | "never";
   active: boolean;
-  effective_start: string | null;
-  effective_end: string | null;
+  effectiveStart: string | null;
+  effectiveEnd: string | null;
 }): Promise<{ error: string | null }> {
   const { error } = await apiRequest<unknown>("/api/admin/progression/daily-rewards/policy", {
     method: "PUT",

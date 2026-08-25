@@ -2,7 +2,11 @@ import { Router } from "express";
 import { getPool } from "../../infra/postgres.js";
 import { requireAuth, type AuthedRequest } from "../../middleware/auth.js";
 import { AppError } from "../../middleware/errors.js";
-import { profileEditUserSchema, profilePatchBodySchema } from "../../../shared/contracts/social.js";
+import {
+  profileEditUserSchema,
+  profilePatchBodySchema,
+  profilesDirectoryResponseSchema,
+} from "../../../shared/contracts/social.js";
 import { userPublicSchema as publicUser, canonicalizeUsername } from "../../../shared/contracts/auth.js";
 import { registerUniqueProfileView } from "./views.js";
 
@@ -226,31 +230,32 @@ function usernameConflict(error: unknown): AppError | null {
   return new AppError("conflict", "That username is already taken", 409);
 }
 
-/** Frozen OLD GET /api/profiles — authenticated directory for STEM/Following story strips. */
-router.get("/", requireAuth, async (req: AuthedRequest, res) => {
-  
+/** GET /api/profiles — authenticated directory for STEM/Following story strips (NEW UserPublic camel). */
+router.get("/", requireAuth, async (_req: AuthedRequest, res) => {
   const { rows } = await getPool().query<{
-        user_id: string;
-        username: string;
-        display_name: string;
-        avatar_url: string | null;
-      }>(
-        `SELECT id AS user_id, username, display_name, avatar_url
-           FROM users
-          WHERE deleted_at IS NULL
-            AND (banned_until IS NULL OR banned_until <= NOW())
-          ORDER BY created_at DESC
-          LIMIT 200`,
-      );
+    id: string;
+    username: string;
+    display_name: string;
+    avatar_url: string | null;
+  }>(
+    `SELECT id, username, display_name, avatar_url
+       FROM users
+      WHERE deleted_at IS NULL
+        AND (banned_until IS NULL OR banned_until <= NOW())
+      ORDER BY created_at DESC
+      LIMIT 200`,
+  );
   res.setHeader("Cache-Control", "private, max-age=25");
-  res.json({
-    profiles: rows.map((row) => ({
-      user_id: row.user_id,
-      username: row.username,
-      display_name: row.display_name,
-      avatar_url: row.avatar_url || "",
-    })),
-  });
+  res.json(
+    profilesDirectoryResponseSchema.parse({
+      profiles: rows.map((row) => ({
+        id: row.id,
+        username: row.username,
+        displayName: row.display_name,
+        avatarUrl: row.avatar_url,
+      })),
+    }),
+  );
 });
 
 router.get("/me", requireAuth, async (req: AuthedRequest, res) => {

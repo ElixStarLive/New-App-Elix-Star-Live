@@ -1,13 +1,8 @@
 import { blockedUsersResponseSchema, unblockUserResponseSchema } from "@shared/contracts";
+import type { BlockedUserRow as ContractBlockedUserRow } from "@shared/contracts";
 import { apiRequest } from "@/lib/apiClient";
 
-export type BlockedUserRow = {
-  blocked_user_id: string;
-  username?: string;
-  display_name?: string;
-  avatar_url?: string;
-  created_at?: string;
-};
+export type BlockedUserRow = ContractBlockedUserRow;
 
 export type BlockedUsersApiFailure = {
   ok: false;
@@ -39,11 +34,11 @@ export async function apiListBlockedUsers(): Promise<
   return {
     ok: true,
     rows: parsed.data.data.map((row) => ({
-      blocked_user_id: row.blocked_user_id,
+      blockedUserId: row.blockedUserId,
       ...(row.username ? { username: row.username } : {}),
-      ...(row.display_name ? { display_name: row.display_name } : {}),
-      ...(row.avatar_url ? { avatar_url: row.avatar_url } : {}),
-      ...(row.created_at ? { created_at: row.created_at } : {}),
+      ...(row.displayName ? { displayName: row.displayName } : {}),
+      ...(row.avatarUrl !== undefined ? { avatarUrl: row.avatarUrl } : {}),
+      ...(row.createdAt ? { createdAt: row.createdAt } : {}),
     })),
   };
 }

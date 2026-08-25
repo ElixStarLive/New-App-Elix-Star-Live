@@ -26,11 +26,11 @@ vi.mock("@/store/useAuthStore", () => {
 });
 
 const target = {
-  blocked_user_id: "22222222-2222-4222-8222-222222222222",
+  blockedUserId: "22222222-2222-4222-8222-222222222222",
   username: "maya",
-  display_name: "Maya",
-  avatar_url: "https://cdn.example/m.png",
-  created_at: new Date().toISOString(),
+  displayName: "Maya",
+  avatarUrl: "https://cdn.example/m.png",
+  createdAt: new Date().toISOString(),
 };
 
 function LocationProbe() {
@@ -171,7 +171,7 @@ describe("PAGE-044 Blocked Accounts", () => {
     });
     await waitUntil(() => (container!.textContent || "").includes("You haven't blocked anyone"));
     expect(api.apiUnblockUser).toHaveBeenCalledTimes(2);
-    expect(api.apiUnblockUser).toHaveBeenCalledWith(target.blocked_user_id);
+    expect(api.apiUnblockUser).toHaveBeenCalledWith(target.blockedUserId);
   });
 
   it("closes to Settings on named back, hardware back, and a cold deep link", async () => {

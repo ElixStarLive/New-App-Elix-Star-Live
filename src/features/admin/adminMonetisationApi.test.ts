@@ -9,10 +9,10 @@ describe("PAGE-074 admin monetisation parse", () => {
     withdrawals: [
       {
         id: "wd-1",
-        user_id: "user-1",
-        amount_pence: 2500,
+        userId: "user-1",
+        amountPence: 2500,
         status: "requested",
-        created_at: "2026-08-22T00:00:00.000Z",
+        createdAt: "2026-08-22T00:00:00.000Z",
       },
     ],
   };

@@ -183,12 +183,12 @@ export default function AdminReports() {
                       <span className="px-3 py-1 bg-white/25 rounded-full text-xs font-bold">
                         {formatAdminReportReason(report.reason)}
                       </span>
-                      <span className="text-gray-400 text-sm">{report.target_type}</span>
+                      <span className="text-gray-400 text-sm">{report.targetType}</span>
                     </div>
                     <p className="text-gray-300 mb-2 break-words">{report.details || ADMIN_REPORTS_NO_DETAILS}</p>
                     <p className="text-gray-500 text-sm">
                       {ADMIN_REPORTS_REPORTED_BY} {report.reporter?.username || ADMIN_REPORTS_UNKNOWN_REPORTER} •{" "}
-                      {formatAdminReportCreated(report.created_at)}
+                      {formatAdminReportCreated(report.createdAt)}
                     </p>
                   </div>
                   <span
@@ -235,7 +235,7 @@ export default function AdminReports() {
                     </button>
                     <button
                       type="button"
-                      onClick={() => openReportTarget(report.target_type, report.target_id)}
+                      onClick={() => openReportTarget(report.targetType, report.targetId)}
                       className="px-4 py-2 bg-[#E6E9EE] rounded hover:bg-[#E6E9EE] flex items-center gap-2"
                     >
                       <Eye className="w-4 h-4" />

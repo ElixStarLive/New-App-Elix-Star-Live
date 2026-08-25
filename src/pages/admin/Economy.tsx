@@ -102,7 +102,7 @@ export default function AdminEconomy() {
     if (pendingIds[gift.id]) return;
     const entered = await nativePrompt(
       adminEconomyPricePrompt(gift.name),
-      String(gift.coin_cost),
+      String(gift.coinCost),
       ADMIN_ECONOMY_PRICE_PROMPT_TITLE,
     );
     if (!entered) return;
@@ -187,8 +187,8 @@ export default function AdminEconomy() {
                         <tr key={pkg.id} className="hover:bg-[rgba(255,255,255,0.06)]">
                           <td className="px-4 py-3 font-semibold">{pkg.title}</td>
                           <td className="px-4 py-3">{pkg.coins.toLocaleString()}</td>
-                          <td className="px-4 py-3">{pkg.price_display || ADMIN_ECONOMY_PRICE_EMPTY}</td>
-                          <td className="px-4 py-3 text-gray-400 text-sm">{pkg.product_id}</td>
+                          <td className="px-4 py-3">{pkg.priceDisplay || ADMIN_ECONOMY_PRICE_EMPTY}</td>
+                          <td className="px-4 py-3 text-gray-400 text-sm">{pkg.productId}</td>
                         </tr>
                       ))}
                     </tbody>
@@ -222,14 +222,14 @@ export default function AdminEconomy() {
                             {ADMIN_ECONOMY_RARITY_UNAVAILABLE}
                           </span>
                         </td>
-                        <td className="px-4 py-3 text-white font-bold">{gift.coin_cost}</td>
+                        <td className="px-4 py-3 text-white font-bold">{gift.coinCost}</td>
                         <td className="px-4 py-3">
                           <span
                             className={`px-2 py-1 rounded text-xs ${
-                              gift.is_active ? "bg-[#E6E9EE] elix-accent" : "bg-[rgba(255,255,255,0.06)]"
+                              gift.isActive ? "bg-[#E6E9EE] elix-accent" : "bg-[rgba(255,255,255,0.06)]"
                             }`}
                           >
-                            {gift.is_active ? ADMIN_ECONOMY_STATUS_ACTIVE : ADMIN_ECONOMY_STATUS_INACTIVE}
+                            {gift.isActive ? ADMIN_ECONOMY_STATUS_ACTIVE : ADMIN_ECONOMY_STATUS_INACTIVE}
                           </span>
                         </td>
                         <td className="px-4 py-3 text-right">
@@ -269,15 +269,15 @@ export default function AdminEconomy() {
                     {economy.boosters.map((booster) => (
                       <tr key={booster.id} className="hover:bg-[rgba(255,255,255,0.06)]">
                         <td className="px-4 py-3 font-semibold">{booster.name}</td>
-                        <td className="px-4 py-3 text-gray-400">{booster.effect_type}</td>
-                        <td className="px-4 py-3 text-white font-bold">{booster.coin_cost}</td>
+                        <td className="px-4 py-3 text-gray-400">{booster.effectType}</td>
+                        <td className="px-4 py-3 text-white font-bold">{booster.coinCost}</td>
                         <td className="px-4 py-3">
                           <span
                             className={`px-2 py-1 rounded text-xs ${
-                              booster.is_active ? "bg-[#E6E9EE] elix-accent" : "bg-[rgba(255,255,255,0.06)]"
+                              booster.isActive ? "bg-[#E6E9EE] elix-accent" : "bg-[rgba(255,255,255,0.06)]"
                             }`}
                           >
-                            {booster.is_active ? ADMIN_ECONOMY_STATUS_ACTIVE : ADMIN_ECONOMY_STATUS_INACTIVE}
+                            {booster.isActive ? ADMIN_ECONOMY_STATUS_ACTIVE : ADMIN_ECONOMY_STATUS_INACTIVE}
                           </span>
                         </td>
                       </tr>

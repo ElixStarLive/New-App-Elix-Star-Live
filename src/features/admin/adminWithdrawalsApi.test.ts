@@ -4,16 +4,16 @@ import { parseAdminWithdrawals } from "./adminApi";
 
 const validRow = {
   id: "ffffffff-ffff-4fff-8fff-ffffffffffff",
-  user_id: "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",
+  userId: "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",
   username: "creator1",
-  display_name: "Creator One",
-  amount_pence: 5000,
+  displayName: "Creator One",
+  amountPence: 5000,
   currency: "GBP",
   status: "pending",
-  admin_note: null,
-  processed_by: null,
-  processed_at: null,
-  created_at: "2026-08-22T00:00:00.000Z",
+  adminNote: null,
+  processedBy: null,
+  processedAt: null,
+  createdAt: "2026-08-22T00:00:00.000Z",
 };
 
 describe("PAGE-076 admin withdrawals parse", () => {
@@ -32,8 +32,8 @@ describe("PAGE-076 admin withdrawals parse", () => {
         withdrawals: [{ ...validRow, details: { iban: "GB82WEST12345698765432" } }],
       }),
     ).toBeNull();
-    expect(parseAdminWithdrawals({ withdrawals: [{ ...validRow, amount_pence: 1.5 }] })).toBeNull();
-    expect(parseAdminWithdrawals({ withdrawals: [{ ...validRow, amount_pence: 0 }] })).toBeNull();
+    expect(parseAdminWithdrawals({ withdrawals: [{ ...validRow, amountPence: 1.5 }] })).toBeNull();
+    expect(parseAdminWithdrawals({ withdrawals: [{ ...validRow, amountPence: 0 }] })).toBeNull();
     expect(parseAdminWithdrawals({ withdrawals: [{ ...validRow, currency: "USD" }] })).toBeNull();
     expect(formatAdminWithdrawalPence(5000)).toBe("£50.00");
     expect(formatAdminWithdrawalPence(1)).toBe("£0.01");

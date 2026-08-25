@@ -63,11 +63,11 @@ export function formatAdminWithdrawalPence(pence: number): string {
 }
 
 export function formatAdminWithdrawalCreator(row: {
-  display_name: string;
+  displayName: string;
   username: string;
-  user_id: string;
+  userId: string;
 }): string {
-  return row.display_name || row.username || row.user_id;
+  return row.displayName || row.username || row.userId;
 }
 
 export function actionRequiresAdminNote(action: AdminWithdrawalAction): boolean {

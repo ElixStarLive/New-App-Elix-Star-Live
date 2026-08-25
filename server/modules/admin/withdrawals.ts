@@ -76,16 +76,16 @@ const ACTION_ERROR: Record<AdminWithdrawalAction, string> = {
 
 export type AdminWithdrawalRow = {
   id: string;
-  user_id: string;
+  userId: string;
   username: string;
-  display_name: string;
-  amount_pence: number;
+  displayName: string;
+  amountPence: number;
   currency: "GBP";
   status: string;
-  admin_note: string | null;
-  processed_by: string | null;
-  processed_at: string | null;
-  created_at: string;
+  adminNote: string | null;
+  processedBy: string | null;
+  processedAt: string | null;
+  createdAt: string;
 };
 
 type LockedWithdrawal = {
@@ -138,15 +138,15 @@ export function parseAdminWithdrawalStatusFilter(raw: unknown): AdminWithdrawalL
 
 export function parseAdminWithdrawalNote(raw: unknown, required: boolean): string | null {
   if (raw == null || raw === "") {
-    if (required) throw new AppError("validation_error", "admin_note required", 400);
+    if (required) throw new AppError("validation_error", "adminNote required", 400);
     return null;
   }
-  if (typeof raw !== "string") throw new AppError("validation_error", "admin_note required", 400);
+  if (typeof raw !== "string") throw new AppError("validation_error", "adminNote required", 400);
   const note = raw.trim();
   if (note.length > ADMIN_WITHDRAWAL_NOTE_MAX) {
-    throw new AppError("validation_error", "admin_note is too long", 400);
+    throw new AppError("validation_error", "adminNote is too long", 400);
   }
-  if (required && !note) throw new AppError("validation_error", "admin_note required", 400);
+  if (required && !note) throw new AppError("validation_error", "adminNote required", 400);
   return note || null;
 }
 
@@ -188,16 +188,16 @@ function mapWithdrawalRow(row: {
   if (amount <= 0) throw new AppError("DATABASE_UNAVAILABLE", "DATABASE_UNAVAILABLE", 503);
   return {
     id: row.id,
-    user_id: row.user_id,
+    userId: row.user_id,
     username: row.username ?? "",
-    display_name: row.display_name ?? "",
-    amount_pence: amount,
+    displayName: row.display_name ?? "",
+    amountPence: amount,
     currency: "GBP",
     status: row.status,
-    admin_note: row.admin_note,
-    processed_by: row.processed_by,
-    processed_at: asIso(row.processed_at),
-    created_at: created,
+    adminNote: row.admin_note,
+    processedBy: row.processed_by,
+    processedAt: asIso(row.processed_at),
+    createdAt: created,
   };
 }
 
@@ -375,7 +375,7 @@ async function applyWithdrawalAction(
 export async function applyAdminEarningChargeback(
   actorId: string,
   earningId: string,
-): Promise<{ reversed: { id: string; creator_id: string; amount_pence: number; status: "reversed" } }> {
+): Promise<{ reversed: { id: string; creatorId: string; amountPence: number; status: "reversed" } }> {
   try {
   return await withTransaction(async (client) => {
     const earning = await client.query<{
@@ -467,8 +467,8 @@ export async function applyAdminEarningChargeback(
     return {
       reversed: {
         id: row.id,
-        creator_id: row.creator_id,
-        amount_pence: amount,
+        creatorId: row.creator_id,
+        amountPence: amount,
         status: "reversed" as const,
       },
     };
@@ -484,7 +484,7 @@ export async function applyAdminEarningChargeback(
 export async function applyAdminUnfreeze(
   actorId: string,
   userId: string,
-): Promise<{ ok: true; userId: string; released: number; still_reserved: number }> {
+): Promise<{ ok: true; userId: string; released: number; stillReserved: number }> {
   return withTransaction(async (client) => {
     const reservedR = await client.query<{ reserved: string }>(
       `SELECT COALESCE(SUM(amount_pence), 0)::text AS reserved
@@ -522,17 +522,17 @@ export async function applyAdminUnfreeze(
         currency: "GBP",
       });
     }
-    return { ok: true as const, userId, released, still_reserved: reserved };
+    return { ok: true as const, userId, released, stillReserved: reserved };
   });
 }
 
 function parseEarningId(body: unknown): string {
   if (!body || typeof body !== "object" || Array.isArray(body)) {
-    throw new AppError("validation_error", "earning_id required", 400);
+    throw new AppError("validation_error", "earningId required", 400);
   }
-  const value = (body as { earning_id?: unknown }).earning_id;
+  const value = (body as { earningId?: unknown }).earningId;
   if (typeof value !== "string" || !isAdminWithdrawalId(value)) {
-    throw new AppError("validation_error", "earning_id required", 400);
+    throw new AppError("validation_error", "earningId required", 400);
   }
   return value;
 }
@@ -562,7 +562,7 @@ export async function handleAdminWithdrawalAction(
   if (!isAdminWithdrawalId(withdrawalId)) {
     throw new AppError("validation_error", "Invalid withdrawal", 400);
   }
-  const note = parseAdminWithdrawalNote(req.body?.admin_note, actionRequiresNote(action));
+  const note = parseAdminWithdrawalNote(req.body?.adminNote, actionRequiresNote(action));
   try {
     const withdrawal = await applyWithdrawalAction(req.userId as string, withdrawalId, action, note);
     res.json({ withdrawal });

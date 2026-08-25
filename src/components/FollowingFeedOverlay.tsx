@@ -104,11 +104,11 @@ export function FollowingFeedOverlay({
       );
       const mapped: SuggestedUser[] = profilesResult.profiles
         .map((p) => ({
-          id: p.user_id,
+          id: p.id,
           username: p.username || "user",
-          name: p.display_name || p.username || "User",
-          avatar_url: p.avatar_url || "",
-          is_live: liveHosts.has(p.user_id),
+          name: p.displayName || p.username || "User",
+          avatar_url: p.avatarUrl || "",
+          is_live: liveHosts.has(p.id),
         }))
         .filter((p) => Boolean(p.id) && p.id !== user?.id);
       setSuggestedUsers(mapped);

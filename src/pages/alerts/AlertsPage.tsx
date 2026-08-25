@@ -46,9 +46,11 @@ export default function AlertsPage() {
 
   useEffect(() => {
     const onEnded = (data: unknown) => {
-      const hostId = isRecord(data) && typeof data.hostId === "string" ? data.hostId : "";
-      const keys = liveEndedKeys(data);
-      session.applyStreamEnded(hostId, keys[0] || "");
+      const roomId =
+        isRecord(data) && typeof data.roomId === "string" && data.roomId.trim()
+          ? data.roomId.trim()
+          : liveEndedKeys(data)[0] || "";
+      session.applyStreamEnded("", roomId);
     };
     wsClient.on("stream_ended", onEnded);
     return () => {

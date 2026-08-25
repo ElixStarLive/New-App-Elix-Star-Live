@@ -24,10 +24,10 @@ export type AdminMonetisationConfig = {
 
 export type AdminMonetisationWithdrawal = {
   id: string;
-  user_id: string;
-  amount_pence: number;
+  userId: string;
+  amountPence: number;
   status: string;
-  created_at: string;
+  createdAt: string;
 };
 
 export type AdminMonetisationPatch = {
@@ -195,17 +195,17 @@ export async function loadAdminMonetisationPage(): Promise<{
   return {
     config,
     dashboard: {
-      pending_paid_coin_lots: { c: pendingLots.rows[0]?.c ?? 0, gross_pence: asInt(pendingLots.rows[0]?.gross) },
-      settled_paid_coin_lots: { c: settledLots.rows[0]?.c ?? 0, gross_pence: asInt(settledLots.rows[0]?.gross) },
+      pendingPaidCoinLots: { c: pendingLots.rows[0]?.c ?? 0, grossPence: asInt(pendingLots.rows[0]?.gross) },
+      settledPaidCoinLots: { c: settledLots.rows[0]?.c ?? 0, grossPence: asInt(settledLots.rows[0]?.gross) },
       gifts: {
-        creator_pence: asInt(giftCreator.rows[0]?.n),
-        platform_pence: asInt(giftPlatform.rows[0]?.n),
+        creatorPence: asInt(giftCreator.rows[0]?.n),
+        platformPence: asInt(giftPlatform.rows[0]?.n),
       },
       wallets: {
-        pending_pence: asInt(wallet?.pending),
-        available_pence: asInt(wallet?.available),
-        withdrawn_pence: asInt(wallet?.withdrawn),
-        held_pence: asInt(wallet?.held),
+        pendingPence: asInt(wallet?.pending),
+        availablePence: asInt(wallet?.available),
+        withdrawnPence: asInt(wallet?.withdrawn),
+        heldPence: asInt(wallet?.held),
       },
       withdrawals: withdrawalGroups.rows.map((row) => ({
         status: row.status,
@@ -218,24 +218,24 @@ export async function loadAdminMonetisationPage(): Promise<{
     },
     report: {
       gifts: {
-        creator_pence: asInt(giftCreator.rows[0]?.n),
-        platform_pence: asInt(giftPlatform.rows[0]?.n),
+        creatorPence: asInt(giftCreator.rows[0]?.n),
+        platformPence: asInt(giftPlatform.rows[0]?.n),
       },
       wallets: {
-        pending_pence: asInt(wallet?.pending),
-        available_pence: asInt(wallet?.available),
-        withdrawn_pence: asInt(wallet?.withdrawn),
-        held_pence: asInt(wallet?.held),
+        pendingPence: asInt(wallet?.pending),
+        availablePence: asInt(wallet?.available),
+        withdrawnPence: asInt(wallet?.withdrawn),
+        heldPence: asInt(wallet?.held),
       },
       shop: { c: shop.rows[0]?.c ?? 0, pence: asInt(shop.rows[0]?.pence) },
       iap: { c: iap.rows[0]?.c ?? 0, coins: asInt(iap.rows[0]?.coins) },
     },
     withdrawals: withdrawalRows.rows.map((row) => ({
       id: row.id,
-      user_id: row.user_id,
-      amount_pence: asInt(row.amount_pence),
+      userId: row.user_id,
+      amountPence: asInt(row.amount_pence),
       status: row.status,
-      created_at: row.created_at instanceof Date ? row.created_at.toISOString() : String(row.created_at || ""),
+      createdAt: row.created_at instanceof Date ? row.created_at.toISOString() : String(row.created_at || ""),
     })),
   };
 }

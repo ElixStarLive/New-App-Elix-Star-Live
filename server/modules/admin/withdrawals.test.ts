@@ -76,8 +76,8 @@ describe("PAGE-076 admin withdrawals contract", () => {
   it("requires reject/cancel notes and trims optional notes", () => {
     expect(parseAdminWithdrawalNote("  paid ref 12  ", false)).toBe("paid ref 12");
     expect(parseAdminWithdrawalNote("", false)).toBeNull();
-    expect(() => parseAdminWithdrawalNote("", true)).toThrow(/admin_note required/);
-    expect(() => parseAdminWithdrawalNote("   ", true)).toThrow(/admin_note required/);
+    expect(() => parseAdminWithdrawalNote("", true)).toThrow(/adminNote required/);
+    expect(() => parseAdminWithdrawalNote("   ", true)).toThrow(/adminNote required/);
     expect(() => parseAdminWithdrawalNote("x".repeat(501), false)).toThrow(/too long/);
   });
 });
