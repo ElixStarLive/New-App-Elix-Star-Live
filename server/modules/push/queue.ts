@@ -3,7 +3,7 @@ import { logger } from "../../infra/logger.js";
 import { requireValkey } from "../../infra/valkey.js";
 import { pushNotifyUser } from "./send.js";
 
-export const PUSH_NOTIFY_QUEUE = "elix:jobs";
+export const PUSH_NOTIFY_QUEUE = "jobs:notify";
 
 type PushNotifyJob = {
   type: "push_notify";

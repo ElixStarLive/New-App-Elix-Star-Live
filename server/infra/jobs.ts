@@ -9,7 +9,7 @@ import { cleanupStaleUploadSessions } from "../modules/uploads/session.js";
 import { expireAbandonedLives } from "../modules/live/start.js";
 import { sweepForYouLifecycle } from "../modules/feed/foryouLifecycle.js";
 
-const LEADER_KEY = "elix:jobs:leader";
+const LEADER_KEY = "jobs:leader";
 let forYouSweepTicks = 0;
 
 export function startBackgroundJobs(): void {

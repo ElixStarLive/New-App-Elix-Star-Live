@@ -281,7 +281,7 @@ export async function apiDownloadVoiceOnlyVideo(
     const blob = await res.blob();
     const disposition = res.headers.get("content-disposition") || "";
     const named = /filename="([^"]+)"/i.exec(disposition);
-    return { ok: true, blob, filename: named?.[1] || `elix_${videoId}.mp4` };
+    return { ok: true, blob, filename: named?.[1] || `video_${videoId}.mp4` };
   } catch (err) {
     return { ok: false, error: err instanceof Error ? err.message : "Download failed" };
   }

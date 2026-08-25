@@ -30,7 +30,7 @@ describe("PAGE-043 Notification Settings ownership", () => {
   });
 
   it("uses one local preference owner and one device-token contract", () => {
-    expect(store).toMatch(/name: "elix_settings_v1"/);
+    expect(store).toMatch(/name: "settings_v1"/);
     expect(store).toMatch(/notificationsEnabled: true/);
     expect(store).toMatch(/liveNotifications: true/);
     expect(page).toMatch(/setNotificationsEnabled/);

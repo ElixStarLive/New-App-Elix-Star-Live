@@ -30,7 +30,7 @@ describe("PAGE-016 saved sounds", () => {
   });
 
   it("treats corrupt storage as unsaved instead of crashing", () => {
-    localStorage.setItem("elix_music_saved_v1", "{not-json");
+    localStorage.setItem("music_saved_v1", "{not-json");
     expect(isMusicTrackSaved("t1")).toBe(false);
   });
 });

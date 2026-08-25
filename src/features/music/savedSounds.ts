@@ -1,6 +1,6 @@
 import type { MusicTrack } from "./musicApi";
 
-const STORAGE_KEY = "elix_music_saved_v1";
+const STORAGE_KEY = "music_saved_v1";
 
 function readSaved(): MusicTrack[] {
   if (typeof localStorage === "undefined") return [];

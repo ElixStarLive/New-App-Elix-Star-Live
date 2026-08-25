@@ -27,6 +27,6 @@ export const useSettingsStore = create<SettingsState>()(
       setLiveNotifications: (value) => set({ liveNotifications: value }),
       setLanguage: (value) => set({ language: isLanguageCode(value) ? value : "en" }),
     }),
-    { name: "elix_settings_v1" },
+    { name: "settings_v1" },
   ),
 );

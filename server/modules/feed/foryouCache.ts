@@ -7,7 +7,7 @@ import { logger } from "../../infra/logger.js";
 import { requireValkey, valkeyGet, valkeySet, valkeyTrySetNx } from "../../infra/valkey.js";
 import type { FeedVideo } from "../../../shared/contracts/social.js";
 
-const FEED_FORYOU_EPOCH_KEY = "elix:feed:foryou:epoch";
+const FEED_FORYOU_EPOCH_KEY = "feed:foryou:epoch";
 
 export const FEED_FORYOU_CACHE_TTL_MS = Math.min(
   600_000,
@@ -15,7 +15,7 @@ export const FEED_FORYOU_CACHE_TTL_MS = Math.min(
 );
 
 export function feedForyouDataKey(epoch: string, page: number, limit: number): string {
-  return `elix:feed:foryou:${epoch}:${page}:${limit}`;
+  return `feed:foryou:${epoch}:${page}:${limit}`;
 }
 
 export function isFeedForyouValkeyEnabled(): boolean {

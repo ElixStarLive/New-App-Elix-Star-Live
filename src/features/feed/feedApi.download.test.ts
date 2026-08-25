@@ -36,14 +36,14 @@ describe("apiDownloadVoiceOnlyVideo", () => {
         status: 200,
         headers: {
           "Content-Type": "video/mp4",
-          "Content-Disposition": 'attachment; filename="elix_vid.mp4"',
+          "Content-Disposition": 'attachment; filename="video_vid.mp4"',
         },
       }),
     );
     vi.stubGlobal("fetch", fetchMock);
     const result = await apiDownloadVoiceOnlyVideo("22222222-2222-4222-8222-222222222222");
     expect(result.ok).toBe(true);
-    if (result.ok) expect(result.filename).toBe("elix_vid.mp4");
+    if (result.ok) expect(result.filename).toBe("video_vid.mp4");
     expect(fetchMock).toHaveBeenCalledWith(
       "https://www.elixstarlive.co.uk/api/videos/22222222-2222-4222-8222-222222222222/download",
       expect.objectContaining({

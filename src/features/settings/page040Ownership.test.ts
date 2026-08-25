@@ -26,7 +26,7 @@ describe("PAGE-040 Settings ownership", () => {
     expect(settings).toMatch(/containerReturnState/);
     expect(settings).not.toMatch(/history\.back|navigate\(-1\)|location\.reload|window\.confirm|setTimeout\(/);
     expect(nav).toMatch(/if \(path === SETTINGS_HOME\) return SETTINGS_EXIT_TO/);
-    expect(store).toMatch(/name: "elix_settings_v1"/);
+    expect(store).toMatch(/name: "settings_v1"/);
     expect(store).toMatch(/liveNotifications/);
     expect(store).toMatch(/muteAllSounds/);
   });

@@ -352,7 +352,7 @@ describe("PAGE-007 For You", () => {
     feedApi.apiDownloadVoiceOnlyVideo.mockResolvedValue({
       ok: true,
       blob: new Blob([new Uint8Array([1, 2, 3])], { type: "video/mp4" }),
-      filename: "elix_clip.mp4",
+      filename: "video_clip.mp4",
     });
     const objectUrl = vi.fn(() => "blob:elix-voice");
     const revoke = vi.fn();
