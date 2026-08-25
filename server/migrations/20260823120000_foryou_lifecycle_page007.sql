@@ -1,5 +1,5 @@
--- PAGE-007 For You: unique views counters + lifecycle tables (match frozen OLD behaviour).
--- Safe on live Neon (IF NOT EXISTS) and clean baseline.
+-- PAGE-007 For You: unique views counters + lifecycle tables.
+-- Clean NEW schema names (not OLD elix_* ownership).
 
 ALTER TABLE videos ADD COLUMN IF NOT EXISTS views INTEGER NOT NULL DEFAULT 0;
 ALTER TABLE videos ADD COLUMN IF NOT EXISTS shares INTEGER NOT NULL DEFAULT 0;
@@ -8,7 +8,7 @@ ALTER TABLE videos ADD COLUMN IF NOT EXISTS comments INTEGER NOT NULL DEFAULT 0;
 ALTER TABLE videos ADD COLUMN IF NOT EXISTS saves INTEGER NOT NULL DEFAULT 0;
 ALTER TABLE videos ADD COLUMN IF NOT EXISTS privacy TEXT NOT NULL DEFAULT 'public';
 
-CREATE TABLE IF NOT EXISTS elix_foryou_config (
+CREATE TABLE IF NOT EXISTS foryou_config (
   id TEXT PRIMARY KEY DEFAULT 'default',
   initial_audience_size INT NOT NULL DEFAULT 500,
   promotion_qualified_views INT NOT NULL DEFAULT 5000,
@@ -36,12 +36,12 @@ CREATE TABLE IF NOT EXISTS elix_foryou_config (
   updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
-INSERT INTO elix_foryou_config (id) VALUES ('default')
+INSERT INTO foryou_config (id) VALUES ('default')
 ON CONFLICT (id) DO NOTHING;
 
-CREATE TABLE IF NOT EXISTS elix_video_foryou_state (
-  video_id TEXT PRIMARY KEY,
-  creator_user_id TEXT NOT NULL,
+CREATE TABLE IF NOT EXISTS video_foryou_state (
+  video_id UUID PRIMARY KEY REFERENCES videos(id) ON DELETE CASCADE,
+  creator_user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
   stage TEXT NOT NULL DEFAULT 'initial'
     CHECK (stage IN ('initial', 'promoted', 'removed', 'reentry_eligible', 'reentered', 'exhausted')),
   cycle_count INT NOT NULL DEFAULT 1,
@@ -60,22 +60,22 @@ CREATE TABLE IF NOT EXISTS elix_video_foryou_state (
 );
 
 CREATE INDEX IF NOT EXISTS idx_foryou_state_stage_score
-  ON elix_video_foryou_state (stage, ranking_score DESC, updated_at DESC);
+  ON video_foryou_state (stage, ranking_score DESC, updated_at DESC);
 CREATE INDEX IF NOT EXISTS idx_foryou_state_creator
-  ON elix_video_foryou_state (creator_user_id);
+  ON video_foryou_state (creator_user_id);
 
-CREATE TABLE IF NOT EXISTS elix_video_not_interested (
-  video_id TEXT NOT NULL,
-  user_id TEXT NOT NULL,
+CREATE TABLE IF NOT EXISTS video_not_interested (
+  video_id UUID NOT NULL REFERENCES videos(id) ON DELETE CASCADE,
+  user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
   created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
   PRIMARY KEY (video_id, user_id)
 );
 
 CREATE INDEX IF NOT EXISTS idx_not_interested_user
-  ON elix_video_not_interested (user_id, created_at DESC);
+  ON video_not_interested (user_id, created_at DESC);
 
-CREATE TABLE IF NOT EXISTS elix_video_feed_signals (
-  video_id TEXT PRIMARY KEY,
+CREATE TABLE IF NOT EXISTS video_feed_signals (
+  video_id UUID PRIMARY KEY REFERENCES videos(id) ON DELETE CASCADE,
   watch_time_seconds BIGINT NOT NULL DEFAULT 0,
   completions BIGINT NOT NULL DEFAULT 0,
   rewatches_unique BIGINT NOT NULL DEFAULT 0,

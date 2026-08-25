@@ -1,6 +1,5 @@
 import type { QueryResultRow } from "pg";
 import { getPool } from "../../infra/postgres.js";
-import { isLiveNeonSchema, liveBlockedVideoFilter, liveFeedSelectSql, liveOwnerVideoFilter } from "../../infra/liveSchema.js";
 import { mapFeedRow } from "../feed/query.js";
 import type { FeedVideo } from "../../../shared/contracts/social.js";
 
@@ -14,17 +13,7 @@ export function isVideoId(raw: string): boolean {
 export async function queryVideoDetail(viewerId: string | null, videoId: string): Promise<FeedVideo | null> {
   const id = videoId.trim();
   if (!isVideoId(id)) return null;
-  if (await isLiveNeonSchema()) {
-    const { rows } = await getPool().query(
-      `${liveFeedSelectSql(1)}
-       ${liveOwnerVideoFilter(1)}
-       ${viewerId ? liveBlockedVideoFilter(1) : ""}
-       AND v.id = $2`,
-      [viewerId, id],
-    );
-    const row = rows[0] as QueryResultRow | undefined;
-    return row ? mapFeedRow(row) : null;
-  }
+  
   const { rows } = await getPool().query(
     `SELECT v.id, 'video'::text AS kind, v.user_id, u.username, u.display_name, u.avatar_url,
             v.caption, v.bunny_path AS media_url, v.thumbnail_url, NULL::uuid AS stream_id,
@@ -81,48 +70,7 @@ export async function querySavedList(
   limit: number,
 ): Promise<{ videos: SavedVideoHit[]; limit: number; offset: number; hasMore: boolean }> {
   const paging = savedListPaging({ limit, offset });
-  if (await isLiveNeonSchema()) {
-    const { rows } = await getPool().query<{
-      id: string;
-      thumbnail_url: string | null;
-      media_url: string;
-      view_count: string | number;
-      user_id: string;
-      username: string;
-      display_name: string;
-    }>(
-      `SELECT v.id::text AS id, NULLIF(v.thumbnail, '') AS thumbnail_url, v.url AS media_url,
-              COALESCE(v.views, 0) AS view_count,
-              v.user_id::text AS user_id,
-              COALESCE(NULLIF(p.username, ''), v.username, '') AS username,
-              COALESCE(NULLIF(p.display_name, ''), v.display_name, '') AS display_name
-         FROM saves s
-         JOIN videos v ON v.id = s.video_id
-         LEFT JOIN profiles p ON p.user_id = v.user_id
-        WHERE s.user_id = $1
-          AND btrim(COALESCE(v.url, '')) <> ''
-          AND (v.privacy IS NULL OR v.privacy <> 'private' OR v.user_id = $1)
-          AND v.user_id NOT IN (SELECT blocked_user_id FROM elix_blocked_users WHERE blocker_user_id = $1)
-          AND v.user_id NOT IN (SELECT blocker_user_id FROM elix_blocked_users WHERE blocked_user_id = $1)
-        ORDER BY s.created_at DESC NULLS LAST, v.id DESC
-        LIMIT $2 OFFSET $3`,
-      [viewerId, paging.limit, paging.offset],
-    );
-    return {
-      videos: rows.map((row) => ({
-        id: row.id,
-        thumbnailUrl: row.thumbnail_url,
-        viewCount: Number(row.view_count ?? 0),
-        mediaUrl: row.media_url,
-        userId: row.user_id,
-        username: row.username,
-        displayName: row.display_name,
-      })),
-      limit: paging.limit,
-      offset: paging.offset,
-      hasMore: rows.length === paging.limit,
-    };
-  }
+  
   const { rows } = await getPool().query<{
     id: string;
     thumbnail_url: string | null;

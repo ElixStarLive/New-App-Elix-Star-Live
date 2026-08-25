@@ -20,7 +20,7 @@ import {
 } from "../../../shared/contracts/auth.js";
 import { REGISTER_STARTER_COINS } from "../../../shared/contracts/money.js";
 import { getPool, withTransaction } from "../../infra/postgres.js";
-import { LIVE_AUTH_USER_SELECT, isLiveNeonSchema, publicTableExists } from "../../infra/liveSchema.js";
+import { publicTableExists } from "../../infra/liveSchema.js";
 import { hashPassword, verifyPassword } from "../../infra/password.js";
 import { randomToken, sha256, signAccessToken } from "../../infra/tokens.js";
 import { env } from "../../infra/env.js";
@@ -63,13 +63,9 @@ function normalizeUsername(username: string): string {
 }
 
 async function followerCounts(userId: string): Promise<{ followerCount: number; followingCount: number }> {
-  const live = await isLiveNeonSchema();
+  
   const { rows } = await getPool().query<{ followers: string; following: string }>(
-    live
-      ? `SELECT
-           (SELECT COUNT(*)::text FROM follows WHERE following_id = $1) AS followers,
-           (SELECT COUNT(*)::text FROM follows WHERE follower_id = $1) AS following`
-      : `SELECT
+    `SELECT
        (SELECT COUNT(*)::text FROM follows WHERE followee_id = $1) AS followers,
        (SELECT COUNT(*)::text FROM follows WHERE follower_id = $1) AS following`,
     [userId],
@@ -100,17 +96,7 @@ async function issueSession(user: UserRow) {
   if (user.banned_until && new Date(user.banned_until).getTime() > Date.now()) {
     throw new AppError("forbidden", "Account suspended.", 403);
   }
-  if (await isLiveNeonSchema()) {
-    const jwt = await signAccessToken(user.id, "", user.email);
-    await getPool().query(
-      `INSERT INTO elix_auth_sessions (token_hash, user_id, expires_at)
-       VALUES ($1, $2, NOW() + INTERVAL '7 days')
-       ON CONFLICT (token_hash) DO UPDATE
-         SET user_id = EXCLUDED.user_id, expires_at = EXCLUDED.expires_at`,
-      [sha256(jwt), user.id],
-    );
-    return { token: jwt, user: await toSessionUser(user) };
-  }
+  
   const raw = randomToken();
   const tokenHash = sha256(raw);
   const expiresAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000);
@@ -150,23 +136,8 @@ function clearAuthSessionCookie(res: Response): void {
 }
 
 async function loadLoginProfileMeta(user: UserRow) {
-  const live = await isLiveNeonSchema();
-  if (live) {
-    const { rows } = await getPool().query<{ starter: string | null; level: string | null }>(
-      `SELECT
-         (SELECT balance::text FROM starter_coin_balances WHERE user_id = $1) AS starter,
-         (SELECT level::text FROM profiles WHERE user_id = $1) AS level`,
-      [user.id],
-    );
-    return {
-      is_admin: user.is_admin,
-      is_creator: user.is_verified,
-      banned_until: user.banned_until ? new Date(user.banned_until).toISOString() : null,
-      starter_coin_balance: Number(rows[0]?.starter ?? 0),
-      total_xp: 0,
-      level: Number(rows[0]?.level ?? 0),
-    };
-  }
+  
+  
   const { rows } = await getPool().query<{ starter_coins: string | null }>(
     `SELECT starter_coins::text AS starter_coins FROM wallet_balances WHERE user_id = $1`,
     [user.id],
@@ -252,13 +223,9 @@ const LOGIN_USER_COLUMNS = `id, email, username, display_name, avatar_url, bio, 
  */
 async function findUserByLogin(emailOrUsername: string): Promise<LoginUserRow | null> {
   const value = emailOrUsername.trim();
-  const live = await isLiveNeonSchema();
+  
 
-  const byEmail = live
-    ? await getPool().query<LoginUserRow>(`${LIVE_AUTH_USER_SELECT} WHERE u.email_lower = $1 LIMIT 1`, [
-        normalizeEmail(value),
-      ])
-    : await getPool().query<LoginUserRow>(
+  const byEmail = await getPool().query<LoginUserRow>(
         `SELECT ${LOGIN_USER_COLUMNS}
            FROM users
           WHERE deleted_at IS NULL AND email_normalized = $1
@@ -267,12 +234,7 @@ async function findUserByLogin(emailOrUsername: string): Promise<LoginUserRow | 
       );
   if (byEmail.rows[0]) return byEmail.rows[0];
 
-  const byUsername = live
-    ? await getPool().query<LoginUserRow>(
-        `${LIVE_AUTH_USER_SELECT} WHERE LOWER(u.username) = $1 ORDER BY u.created_at ASC LIMIT 2`,
-        [normalizeUsername(value)],
-      )
-    : await getPool().query<LoginUserRow>(
+  const byUsername = await getPool().query<LoginUserRow>(
         `SELECT ${LOGIN_USER_COLUMNS}
            FROM users
           WHERE deleted_at IS NULL AND username_normalized = $1
@@ -341,21 +303,15 @@ async function clearLoginFailure(identifier: string): Promise<void> {
   await requireValkey().del(loginFailKey(identifier));
 }
 
-/** Live Neon: use user_two_factor only when present; never pretend 2FA is off if table is missing. */
+/** Fail closed if the canonical 2FA table is missing — never pretend 2FA is off. */
 async function requireTwoFactorTable(): Promise<void> {
-  if (!(await isLiveNeonSchema())) return;
   if (await publicTableExists("user_two_factor")) return;
   throw new AppError("SCHEMA_UNAVAILABLE", "SCHEMA_UNAVAILABLE", 503);
 }
 
 /** Authenticator label: the account the code belongs to, never the TOTP secret. */
 async function twoFactorAccountLabel(userId: string): Promise<string> {
-  const { rows } = (await isLiveNeonSchema())
-    ? await getPool().query<{ email: string | null; username: string | null }>(
-        `SELECT u.email, u.username FROM elix_auth_users u WHERE u.id = $1`,
-        [userId],
-      )
-    : await getPool().query<{ email: string | null; username: string | null }>(
+  const { rows } = await getPool().query<{ email: string | null; username: string | null }>(
         `SELECT email, username FROM users WHERE id = $1 AND deleted_at IS NULL`,
         [userId],
       );
@@ -408,12 +364,7 @@ async function sendConfirmationEmail(
   try {
     let passwordHash = user.password_hash ?? null;
     if (!passwordHash) {
-      const { rows } = (await isLiveNeonSchema())
-        ? await getPool().query<{ password_hash: string | null }>(
-            `SELECT password_hash FROM elix_auth_users WHERE id = $1 LIMIT 1`,
-            [user.id],
-          )
-        : await getPool().query<{ password_hash: string | null }>(
+      const { rows } = await getPool().query<{ password_hash: string | null }>(
             `SELECT password_hash FROM users WHERE id = $1 LIMIT 1`,
             [user.id],
           );
@@ -453,65 +404,7 @@ router.post("/register", async (req: Request, res: Response) => {
   const displayName = body.displayName?.trim() || username;
   const passwordHash = await hashPassword(body.password);
   const requireConfirm = mailIsConfigured();
-  if (await isLiveNeonSchema()) {
-    try {
-      const user = await withTransaction(async (client) => {
-        const id = randomUUID();
-        await client.query(
-          `INSERT INTO elix_auth_users
-             (id, email, email_lower, password_hash, username, display_name, avatar_url, created_at, email_confirmed_at)
-           VALUES ($1, $2, $3, $4, $5, $6, NULL, NOW(), $7)`,
-          [
-            id,
-            body.email.trim(),
-            emailNormalized,
-            passwordHash,
-            username,
-            displayName,
-            requireConfirm ? null : new Date(),
-          ],
-        );
-        await client.query(
-          `INSERT INTO profiles (user_id, username, display_name, avatar_url, level, created_at, updated_at)
-           VALUES ($1, $2, $3, NULL, 0, NOW(), NOW())
-           ON CONFLICT (user_id) DO NOTHING`,
-          [id, username, displayName],
-        );
-        await client.query(
-          `INSERT INTO starter_coin_balances (user_id, balance, lifetime_granted, lifetime_spent)
-           VALUES ($1, $2, $2, 0)
-           ON CONFLICT (user_id) DO NOTHING`,
-          [id, REGISTER_STARTER_COINS],
-        );
-        const loaded = await client.query<UserRow>(
-          `${LIVE_AUTH_USER_SELECT} WHERE u.id = $1`,
-          [id],
-        );
-        return loaded.rows[0];
-      });
-      if (requireConfirm) {
-        const confirmationEmailSent = await sendConfirmationEmail(body.email, user);
-        await writeProductionRegister(res, user, {
-          needsEmailConfirmation: true,
-          confirmationEmailSent,
-          welcomeMessage: confirmationEmailSent
-            ? "Check your email to confirm your account before signing in."
-            : "Account created, but the confirmation email could not be sent. Request a new confirmation email to sign in.",
-        });
-        return;
-      }
-      await writeProductionRegister(res, user, {
-        needsEmailConfirmation: false,
-        confirmationEmailSent: false,
-        welcomeMessage: REGISTER_WELCOME_STARTER,
-      });
-      return;
-    } catch (error) {
-      const conflict = uniqueRegisterConflict(error);
-      if (conflict) throw conflict;
-      throw error;
-    }
-  }
+  
   try {
     const user = await withTransaction(async (client) => {
       const inserted = await client.query<UserRow>(
@@ -656,13 +549,8 @@ router.post("/change-password", requireAuth, async (req: AuthedRequest, res) => 
   if (newPassword.length < 8 || newPassword.length > 128) {
     throw new AppError("validation_error", "Password must be 8-128 characters", 400);
   }
-  const live = await isLiveNeonSchema();
-  const { rows } = live
-    ? await getPool().query<{ password_hash: string | null }>(
-        `SELECT password_hash FROM elix_auth_users WHERE id = $1`,
-        [req.userId],
-      )
-    : await getPool().query<{ password_hash: string | null }>(
+  
+  const { rows } = await getPool().query<{ password_hash: string | null }>(
         `SELECT password_hash FROM users WHERE id = $1`,
         [req.userId],
       );
@@ -671,17 +559,7 @@ router.post("/change-password", requireAuth, async (req: AuthedRequest, res) => 
   if (!ok) throw new AppError("invalid_credentials", "Current password is incorrect", 401);
   const passwordHash = await hashPassword(newPassword);
   await withTransaction(async (client) => {
-    if (live) {
-      await client.query(`UPDATE elix_auth_users SET password_hash = $1 WHERE id = $2`, [
-        passwordHash,
-        req.userId,
-      ]);
-      await client.query(
-        `DELETE FROM elix_auth_sessions WHERE user_id = $1 AND token_hash <> $2`,
-        [req.userId, req.sessionId],
-      );
-      return;
-    }
+    
     await client.query(`UPDATE users SET password_hash = $1, updated_at = NOW() WHERE id = $2`, [
       passwordHash,
       req.userId,
@@ -698,9 +576,7 @@ router.get("/me", requireAuth, async (req: AuthedRequest, res: Response) => {
   const token = req.accessToken;
   if (!token) throw new AppError("unauthenticated", "Session expired", 401);
   res.setHeader("Cache-Control", "private, no-store");
-  const { rows } = (await isLiveNeonSchema())
-    ? await getPool().query<UserRow>(`${LIVE_AUTH_USER_SELECT} WHERE u.id = $1`, [req.userId])
-    : await getPool().query<UserRow>(
+  const { rows } = await getPool().query<UserRow>(
         `SELECT id, email, username, display_name, avatar_url, bio, is_verified, is_admin,
                 email_confirmed_at, created_at, banned_until
          FROM users WHERE id = $1 AND deleted_at IS NULL`,
@@ -712,11 +588,7 @@ router.get("/me", requireAuth, async (req: AuthedRequest, res: Response) => {
 });
 
 router.post("/logout", requireAuth, async (req: AuthedRequest, res: Response) => {
-  if (await isLiveNeonSchema()) {
-    await getPool().query(`DELETE FROM elix_auth_sessions WHERE token_hash = $1`, [req.sessionId]);
-  } else {
-    await getPool().query(`UPDATE auth_sessions SET revoked_at = NOW() WHERE id = $1`, [req.sessionId]);
-  }
+  await getPool().query(`UPDATE auth_sessions SET revoked_at = NOW() WHERE id = $1`, [req.sessionId]);
   clearAuthSessionCookie(res);
   res.json({ ok: true });
 });
@@ -731,12 +603,7 @@ router.post("/forgot-password", async (req: Request, res: Response) => {
   try {
     await assertPasswordResetRequestAllowed(emailNormalized);
     await recordPasswordResetRequest(emailNormalized);
-    const { rows } = (await isLiveNeonSchema())
-      ? await getPool().query<{ id: string; email: string; password_hash: string }>(
-          `SELECT id, email, password_hash FROM elix_auth_users WHERE email_lower = $1 LIMIT 1`,
-          [emailNormalized],
-        )
-      : await getPool().query<{ id: string; email: string; password_hash: string }>(
+    const { rows } = await getPool().query<{ id: string; email: string; password_hash: string }>(
           `SELECT id, email, password_hash FROM users WHERE email_normalized = $1 AND deleted_at IS NULL LIMIT 1`,
           [emailNormalized],
         );
@@ -807,12 +674,7 @@ router.post("/resend-confirmation", async (req: Request, res: Response) => {
   }
 
   const normalized = normalizeEmail(email);
-  const { rows } = (await isLiveNeonSchema())
-    ? await getPool().query<UserRow & { password_hash: string | null }>(
-        `${LIVE_AUTH_USER_SELECT} WHERE u.email_lower = $1 LIMIT 1`,
-        [normalized],
-      )
-    : await getPool().query<UserRow & { password_hash: string | null }>(
+  const { rows } = await getPool().query<UserRow & { password_hash: string | null }>(
         `SELECT id, email, username, display_name, avatar_url, bio, is_verified, is_admin,
                 email_confirmed_at, created_at, banned_until, password_hash
          FROM users WHERE email_normalized = $1 AND deleted_at IS NULL LIMIT 1`,
@@ -900,28 +762,7 @@ router.post("/consent", requireAuth, async (req: AuthedRequest, res: Response) =
     throw new AppError("validation_error", "Terms, privacy, and age confirmation are required.", 400);
   }
 
-  if (await isLiveNeonSchema()) {
-    // Frozen OLD production table: (user_id, consent_type, version) + age flag.
-    await getPool().query(
-      `INSERT INTO user_consents (user_id, consent_type, version, age_confirmed_13_plus, accepted_at, meta)
-       VALUES ($1, $2, $3, TRUE, NOW(), '{}'::jsonb)
-       ON CONFLICT (user_id, consent_type, version) DO UPDATE SET
-         age_confirmed_13_plus = EXCLUDED.age_confirmed_13_plus,
-         accepted_at = EXCLUDED.accepted_at,
-         meta = EXCLUDED.meta`,
-      [req.userId, REGISTER_CONSENT_TYPE, REGISTER_CONSENT_VERSION],
-    );
-    res.json({
-      ok: true,
-      consent: {
-        user_id: req.userId,
-        consent_type: REGISTER_CONSENT_TYPE,
-        version: REGISTER_CONSENT_VERSION,
-        age_confirmed_13_plus: true,
-      },
-    });
-    return;
-  }
+  
 
   await getPool().query(
     `INSERT INTO user_consents (user_id, kind) VALUES ($1, $2)
@@ -941,18 +782,7 @@ router.post("/consent", requireAuth, async (req: AuthedRequest, res: Response) =
 
 router.post("/delete", requireAuth, async (req: AuthedRequest, res: Response) => {
   await withTransaction(async (client) => {
-    if (await isLiveNeonSchema()) {
-      await client.query(`DELETE FROM elix_auth_sessions WHERE user_id = $1`, [req.userId]);
-      await client.query(`DELETE FROM follows WHERE follower_id = $1 OR following_id = $1`, [req.userId]);
-      await client.query(`DELETE FROM elix_blocked_users WHERE blocker_user_id = $1 OR blocked_user_id = $1`, [
-        req.userId,
-      ]);
-      await client.query(`DELETE FROM comments WHERE user_id = $1`, [req.userId]);
-      await client.query(`DELETE FROM videos WHERE user_id = $1`, [req.userId]);
-      await client.query(`DELETE FROM profiles WHERE user_id = $1`, [req.userId]);
-      await client.query(`DELETE FROM elix_auth_users WHERE id = $1`, [req.userId]);
-      return;
-    }
+    
     await client.query(`UPDATE users SET deleted_at = NOW(), email_normalized = $2, username_normalized = $3 WHERE id = $1`, [
       req.userId,
       `deleted-${req.userId}@invalid.local`,
@@ -988,52 +818,7 @@ async function appleNative(req: Request, res: Response): Promise<void> {
     payload.email_verified === true || String(payload.email_verified).toLowerCase() === "true";
   const tokenEmail =
     emailVerified && typeof payload.email === "string" ? payload.email.trim().toLowerCase() : "";
-  if (await isLiveNeonSchema()) {
-    const existing = await getPool().query<UserRow>(
-      `${LIVE_AUTH_USER_SELECT} WHERE u.apple_sub = $1 LIMIT 1`,
-      [sub],
-    );
-    if (existing.rows[0]) {
-      await writeProductionLogin(res, existing.rows[0]);
-      return;
-    }
-    if (!tokenEmail) {
-      throw new AppError(
-        "conflict",
-        "Apple did not provide an email for this new account. Remove Elix Star Live from Apple ID sign-in settings and try again.",
-        409,
-      );
-    }
-    const id = randomUUID();
-    const baseName =
-      suppliedName || tokenEmail.split("@")[0] || `apple_${createHash("sha256").update(sub).digest("hex").slice(0, 8)}`;
-    const username = `${baseName.replace(/[^a-zA-Z0-9_.]/g, "_").slice(0, 22)}_${id.slice(0, 6)}`;
-    const displayName = (suppliedName || username).slice(0, 48);
-    const user = await withTransaction(async (client) => {
-      await client.query(
-        `INSERT INTO elix_auth_users
-           (id, email, email_lower, username, display_name, apple_sub, email_confirmed_at, created_at)
-         VALUES ($1, $2, $3, $4, $5, $6, NOW(), NOW())`,
-        [id, tokenEmail, normalizeEmail(tokenEmail), username, displayName, sub],
-      );
-      await client.query(
-        `INSERT INTO profiles (user_id, username, display_name, level, created_at, updated_at)
-         VALUES ($1, $2, $3, 0, NOW(), NOW())
-         ON CONFLICT (user_id) DO NOTHING`,
-        [id, username, displayName],
-      );
-      await client.query(
-        `INSERT INTO starter_coin_balances (user_id, balance, lifetime_granted, lifetime_spent)
-         VALUES ($1, $2, $2, 0)
-         ON CONFLICT (user_id) DO NOTHING`,
-        [id, REGISTER_STARTER_COINS],
-      );
-      const loaded = await client.query<UserRow>(`${LIVE_AUTH_USER_SELECT} WHERE u.id = $1`, [id]);
-      return loaded.rows[0];
-    });
-    await writeProductionLogin(res, user);
-    return;
-  }
+  
   const existing = await getPool().query<UserRow>(
     `SELECT id, email, username, display_name, avatar_url, bio, is_verified, is_admin, email_confirmed_at, created_at, banned_until
      FROM users WHERE apple_sub = $1 AND deleted_at IS NULL`,

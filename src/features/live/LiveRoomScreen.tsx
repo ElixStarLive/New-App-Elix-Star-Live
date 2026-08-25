@@ -265,8 +265,8 @@ export function LiveRoomScreen({
       if (!isRecord(data)) return;
       const url = typeof data.animationUrl === "string" ? data.animationUrl : null;
       if (url) setGiftVideo(url);
-      const senderId = typeof data.senderId === "string" ? data.senderId : typeof data.userId === "string" ? data.userId : "";
-      const senderName = typeof data.displayName === "string" ? data.displayName : typeof data.username === "string" ? data.username : "User";
+      const senderId = typeof data.senderId === "string" ? data.senderId : "";
+      const senderName = typeof data.displayName === "string" ? data.displayName : "User";
       const senderAvatar = typeof data.avatarUrl === "string" ? data.avatarUrl : null;
       if (senderId) {
         setTopGifters((prev) => {

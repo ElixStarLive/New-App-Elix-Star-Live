@@ -1,6 +1,5 @@
 import { Router } from "express";
 import { getPool } from "../../infra/postgres.js";
-import { isLiveNeonSchema, publicTableExists } from "../../infra/liveSchema.js";
 import { requireAuth, type AuthedRequest } from "../../middleware/auth.js";
 import { AppError } from "../../middleware/errors.js";
 import { insertBlock } from "../blocks/service.js";
@@ -15,15 +14,6 @@ export const adminRouter = Router();
 function param(req: { params: Record<string, string | string[] | undefined> }, name: string): string {
   const value = req.params[name];
   return Array.isArray(value) ? (value[0] ?? "") : (value ?? "");
-}
-
-/** Live Neon inventory has no `notification_prefs` — fail closed, never invent defaults. */
-async function requireNotificationPrefsTable(): Promise<void> {
-  if (await isLiveNeonSchema()) {
-    if (!(await publicTableExists("notification_prefs"))) {
-      throw new AppError("SCHEMA_UNAVAILABLE", "SCHEMA_UNAVAILABLE", 503);
-    }
-  }
 }
 
 moderationRouter.post("/report", requireAuth, async (req: AuthedRequest, res) => {
@@ -49,7 +39,6 @@ notifyRouter.get("/", requireAuth, async (req: AuthedRequest, res) => {
 });
 
 notifyRouter.get("/prefs", requireAuth, async (req: AuthedRequest, res) => {
-  await requireNotificationPrefsTable();
   try {
     const { rows } = await getPool().query<{
       live: boolean;
@@ -86,7 +75,6 @@ notifyRouter.get("/prefs", requireAuth, async (req: AuthedRequest, res) => {
 });
 
 notifyRouter.patch("/prefs", requireAuth, async (req: AuthedRequest, res) => {
-  await requireNotificationPrefsTable();
   try {
     const body = req.body as Record<string, unknown>;
     await getPool().query(`INSERT INTO notification_prefs (user_id) VALUES ($1) ON CONFLICT DO NOTHING`, [req.userId]);

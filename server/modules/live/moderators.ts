@@ -2,15 +2,7 @@ import { getPool } from "../../infra/postgres.js";
 import { AppError } from "../../middleware/errors.js";
 
 async function liveHostForKey(streamKey: string): Promise<string> {
-  const { isLiveNeonSchema } = await import("../../infra/liveSchema.js");
-  const { rows } = (await isLiveNeonSchema())
-    ? await getPool().query<{ host_id: string; room_id: string }>(
-        `SELECT user_id AS host_id, stream_key AS room_id FROM live_streams
-         WHERE is_live = TRUE AND ended_at IS NULL AND (stream_key = $1 OR user_id = $1)
-         LIMIT 1`,
-        [streamKey],
-      )
-    : await getPool().query<{ host_id: string; room_id: string }>(
+  const { rows } = await getPool().query<{ host_id: string; room_id: string }>(
         `SELECT host_id, room_id FROM live_streams
      WHERE status = 'live' AND (room_id = $1 OR id::text = $1 OR host_id::text = $1)
      LIMIT 1`,

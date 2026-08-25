@@ -1,6 +1,5 @@
 import type { PoolClient } from "pg";
 import { withTransaction } from "../../infra/postgres.js";
-import { isLiveNeonSchema } from "../../infra/liveSchema.js";
 import { AppError } from "../../middleware/errors.js";
 import { applyWalletDelta } from "../wallet/ledger.js";
 
@@ -15,10 +14,8 @@ export async function insertPaidCoinLot(
     grossPence: number;
   },
 ): Promise<void> {
-  const live = await isLiveNeonSchema();
-  const table = live ? "elix_paid_coin_lots" : "paid_coin_lots";
   await client.query(
-    `INSERT INTO ${table} (
+    `INSERT INTO paid_coin_lots (
        user_id, provider, provider_txn_id, product_id, coins_original, coins_remaining, gross_pence, settlement_status
      ) VALUES ($1, $2, $3, $4, $5, $5, $6, 'settled')
      ON CONFLICT (provider, provider_txn_id) DO NOTHING`,
@@ -37,10 +34,7 @@ export async function reverseIapPurchase(
   provider: string,
   providerTxnId: string,
 ): Promise<{ reversed: boolean; duplicate: boolean }> {
-  const live = await isLiveNeonSchema();
   return withTransaction(async (client) => {
-    const purchaseTable = live ? "elix_processed_purchases" : "processed_purchases";
-    const lotsTable = live ? "elix_paid_coin_lots" : "paid_coin_lots";
     const purchase = await client.query<{
       id: string;
       user_id: string;
@@ -50,7 +44,7 @@ export async function reverseIapPurchase(
       provider_txn_id: string;
     }>(
       `SELECT id, user_id, coins, status, product_id, provider_txn_id
-       FROM ${purchaseTable}
+       FROM processed_purchases
        WHERE provider = $1 AND (
          provider_txn_id = $2
          OR COALESCE(raw_payload->>'purchaseToken', '') = $2
@@ -69,7 +63,7 @@ export async function reverseIapPurchase(
 
     const lots = await client.query<{ id: string; coins_remaining: string }>(
       `SELECT id, coins_remaining
-       FROM ${lotsTable}
+       FROM paid_coin_lots
        WHERE provider = $1 AND provider_txn_id = $2
        FOR UPDATE`,
       [provider, row.provider_txn_id],
@@ -78,18 +72,13 @@ export async function reverseIapPurchase(
     for (const lot of lots.rows) {
       unusedCoins += Number(lot.coins_remaining);
       await client.query(
-        `UPDATE ${lotsTable} SET coins_remaining = 0, settlement_status = 'reversed' WHERE id = $1`,
+        `UPDATE paid_coin_lots SET coins_remaining = 0, settlement_status = 'reversed' WHERE id = $1`,
         [lot.id],
       );
     }
 
     if (unusedCoins > 0) {
-      const remaining = live
-        ? await client.query<{ n: string }>(
-            `SELECT COALESCE(coin_balance, 0)::text AS n FROM elix_wallet_balances WHERE user_id = $1 FOR UPDATE`,
-            [row.user_id],
-          )
-        : await client.query<{ n: string }>(
+      const remaining = await client.query<{ n: string }>(
             `SELECT COALESCE(paid_coins, 0)::text AS n FROM wallet_balances WHERE user_id = $1 FOR UPDATE`,
             [row.user_id],
           );
@@ -107,43 +96,7 @@ export async function reverseIapPurchase(
       }
     }
 
-    if (live) {
-      const earnings = await client.query<{
-        id: string;
-        creator_id: string;
-        amount_pence: string;
-        status: string;
-      }>(
-        `SELECT e.id, e.creator_id, e.amount_pence, e.status
-         FROM elix_creator_earnings e
-         JOIN elix_gift_transactions g ON g.client_transaction_id = e.gift_txn_id
-         WHERE g.user_id = $1
-           AND e.status IN ('pending', 'available')
-           AND e.created_at >= (SELECT created_at FROM ${purchaseTable} WHERE id = $2)
-         FOR UPDATE`,
-        [row.user_id, row.id],
-      ).catch(() => ({ rows: [] as { id: string; creator_id: string; amount_pence: string; status: string }[] }));
-      for (const earning of earnings.rows) {
-        const amount = Number(earning.amount_pence);
-        if (earning.status === "pending") {
-          await client.query(
-            `UPDATE elix_creator_wallet_gbp
-             SET pending_pence = GREATEST(pending_pence - $2, 0), updated_at = NOW()
-             WHERE user_id = $1`,
-            [earning.creator_id, amount],
-          );
-        } else {
-          await client.query(
-            `UPDATE elix_creator_wallet_gbp
-             SET available_pence = GREATEST(available_pence - $2, 0), updated_at = NOW()
-             WHERE user_id = $1`,
-            [earning.creator_id, amount],
-          );
-        }
-        await client.query(`UPDATE elix_creator_earnings SET status = 'reversed' WHERE id = $1`, [earning.id]);
-      }
-    } else {
-      const earnings = await client.query<{
+    const earnings = await client.query<{
         id: string;
         creator_id: string;
         amount_pence: string;
@@ -189,17 +142,14 @@ export async function reverseIapPurchase(
           [row.user_id, provider, row.product_id],
         );
       }
-    }
 
-    await client.query(`UPDATE ${purchaseTable} SET status = 'reversed' WHERE id = $1`, [row.id]);
-    if (!live) {
-      await client.query(
+    await client.query(`UPDATE processed_purchases SET status = 'reversed' WHERE id = $1`, [row.id]);
+    await client.query(
         `INSERT INTO financial_ledger (account, amount_pence, reason, idempotency_key, ref_type, ref_id)
          VALUES ('platform', 0, 'iap_refund', $1, 'purchase', $2)
          ON CONFLICT (idempotency_key) DO NOTHING`,
         [`iap_refund_ledger:${row.id}`, row.id],
       );
-    }
     return { reversed: true, duplicate: false };
   });
 }

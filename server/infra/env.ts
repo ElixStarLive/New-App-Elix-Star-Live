@@ -37,6 +37,30 @@ export function loadEnv(overrides: Record<string, string | undefined> = {}): Env
   if (isProduction && !valkeyUrl) {
     throw new Error("VALKEY_URL is required in production");
   }
+  if (isProduction && !(parsed.LIVEKIT_URL?.trim() && parsed.LIVEKIT_API_KEY?.trim() && parsed.LIVEKIT_API_SECRET?.trim())) {
+    throw new Error("LIVEKIT_URL, LIVEKIT_API_KEY, and LIVEKIT_API_SECRET are required in production");
+  }
+  if (isProduction && !(parsed.BUNNY_STORAGE_ZONE?.trim() && parsed.BUNNY_STORAGE_API_KEY?.trim() && parsed.BUNNY_CDN_HOSTNAME?.trim())) {
+    throw new Error("BUNNY_STORAGE_ZONE, BUNNY_STORAGE_API_KEY, and BUNNY_CDN_HOSTNAME are required in production");
+  }
+  if (isProduction) {
+    const fakeMarkers = ["integration-key", "cdn.test", "integration-zone"];
+    const joined = [
+      parsed.BUNNY_STORAGE_API_KEY,
+      parsed.BUNNY_CDN_HOSTNAME,
+      parsed.BUNNY_STORAGE_ZONE,
+      parsed.LIVEKIT_URL,
+      parsed.LIVEKIT_API_KEY,
+    ]
+      .filter(Boolean)
+      .join(" ")
+      .toLowerCase();
+    for (const marker of fakeMarkers) {
+      if (joined.includes(marker)) {
+        throw new Error(`Production env contains forbidden test/fake marker: ${marker}`);
+      }
+    }
+  }
   if (isProduction && parsed.JWT_SECRET.length < 64) {
     throw new Error("JWT_SECRET must be at least 64 hex chars in production");
   }

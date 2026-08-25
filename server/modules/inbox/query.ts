@@ -1,5 +1,4 @@
 import { getPool } from "../../infra/postgres.js";
-import { isLiveNeonSchema } from "../../infra/liveSchema.js";
 import { listAlerts } from "../notifications/query.js";
 
 const ACTIVITY_LIMIT = 100;
@@ -30,57 +29,7 @@ export type InboxThreadRow = {
 };
 
 export async function listInboxThreads(viewerId: string): Promise<InboxThreadRow[]> {
-  if (await isLiveNeonSchema()) {
-    const { rows } = await getPool().query<{
-      id: string;
-      other_user_id: string;
-      username: string;
-      display_name: string;
-      avatar_url: string | null;
-      last_message: string | null;
-      updated_at: Date;
-      unread: boolean;
-      unread_count: string;
-    }>(
-      `SELECT t.id,
-              o.id AS other_user_id,
-              COALESCE(NULLIF(p.username, ''), o.username, '') AS username,
-              COALESCE(NULLIF(p.display_name, ''), o.display_name, o.username, '') AS display_name,
-              COALESCE(NULLIF(p.avatar_url, ''), o.avatar_url) AS avatar_url,
-              COALESCE(t.last_message, '') AS last_message,
-              COALESCE(t.last_at, t.created_at) AS updated_at,
-              EXISTS(
-                SELECT 1 FROM messages m
-                WHERE m.thread_id = t.id
-                  AND m.sender_id <> $1
-                  AND COALESCE(m.read, FALSE) = FALSE
-              ) AS unread,
-              (
-                SELECT COUNT(*)::text FROM messages m
-                WHERE m.thread_id = t.id
-                  AND m.sender_id <> $1
-                  AND COALESCE(m.read, FALSE) = FALSE
-              ) AS unread_count
-       FROM chat_threads t
-       JOIN elix_auth_users o ON o.id = CASE WHEN t.user1_id = $1 THEN t.user2_id ELSE t.user1_id END
-       LEFT JOIN profiles p ON p.user_id = o.id
-       WHERE (t.user1_id = $1 OR t.user2_id = $1)
-         AND (p.banned_until IS NULL OR p.banned_until <= NOW())
-       ORDER BY updated_at DESC, t.id DESC`,
-      [viewerId],
-    );
-    return rows.map((row) => ({
-      id: row.id,
-      otherUserId: row.other_user_id,
-      otherUsername: row.username,
-      otherDisplayName: row.display_name,
-      otherAvatarUrl: row.avatar_url,
-      lastMessage: row.last_message ?? "",
-      unread: row.unread,
-      unreadCount: Number(row.unread_count) || 0,
-      updatedAt: row.updated_at.toISOString(),
-    }));
-  }
+  
 
   const { rows } = await getPool().query<{
     id: string;
@@ -147,19 +96,11 @@ export type InboxActivityRow = {
 };
 
 export async function listInboxActivity(viewerId: string): Promise<{ items: InboxActivityRow[]; total: number }> {
-  const live = await isLiveNeonSchema();
-  const profile = live
-    ? await getPool().query<{ username: string }>(
-        `SELECT COALESCE(NULLIF(p.username, ''), u.username, '') AS username
-           FROM elix_auth_users u
-           LEFT JOIN profiles p ON p.user_id = u.id
-          WHERE u.id = $1`,
-        [viewerId],
-      )
-    : await getPool().query<{ username: string }>(`SELECT username FROM users WHERE id = $1`, [viewerId]);
+  
+  const profile = await getPool().query<{ username: string }>(`SELECT username FROM users WHERE id = $1`, [viewerId]);
   const pattern = mentionPattern(profile.rows[0]?.username ?? "");
   const params: string[] = [viewerId];
-  const mentionBodyCol = live ? "c_m.text" : "c_m.body";
+  const mentionBodyCol = "c_m.body";
   const mentionUnion = pattern
     ? `
          UNION ALL
@@ -172,8 +113,8 @@ export async function listInboxActivity(viewerId: string): Promise<{ items: Inbo
          FROM comments c_m
          INNER JOIN videos v_m ON v_m.id = c_m.video_id
          WHERE c_m.user_id <> $1
-           ${live ? "" : "AND c_m.deleted_at IS NULL"}
-           ${live ? "AND btrim(COALESCE(v_m.url, '')) <> ''" : "AND v_m.deleted_at IS NULL"}
+           ${"AND c_m.deleted_at IS NULL"}
+           ${"AND v_m.deleted_at IS NULL"}
            AND v_m.user_id <> $1
            AND ${mentionBodyCol} ~* $2`
     : "";
@@ -191,37 +132,7 @@ export async function listInboxActivity(viewerId: string): Promise<{ items: Inbo
     actor_avatar_url: string | null;
     total: string;
   }>(
-    live
-      ? `SELECT sub.kind, sub.video_id, sub.actor_user_id, sub.at, sub.snippet, sub.event_id,
-            COALESCE(p.username, u.username, '') AS actor_username,
-            COALESCE(NULLIF(p.display_name, ''), u.display_name, u.username, '') AS actor_display_name,
-            COALESCE(NULLIF(p.avatar_url, ''), u.avatar_url) AS actor_avatar_url,
-            COUNT(*) OVER()::text AS total
-     FROM (
-         SELECT 'like'::text AS kind, l.video_id::text AS video_id, l.user_id::text AS actor_user_id,
-                l.created_at AS at, NULL::text AS snippet, (l.user_id::text || ':' || l.video_id::text) AS event_id
-         FROM likes l
-         INNER JOIN videos v ON v.id = l.video_id
-         WHERE v.user_id = $1 AND l.user_id <> $1 AND btrim(COALESCE(v.url, '')) <> ''
-         UNION ALL
-         SELECT 'comment', c.video_id::text, c.user_id::text, c.created_at,
-                LEFT(c.text, 140), c.id::text
-         FROM comments c
-         INNER JOIN videos v ON v.id = c.video_id
-         WHERE v.user_id = $1 AND c.user_id <> $1 AND btrim(COALESCE(v.url, '')) <> ''
-         UNION ALL
-         SELECT 'save', s.video_id::text, s.user_id::text, s.created_at, NULL::text,
-                (s.user_id::text || ':' || s.video_id::text)
-         FROM saves s
-         INNER JOIN videos v ON v.id = s.video_id
-         WHERE v.user_id = $1 AND s.user_id <> $1 AND btrim(COALESCE(v.url, '')) <> ''
-         ${mentionUnion}
-     ) sub
-     LEFT JOIN elix_auth_users u ON u.id = sub.actor_user_id
-     LEFT JOIN profiles p ON p.user_id = sub.actor_user_id
-     ORDER BY sub.at DESC, sub.event_id DESC
-     LIMIT ${ACTIVITY_LIMIT}`
-      : `SELECT sub.kind, sub.video_id, sub.actor_user_id, sub.at, sub.snippet, sub.event_id,
+    `SELECT sub.kind, sub.video_id, sub.actor_user_id, sub.at, sub.snippet, sub.event_id,
             COALESCE(u.username, '') AS actor_username,
             COALESCE(u.display_name, '') AS actor_display_name,
             u.avatar_url AS actor_avatar_url,
@@ -283,51 +194,7 @@ export type InboxCircleRow = {
 };
 
 export async function listInboxCircles(viewerId: string): Promise<InboxCircleRow[]> {
-  if (await isLiveNeonSchema()) {
-    const { rows } = await getPool().query<{
-      id: string;
-      username: string;
-      display_name: string;
-      avatar_url: string | null;
-      is_live: boolean;
-      room_id: string | null;
-    }>(
-      `SELECT u.id,
-              COALESCE(NULLIF(p.username, ''), u.username, '') AS username,
-              COALESCE(NULLIF(p.display_name, ''), u.display_name, u.username, '') AS display_name,
-              COALESCE(NULLIF(p.avatar_url, ''), u.avatar_url) AS avatar_url,
-              EXISTS(
-                SELECT 1 FROM live_streams s
-                WHERE s.user_id = u.id AND s.is_live = TRUE AND s.ended_at IS NULL
-              ) AS is_live,
-              (
-                SELECT s.stream_key FROM live_streams s
-                WHERE s.user_id = u.id AND s.is_live = TRUE AND s.ended_at IS NULL
-                ORDER BY s.started_at DESC LIMIT 1
-              ) AS room_id
-       FROM elix_auth_users u
-       LEFT JOIN profiles p ON p.user_id = u.id
-       WHERE u.id <> $1
-         AND (p.banned_until IS NULL OR p.banned_until <= NOW())
-         AND NOT EXISTS (SELECT 1 FROM follows f WHERE f.following_id = $1 AND f.follower_id = u.id)
-         AND NOT EXISTS (
-           SELECT 1 FROM elix_blocked_users b
-           WHERE (b.blocker_user_id = $1 AND b.blocked_user_id = u.id)
-              OR (b.blocker_user_id = u.id AND b.blocked_user_id = $1)
-         )
-       ORDER BY is_live DESC, u.created_at DESC, u.id ASC
-       LIMIT ${CIRCLE_LIMIT}`,
-      [viewerId],
-    );
-    return rows.map((row) => ({
-      id: row.id,
-      username: row.username,
-      displayName: row.display_name,
-      avatarUrl: row.avatar_url,
-      isLive: row.is_live,
-      roomId: row.room_id,
-    }));
-  }
+  
 
   const { rows } = await getPool().query<{
     id: string;
@@ -380,29 +247,9 @@ export async function listInboxNotices(viewerId: string): Promise<{
   alertCount: number;
   unreadIds: string[];
 }> {
-  const live = await isLiveNeonSchema();
+  
 
-  const giftsQuery = live
-    ? getPool().query<{
-        id: string;
-        created_at: Date;
-        title: string;
-        body: string;
-        action_url: string | null;
-        read: boolean;
-      }>(
-        `SELECT id, created_at, title, body, action_url, COALESCE(read, FALSE) AS read
-         FROM elix_notifications
-         WHERE user_id = $1
-           AND (
-             type IN ('gift', 'starter_gift_received', 'paid_gift_received', 'promo_gift_received')
-             OR type ILIKE '%gift%'
-           )
-         ORDER BY created_at DESC
-         LIMIT ${NOTICE_LIMIT}`,
-        [viewerId],
-      )
-    : getPool().query<{
+  const giftsQuery = getPool().query<{
         id: string;
         created_at: Date;
         sender_name: string;
@@ -428,24 +275,7 @@ export async function listInboxNotices(viewerId: string): Promise<{
         [viewerId],
       );
 
-  const shopQuery = live
-    ? getPool().query<{
-        id: string;
-        type: string;
-        title: string;
-        body: string;
-        action_url: string | null;
-        created_at: Date;
-        read: boolean;
-      }>(
-        `SELECT id, type, title, body, action_url, created_at, COALESCE(read, FALSE) AS read
-         FROM elix_notifications
-         WHERE user_id = $1 AND type = 'shop'
-         ORDER BY created_at DESC
-         LIMIT ${NOTICE_LIMIT}`,
-        [viewerId],
-      )
-    : getPool().query<{
+  const shopQuery = getPool().query<{
         id: string;
         kind: string;
         payload: Record<string, unknown>;
@@ -462,23 +292,7 @@ export async function listInboxNotices(viewerId: string): Promise<{
 
   const [giftsRes, shopRes, alertsRes] = await Promise.all([giftsQuery, shopQuery, listAlerts(viewerId)]);
 
-  const gifts: InboxNoticeRow[] = live
-    ? (giftsRes.rows as Array<{
-        id: string;
-        created_at: Date;
-        title: string;
-        body: string;
-        action_url: string | null;
-        read: boolean;
-      }>).map((row) => ({
-        id: row.id,
-        title: row.title || "Gift received",
-        body: row.body || "",
-        imageUrl: null,
-        actionUrl: row.action_url,
-        createdAt: row.created_at.toISOString(),
-      }))
-    : (giftsRes.rows as Array<{
+  const gifts: InboxNoticeRow[] = (giftsRes.rows as Array<{
         id: string;
         created_at: Date;
         sender_name: string;
@@ -497,27 +311,7 @@ export async function listInboxNotices(viewerId: string): Promise<{
   const shop: InboxNoticeRow[] = [];
   const unreadIds: string[] = [...alertsRes.unreadIds];
 
-  if (live) {
-    for (const row of shopRes.rows as Array<{
-      id: string;
-      title: string;
-      body: string;
-      action_url: string | null;
-      created_at: Date;
-      read: boolean;
-    }>) {
-      if (!row.read) unreadIds.push(row.id);
-      shop.push({
-        id: row.id,
-        title: row.title || "shop",
-        body: row.body || "",
-        imageUrl: null,
-        actionUrl: row.action_url,
-        createdAt: row.created_at.toISOString(),
-      });
-    }
-  } else {
-    for (const row of shopRes.rows as Array<{
+  for (const row of shopRes.rows as Array<{
       id: string;
       kind: string;
       payload: Record<string, unknown>;
@@ -551,7 +345,6 @@ export async function listInboxNotices(viewerId: string): Promise<{
         createdAt: row.created_at.toISOString(),
       });
     }
-  }
 
   const alerts: InboxNoticeRow[] = alertsRes.items.map((row) => ({
     id: row.id,
@@ -562,18 +355,7 @@ export async function listInboxNotices(viewerId: string): Promise<{
     createdAt: row.createdAt,
   }));
 
-  const giftCountRes = live
-    ? await getPool().query<{ n: string }>(
-        `SELECT COUNT(*)::text AS n
-         FROM elix_notifications
-         WHERE user_id = $1
-           AND (
-             type IN ('gift', 'starter_gift_received', 'paid_gift_received', 'promo_gift_received')
-             OR type ILIKE '%gift%'
-           )`,
-        [viewerId],
-      )
-    : await getPool().query<{ n: string }>(
+  const giftCountRes = await getPool().query<{ n: string }>(
         `SELECT COUNT(*)::text AS n
      FROM gift_transactions gt
      JOIN users s ON s.id = gt.sender_id
@@ -605,49 +387,7 @@ export type InboxLiveShareRow = {
 };
 
 export async function listLiveShareRequests(viewerId: string): Promise<InboxLiveShareRow[]> {
-  if (await isLiveNeonSchema()) {
-    const { rows } = await getPool().query<{
-      sharer_id: string;
-      stream_key: string;
-      host_user_id: string;
-      host_name: string;
-      host_avatar: string;
-      sharer_name: string;
-      sharer_avatar: string;
-      created_at: Date;
-    }>(
-      `SELECT l.sharer_id, l.stream_key, l.host_user_id,
-              COALESCE(NULLIF(hp.display_name, ''), hu.display_name, hu.username, l.host_name, '') AS host_name,
-              COALESCE(NULLIF(hp.avatar_url, ''), hu.avatar_url, l.host_avatar, '') AS host_avatar,
-              COALESCE(NULLIF(sp.display_name, ''), su.display_name, su.username, l.sharer_name, '') AS sharer_name,
-              COALESCE(NULLIF(sp.avatar_url, ''), su.avatar_url, l.sharer_avatar, '') AS sharer_avatar,
-              l.created_at
-       FROM live_share_inbox l
-       LEFT JOIN elix_auth_users su ON su.id = l.sharer_id
-       LEFT JOIN profiles sp ON sp.user_id = l.sharer_id
-       LEFT JOIN elix_auth_users hu ON hu.id = l.host_user_id
-       LEFT JOIN profiles hp ON hp.user_id = l.host_user_id
-       WHERE l.recipient_id = $1
-         AND l.sharer_id <> $1
-         AND NOT EXISTS (
-           SELECT 1 FROM follows f
-           WHERE f.follower_id = $1 AND f.following_id = l.sharer_id
-         )
-       ORDER BY l.created_at DESC
-       LIMIT ${LIVE_SHARE_LIMIT}`,
-      [viewerId],
-    );
-    return rows.map((row) => ({
-      sharerId: row.sharer_id,
-      streamKey: row.stream_key,
-      hostUserId: row.host_user_id,
-      hostName: row.host_name,
-      hostAvatar: row.host_avatar,
-      sharerName: row.sharer_name,
-      sharerAvatar: row.sharer_avatar,
-      createdAt: row.created_at.toISOString(),
-    }));
-  }
+  
 
   const { rows } = await getPool().query<{
     sharer_id: string;

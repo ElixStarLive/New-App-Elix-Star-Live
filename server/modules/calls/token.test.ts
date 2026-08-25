@@ -4,7 +4,6 @@ import { AppError } from "../../middleware/errors.js";
 const queryMock = vi.fn();
 const mintMock = vi.fn(async (_opts: unknown) => ({ token: "call-jwt", url: "wss://livekit.example" }));
 const configuredMock = vi.fn(() => true);
-const liveSchemaMock = vi.fn(async () => false);
 
 vi.mock("../../infra/postgres.js", () => ({
   getPool: () => ({ query: queryMock }),
@@ -12,9 +11,6 @@ vi.mock("../../infra/postgres.js", () => ({
 vi.mock("../../infra/livekit.js", () => ({
   createLivekitToken: (opts: unknown) => mintMock(opts),
   isLivekitConfigured: () => configuredMock(),
-}));
-vi.mock("../../infra/liveSchema.js", () => ({
-  isLiveNeonSchema: () => liveSchemaMock(),
 }));
 
 import { issueCallToken } from "./token.js";
@@ -30,18 +26,6 @@ describe("PAGE-034 call LiveKit token", () => {
     queryMock.mockReset();
     mintMock.mockClear();
     configuredMock.mockReturnValue(true);
-    liveSchemaMock.mockResolvedValue(false);
-  });
-
-  it("fails closed on live Neon without minting", async () => {
-    liveSchemaMock.mockResolvedValue(true);
-    await expect(issueCallToken(callerId, callId)).rejects.toMatchObject({
-      code: "unavailable",
-      message: "CALLS_LIVE_SCHEMA_UNAVAILABLE",
-      status: 503,
-    } satisfies Partial<AppError>);
-    expect(queryMock).not.toHaveBeenCalled();
-    expect(mintMock).not.toHaveBeenCalled();
   });
 
   it("mints a publish token for a participant on the stored call_* room", async () => {

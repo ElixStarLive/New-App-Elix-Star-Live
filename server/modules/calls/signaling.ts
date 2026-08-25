@@ -1,17 +1,8 @@
 import { randomUUID } from "node:crypto";
 import { getPool } from "../../infra/postgres.js";
-import { isLiveNeonSchema } from "../../infra/liveSchema.js";
-import { AppError } from "../../middleware/errors.js";
 import { isBlockedEitherWay } from "../inbox/thread.js";
 
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
-
-/** `calls` is NEW-schema only — never invent a live Neon write. */
-async function assertCallsWritable(): Promise<void> {
-  if (await isLiveNeonSchema()) {
-    throw new AppError("unavailable", "CALLS_LIVE_SCHEMA_UNAVAILABLE", 503);
-  }
-}
 
 export type CallRejectReason = "blocked" | "declined" | "busy" | "forbidden";
 
@@ -108,7 +99,6 @@ export async function handleCallSignal(
   event: "call_invite" | "call_accepted" | "call_rejected" | "call_ended",
   data: unknown,
 ): Promise<CallFanout> {
-  await assertCallsWritable();
   const body = data && typeof data === "object" ? (data as Record<string, unknown>) : {};
   if (event === "call_invite") return inviteCall(userId, body);
   if (event === "call_accepted") return acceptCall(userId, body);

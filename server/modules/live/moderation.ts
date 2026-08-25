@@ -45,20 +45,12 @@ export function interpretSafetyModel(raw: unknown): SafetyVerdict {
 }
 
 async function assertLiveHost(streamKey: string, userId: string): Promise<void> {
-  const { isLiveNeonSchema } = await import("../../infra/liveSchema.js");
-  const { rows } = (await isLiveNeonSchema())
-    ? await getPool().query<{ host_id: string }>(
-        `SELECT user_id AS host_id FROM live_streams
-         WHERE is_live = TRUE AND ended_at IS NULL AND (stream_key = $1 OR user_id = $1)
-         LIMIT 1`,
-        [streamKey],
-      )
-    : await getPool().query<{ host_id: string }>(
-        `SELECT host_id FROM live_streams
+  const { rows } = await getPool().query<{ host_id: string }>(
+    `SELECT host_id FROM live_streams
      WHERE status = 'live' AND (room_id = $1 OR id::text = $1 OR host_id::text = $1)
      LIMIT 1`,
-        [streamKey],
-      );
+    [streamKey],
+  );
   if (!rows[0] || rows[0].host_id !== userId) {
     throw new AppError("forbidden", "Not authorized for this stream", 403);
   }

@@ -39,6 +39,18 @@ describe("PAGE-036 shop item parse", () => {
       sellerId: "22222222-2222-4222-8222-222222222222",
     });
   });
+
+  it("rejects legacy user_id / price / image_url dual-read shapes", () => {
+    expect(
+      parseShopItem({
+        id: "11111111-1111-4111-8111-111111111111",
+        user_id: "22222222-2222-4222-8222-222222222222",
+        name: "Hat",
+        price: 12.5,
+        image_url: "https://cdn.example/hat.png",
+      }),
+    ).toBeNull();
+  });
 });
 
 describe("PAGE-037 canonical shop item id", () => {

@@ -1,6 +1,5 @@
 import { randomBytes } from "node:crypto";
 import { getPool } from "../../infra/postgres.js";
-import { isLiveNeonSchema } from "../../infra/liveSchema.js";
 import { AppError } from "../../middleware/errors.js";
 import { createLivekitToken, isLivekitConfigured } from "../../infra/livekit.js";
 import { isSeatedCohost } from "../cohost/runtime.js";
@@ -24,44 +23,24 @@ type StreamRow = {
 };
 
 async function loadLiveByRoom(roomId: string): Promise<StreamRow | null> {
-  const { rows } = (await isLiveNeonSchema())
-    ? await getPool().query<StreamRow>(
-        `SELECT s.stream_key AS id, s.user_id AS host_id, 'live'::text AS status,
-                s.stream_key AS room_id,
-                COALESCE(NULLIF(s.display_name, ''), p.display_name, '') AS display_name,
-                COALESCE(p.username, '') AS username,
-                p.avatar_url, p.banned_until, NULL::timestamptz AS deleted_at
-           FROM live_streams s
-           LEFT JOIN profiles p ON p.user_id = s.user_id
-          WHERE (s.stream_key = $1 OR s.user_id = $1) AND s.is_live = TRUE AND s.ended_at IS NULL
-          LIMIT 1`,
-        [roomId],
-      )
-    : await getPool().query<StreamRow>(
-        `SELECT s.id, s.host_id, s.status, s.room_id, u.display_name, u.username, u.avatar_url,
+  const { rows } = await getPool().query<StreamRow>(
+    `SELECT s.id, s.host_id, s.status, s.room_id, u.display_name, u.username, u.avatar_url,
             u.banned_until, u.deleted_at
      FROM live_streams s
      JOIN users u ON u.id = s.host_id
      WHERE s.room_id = $1 AND s.status = 'live'
      LIMIT 1`,
-        [roomId],
-      );
+    [roomId],
+  );
   return rows[0] ?? null;
 }
 
 async function blockedEitherWay(viewerId: string, hostId: string): Promise<boolean> {
-  const { rows } = (await isLiveNeonSchema())
-    ? await getPool().query<{ n: number }>(
-        `SELECT COUNT(*)::int AS n FROM elix_blocked_users
-         WHERE (blocker_user_id = $1 AND blocked_user_id = $2)
-            OR (blocker_user_id = $2 AND blocked_user_id = $1)`,
-        [viewerId, hostId],
-      )
-    : await getPool().query<{ n: number }>(
-        `SELECT COUNT(*)::int AS n FROM blocks
+  const { rows } = await getPool().query<{ n: number }>(
+    `SELECT COUNT(*)::int AS n FROM blocks
      WHERE (blocker_id = $1 AND blocked_id = $2) OR (blocker_id = $2 AND blocked_id = $1)`,
-        [viewerId, hostId],
-      );
+    [viewerId, hostId],
+  );
   return (rows[0]?.n ?? 0) > 0;
 }
 

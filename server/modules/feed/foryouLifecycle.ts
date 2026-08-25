@@ -52,7 +52,7 @@ async function loadForYouConfig(): Promise<ForYouConfig> {
               max_recommendation_cycles, freshness_window_hours,
               weight_qualified_views, weight_shares, weight_saves, weight_comments, weight_likes,
               weight_freshness, weight_creator_quality, weight_guidelines
-         FROM elix_foryou_config WHERE id = 'default' LIMIT 1`,
+         FROM foryou_config WHERE id = 'default' LIMIT 1`,
     );
     const row = rows[0];
     if (!row) return DEFAULT_CFG;
@@ -118,7 +118,7 @@ export async function enrollVideoInForYou(input: {
   if (input.privacy === "private") return;
   try {
     await getPool().query(
-      `INSERT INTO elix_video_foryou_state (video_id, creator_user_id, stage, cycle_count)
+      `INSERT INTO video_foryou_state (video_id, creator_user_id, stage, cycle_count)
        VALUES ($1, $2, 'initial', 1)
        ON CONFLICT (video_id) DO NOTHING`,
       [videoId, creatorUserId],
@@ -143,7 +143,7 @@ export async function onQualifiedUniqueViewForFeed(input: {
     const qualified = Math.floor(Number(q.rows[0]?.c) || 0);
 
     await getPool().query(
-      `INSERT INTO elix_video_foryou_state (video_id, creator_user_id, stage, qualified_unique_views)
+      `INSERT INTO video_foryou_state (video_id, creator_user_id, stage, qualified_unique_views)
        VALUES ($1, $2, 'initial', $3)
        ON CONFLICT (video_id) DO UPDATE SET
          qualified_unique_views = $3,
@@ -151,7 +151,7 @@ export async function onQualifiedUniqueViewForFeed(input: {
       [videoId, input.creatorUserId || "unknown", qualified],
     );
 
-    const st = await getPool().query(`SELECT * FROM elix_video_foryou_state WHERE video_id = $1`, [videoId]);
+    const st = await getPool().query(`SELECT * FROM video_foryou_state WHERE video_id = $1`, [videoId]);
     const row = st.rows[0];
     if (!row) return;
 
@@ -182,7 +182,7 @@ export async function onQualifiedUniqueViewForFeed(input: {
       const ageHours = (Date.now() - entered) / 3_600_000;
       if (ageHours >= cfg.removalWindowHours && qualified < cfg.promotionQualifiedViews) {
         await getPool().query(
-          `UPDATE elix_video_foryou_state SET
+          `UPDATE video_foryou_state SET
              stage = 'removed', removed_at = NOW(), qualified_at_removal = $2,
              qualified_since_removal = 0, updated_at = NOW()
            WHERE video_id = $1`,
@@ -197,7 +197,7 @@ export async function onQualifiedUniqueViewForFeed(input: {
       stage = "reentered";
       reentryAt = new Date().toISOString();
       await getPool().query(
-        `UPDATE elix_video_foryou_state SET
+        `UPDATE video_foryou_state SET
            stage = 'reentered', cycle_count = cycle_count + 1, reentry_at = NOW(),
            ranking_score = $2, last_scored_at = NOW(), qualified_since_removal = $3, updated_at = NOW()
          WHERE video_id = $1`,
@@ -207,7 +207,7 @@ export async function onQualifiedUniqueViewForFeed(input: {
     }
 
     await getPool().query(
-      `UPDATE elix_video_foryou_state SET
+      `UPDATE video_foryou_state SET
          stage = $2, qualified_unique_views = $3, qualified_since_removal = $4,
          ranking_score = $5, last_scored_at = NOW(),
          promoted_at = COALESCE(promoted_at, $6::timestamptz),
@@ -232,7 +232,7 @@ async function rescoreVideo(videoId: string, cfg?: ForYouConfig): Promise<number
          COALESCE(v.comments,0)::int AS comments,
          COALESCE(v.shares,0)::int AS shares,
          COALESCE(v.saves,0)::int AS saves
-       FROM elix_video_foryou_state s
+       FROM video_foryou_state s
        JOIN videos v ON v.id::text = s.video_id
        WHERE s.video_id = $1`,
       [videoId],
@@ -267,7 +267,7 @@ export async function sweepForYouLifecycle(
   try {
     const cfg = await loadForYouConfig();
     const expired = await getPool().query(
-      `UPDATE elix_video_foryou_state s SET
+      `UPDATE video_foryou_state s SET
          stage = 'removed', removed_at = NOW(),
          qualified_at_removal = s.qualified_unique_views,
          qualified_since_removal = 0, updated_at = NOW()
@@ -281,7 +281,7 @@ export async function sweepForYouLifecycle(
     removed = expired.rowCount ?? 0;
 
     const active = await getPool().query(
-      `SELECT video_id FROM elix_video_foryou_state
+      `SELECT video_id FROM video_foryou_state
         WHERE stage IN ('initial','promoted','reentered','reentry_eligible')
         ORDER BY updated_at ASC
         LIMIT $1`,
@@ -290,7 +290,7 @@ export async function sweepForYouLifecycle(
     for (const row of active.rows) {
       const score = await rescoreVideo(String(row.video_id), cfg);
       await getPool().query(
-        `UPDATE elix_video_foryou_state SET ranking_score = $2, last_scored_at = NOW(), updated_at = NOW()
+        `UPDATE video_foryou_state SET ranking_score = $2, last_scored_at = NOW(), updated_at = NOW()
          WHERE video_id = $1`,
         [row.video_id, score],
       );

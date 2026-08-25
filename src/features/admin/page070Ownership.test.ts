@@ -47,7 +47,8 @@ describe("PAGE-070 Admin Dashboard ownership", () => {
     expect(dashboard).toMatch(/INTERVAL '24 hours'/);
     expect(dashboard).toMatch(/auth_sessions/);
     expect(dashboard).toMatch(/shop_purchases/);
-    expect(dashboard).toMatch(/elix_auth_sessions|isLiveNeonSchema/);
+    expect(dashboard).toMatch(/auth_sessions/);
+    expect(dashboard).not.toMatch(/elix_auth_users|elix_auth_sessions|isLiveNeonSchema/);
     expect(dashboard).not.toMatch(/SUM\(coins\)|processed_purchases|new Map\(/);
     expect(extra).toMatch(/\/stats\/dau/);
     expect(extra).toMatch(/handleAdminDashboard/);

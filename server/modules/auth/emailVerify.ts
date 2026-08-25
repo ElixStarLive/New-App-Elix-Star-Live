@@ -1,7 +1,6 @@
 import { createHash } from "node:crypto";
 import { getPool } from "../../infra/postgres.js";
 import { signPurposeToken, verifyPurposeToken } from "../../infra/tokens.js";
-import { isLiveNeonSchema, LIVE_AUTH_USER_SELECT } from "../../infra/liveSchema.js";
 import { AppError } from "../../middleware/errors.js";
 
 /** Frozen OLD: 24h purpose-bound email confirm JWT. */
@@ -64,13 +63,6 @@ export async function issueEmailVerifyToken(user: EmailVerifyUser): Promise<stri
 }
 
 async function loadVerifyUser(userId: string): Promise<(EmailVerifySessionUser & { password_hash: string }) | null> {
-  if (await isLiveNeonSchema()) {
-    const { rows } = await getPool().query<EmailVerifySessionUser & { password_hash: string }>(
-      `${LIVE_AUTH_USER_SELECT} WHERE u.id = $1 LIMIT 1`,
-      [userId],
-    );
-    return rows[0] ?? null;
-  }
   const { rows } = await getPool().query<EmailVerifySessionUser & { password_hash: string }>(
     `SELECT id, email, username, display_name, avatar_url, bio, is_verified, is_admin,
             email_confirmed_at, created_at, banned_until, password_hash
@@ -83,16 +75,6 @@ async function loadVerifyUser(userId: string): Promise<(EmailVerifySessionUser &
 }
 
 async function markEmailConfirmed(userId: string): Promise<Date | string | null> {
-  if (await isLiveNeonSchema()) {
-    const { rows } = await getPool().query<{ email_confirmed_at: Date | string | null }>(
-      `UPDATE elix_auth_users
-          SET email_confirmed_at = COALESCE(email_confirmed_at, NOW())
-        WHERE id = $1
-        RETURNING email_confirmed_at`,
-      [userId],
-    );
-    return rows[0]?.email_confirmed_at ?? null;
-  }
   const { rows } = await getPool().query<{ email_confirmed_at: Date | string | null }>(
     `UPDATE users
         SET email_confirmed_at = COALESCE(email_confirmed_at, NOW()), updated_at = NOW()

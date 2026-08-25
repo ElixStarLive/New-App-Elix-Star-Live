@@ -1,7 +1,7 @@
 export const QUALIFIED_WATCH_SECONDS = 3;
 export const QUALIFIED_WATCH_MS = QUALIFIED_WATCH_SECONDS * 1000;
 
-const SESSION_KEY = "elix_foryou_viewed_v1";
+const SESSION_KEY = "foryou_viewed_v1";
 
 function readViewed(): Set<string> {
   try {

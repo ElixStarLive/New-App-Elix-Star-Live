@@ -1,6 +1,5 @@
 import Stripe from "stripe";
 import { getPool } from "../../infra/postgres.js";
-import { isLiveNeonSchema } from "../../infra/liveSchema.js";
 import { logger } from "../../infra/logger.js";
 
 export async function fulfillShopCheckoutSession(
@@ -18,42 +17,7 @@ export async function fulfillShopCheckoutSession(
     "";
   if (itemIds.length === 0 || !buyerId) return;
 
-  if (await isLiveNeonSchema()) {
-    for (const itemId of itemIds) {
-      const item = await getPool().query<{ user_id: string; price: string | number }>(
-        `SELECT user_id, price FROM shop_items WHERE id = $1`,
-        [itemId],
-      );
-      const sellerId = item.rows[0]?.user_id || metadata.sellerId || "";
-      const amountGbp = Number(item.rows[0]?.price ?? 0);
-      const inserted = await getPool().query(
-        `INSERT INTO elix_shop_purchases (stripe_session_id, item_id, buyer_id, seller_id, amount_gbp)
-         VALUES ($1, $2, $3, $4, $5)
-         ON CONFLICT (stripe_session_id, item_id) DO NOTHING`,
-        [session.id, itemId, buyerId, sellerId, Number.isFinite(amountGbp) ? amountGbp : 0],
-      );
-      if (!inserted.rowCount) continue;
-      const claimed = await getPool().query(
-        `UPDATE shop_items SET is_active = FALSE
-         WHERE id = $1 AND is_active = TRUE`,
-        [itemId],
-      );
-      if ((claimed.rowCount ?? 0) > 0) continue;
-      const pi = session.payment_intent;
-      const paymentIntentId = typeof pi === "string" ? pi : pi?.id;
-      if (stripe && paymentIntentId) {
-        try {
-          await stripe.refunds.create(
-            { payment_intent: paymentIntentId, reason: "duplicate" },
-            { idempotencyKey: `shop-double-sale-refund-${session.id}-${itemId}` },
-          );
-        } catch (error) {
-          logger.error({ err: error, itemId, sessionId: session.id }, "shop double-sale refund failed");
-        }
-      }
-    }
-    return;
-  }
+  
 
   await getPool().query(
     `UPDATE shop_purchases SET status = 'paid'

@@ -1,5 +1,4 @@
 import { getPool } from "../../infra/postgres.js";
-import { isLiveNeonSchema } from "../../infra/liveSchema.js";
 import { AppError } from "../../middleware/errors.js";
 import { env } from "../../infra/env.js";
 import { createLivekitToken, isLivekitConfigured } from "../../infra/livekit.js";
@@ -34,18 +33,7 @@ function streamKey(roomId: string): string {
 }
 
 async function hostProfile(hostId: string): Promise<HostRow> {
-  const { rows } = (await isLiveNeonSchema())
-    ? await getPool().query<HostRow>(
-        `SELECT COALESCE(NULLIF(p.display_name, ''), u.display_name, u.username) AS display_name,
-                COALESCE(NULLIF(p.username, ''), u.username) AS username,
-                COALESCE(NULLIF(p.avatar_url, ''), u.avatar_url) AS avatar_url,
-                p.banned_until, NULL::timestamptz AS deleted_at
-           FROM elix_auth_users u
-           LEFT JOIN profiles p ON p.user_id = u.id
-          WHERE u.id = $1`,
-        [hostId],
-      )
-    : await getPool().query<HostRow>(
+  const { rows } = await getPool().query<HostRow>(
         `SELECT display_name, username, avatar_url, banned_until, deleted_at
      FROM users WHERE id = $1`,
         [hostId],
@@ -122,21 +110,8 @@ export async function startLive(
   let reconnect = false;
   try {
     await client.query("BEGIN");
-    const liveNeon = await isLiveNeonSchema();
-    const existing = liveNeon
-      ? await client.query<{
-          id: string;
-          room_id: string;
-          title: string;
-          started_at: Date;
-        }>(
-          `SELECT stream_key AS id, stream_key AS room_id, COALESCE(display_name, '') AS title, started_at
-             FROM live_streams
-            WHERE stream_key = $1 AND is_live = TRUE AND ended_at IS NULL
-            FOR UPDATE`,
-          [hostId],
-        )
-      : await client.query<{
+    
+    const existing = await client.query<{
           id: string;
           room_id: string;
           title: string;
@@ -152,30 +127,6 @@ export async function startLive(
       reconnect = true;
       row = {
         ...existing.rows[0],
-        display_name: host.display_name,
-        username: host.username,
-        avatar_url: host.avatar_url,
-      };
-    } else if (liveNeon) {
-      const inserted = await client.query<{
-        id: string;
-        room_id: string;
-        title: string;
-        started_at: Date;
-      }>(
-        `INSERT INTO live_streams (stream_key, user_id, display_name, started_at, is_live, viewer_count, ended_at)
-         VALUES ($1, $1, $2, NOW(), TRUE, 0, NULL)
-         ON CONFLICT (stream_key) DO UPDATE
-           SET is_live = TRUE,
-               ended_at = NULL,
-               display_name = EXCLUDED.display_name,
-               started_at = CASE WHEN live_streams.is_live THEN live_streams.started_at ELSE NOW() END,
-               viewer_count = CASE WHEN live_streams.is_live THEN live_streams.viewer_count ELSE 0 END
-         RETURNING stream_key AS id, stream_key AS room_id, COALESCE(display_name, '') AS title, started_at`,
-        [hostId, title || host.display_name],
-      );
-      row = {
-        ...inserted.rows[0],
         display_name: host.display_name,
         username: host.username,
         avatar_url: host.avatar_url,
@@ -211,19 +162,11 @@ export async function startLive(
     await persistRealtime(roomId, hostId, row.id);
   } catch (error) {
     if (!reconnect) {
-      if (await isLiveNeonSchema()) {
-        await getPool().query(
-          `UPDATE live_streams SET is_live = FALSE, ended_at = NOW()
-           WHERE stream_key = $1 AND is_live = TRUE`,
-          [row.id],
-        );
-      } else {
-        await getPool().query(
+      await getPool().query(
           `UPDATE live_streams SET status = 'ended', ended_at = NOW()
          WHERE id = $1 AND status = 'live'`,
           [row.id],
         );
-      }
     }
     logger.error({ err: error, roomId }, "live realtime persist failed");
     throw new AppError("unavailable", "Live state is unavailable", 503);
@@ -252,16 +195,8 @@ export async function endLive(
   hostId: string,
   streamId: string,
 ): Promise<{ ok: true; alreadyEnded: boolean; roomId: string | null }> {
-  const liveNeon = await isLiveNeonSchema();
-  const ended = liveNeon
-    ? await getPool().query<{ room_id: string }>(
-        `UPDATE live_streams
-            SET is_live = FALSE, ended_at = COALESCE(ended_at, NOW())
-          WHERE stream_key = $1 AND user_id = $2 AND is_live = TRUE
-          RETURNING stream_key AS room_id`,
-        [streamId, hostId],
-      )
-    : await getPool().query<{ room_id: string }>(
+  
+  const ended = await getPool().query<{ room_id: string }>(
         `UPDATE live_streams
      SET status = 'ended', ended_at = COALESCE(ended_at, NOW())
      WHERE id = $1 AND host_id = $2 AND status = 'live'
@@ -275,13 +210,7 @@ export async function endLive(
     return { ok: true, alreadyEnded: false, roomId };
   }
 
-  const existing = liveNeon
-    ? await getPool().query<{ status: string; room_id: string }>(
-        `SELECT CASE WHEN is_live THEN 'live' ELSE 'ended' END AS status, stream_key AS room_id
-           FROM live_streams WHERE stream_key = $1 AND user_id = $2`,
-        [streamId, hostId],
-      )
-    : await getPool().query<{ status: string; room_id: string }>(
+  const existing = await getPool().query<{ status: string; room_id: string }>(
         `SELECT status, room_id FROM live_streams WHERE id = $1 AND host_id = $2`,
         [streamId, hostId],
       );
@@ -294,12 +223,7 @@ export async function endLive(
 
 export async function expireAbandonedLives(): Promise<number> {
   if (!env().valkeyUrl) return 0;
-  const { rows } = (await isLiveNeonSchema())
-    ? await getPool().query<{ id: string; host_id: string; room_id: string }>(
-        `SELECT stream_key AS id, user_id AS host_id, stream_key AS room_id
-           FROM live_streams WHERE is_live = TRUE AND ended_at IS NULL`,
-      )
-    : await getPool().query<{ id: string; host_id: string; room_id: string }>(
+  const { rows } = await getPool().query<{ id: string; host_id: string; room_id: string }>(
         `SELECT id, host_id, room_id FROM live_streams WHERE status = 'live'`,
       );
   let ended = 0;

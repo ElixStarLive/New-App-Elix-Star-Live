@@ -2,7 +2,6 @@ import { JWT } from "google-auth-library";
 import * as jose from "jose";
 import http2 from "node:http2";
 import { getPool } from "../../infra/postgres.js";
-import { isLiveNeonSchema, publicTableExists } from "../../infra/liveSchema.js";
 import { logger } from "../../infra/logger.js";
 
 export type PushNotifyResult = {
@@ -172,14 +171,8 @@ export async function pushNotifyUser(
     return { configured: false, sent: 0, failed: 0, reason: "not_configured" };
   }
   const pool = getPool();
-  const live = await isLiveNeonSchema();
-  if (live && !(await publicTableExists("elix_device_tokens"))) {
-    logger.warn("push_notify skipped: elix_device_tokens unavailable");
-    return { configured: true, sent: 0, failed: 0, reason: "unavailable" };
-  }
-  const table = live ? "elix_device_tokens" : "device_tokens";
   const { rows } = await pool.query<{ platform: string; token: string }>(
-    `SELECT platform, token FROM ${table} WHERE user_id = $1`,
+    `SELECT platform, token FROM device_tokens WHERE user_id = $1`,
     [userId],
   );
   if (rows.length === 0) {
@@ -199,7 +192,7 @@ export async function pushNotifyUser(
     }
     failed += 1;
     if (result === "invalid") {
-      await pool.query(`DELETE FROM ${table} WHERE user_id = $1 AND token = $2`, [userId, row.token]);
+      await pool.query(`DELETE FROM device_tokens WHERE user_id = $1 AND token = $2`, [userId, row.token]);
     }
   }
   return {

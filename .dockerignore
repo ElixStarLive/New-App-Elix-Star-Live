@@ -1,0 +1,15 @@
+node_modules
+dist
+.cache
+.cursor
+.git
+.gitignore
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+.vscode
+android
+ios
+*.tsbuildinfo
+coverage

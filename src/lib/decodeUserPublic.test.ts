@@ -19,22 +19,34 @@ describe("decodeUserPublicFromPayload", () => {
     expect(parsed?.followerCount).toBe(1);
   });
 
-  it("parses legacy profile payload shape", () => {
-    const parsed = decodeUserPublicFromPayload({
-      profile: {
-        userId: "u2",
-        username: "bob",
-        displayName: "Bob",
-        avatarUrl: "",
-        bio: "",
-        isVerified: true,
-        followers: 7,
-        following: 8,
-      },
-    });
-    expect(parsed?.id).toBe("u2");
-    expect(parsed?.followerCount).toBe(7);
-    expect(parsed?.followingCount).toBe(8);
-    expect(parsed?.isVerified).toBe(true);
+  it("rejects legacy profile / snake_case dual-read shapes", () => {
+    expect(
+      decodeUserPublicFromPayload({
+        profile: {
+          userId: "u2",
+          username: "bob",
+          displayName: "Bob",
+          avatarUrl: "",
+          bio: "",
+          isVerified: true,
+          followers: 7,
+          following: 8,
+        },
+      }),
+    ).toBeNull();
+    expect(
+      decodeUserPublicFromPayload({
+        user: {
+          id: "u3",
+          username: "cara",
+          display_name: "Cara",
+          avatar_url: null,
+          bio: "",
+          is_verified: false,
+          followers_count: 1,
+          following_count: 2,
+        },
+      }),
+    ).toBeNull();
   });
 });

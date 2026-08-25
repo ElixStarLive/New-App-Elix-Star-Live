@@ -40,25 +40,39 @@ describe("PAGE-029 saved creator identifiers", () => {
     expect(storage.getItem("creator_saved_password")).toBeNull();
   });
 
-  it("migrates a legacy identifier, deletes password keys, and caps at five", () => {
-    const storage = memoryStorage({
-      creator_saved_identifier: "legacy@example.com",
-      creator_saved_username: "legacy",
-      creator_saved_password: "secret-must-die",
-      creator_save_password: "true",
-    });
+  it("migrates a legacy identifier, deletes all legacy keys, and caps at five", () => {
+    const storage = memoryStorage();
     const first = Array.from({ length: 5 }, (_, index) => ({
       identifier: `user${index}@example.com`,
       username: `user${index}`,
     }));
     writeCreatorSavedAccounts(storage, first);
+    storage.setItem("creator_saved_identifier", "legacy@example.com");
+    storage.setItem("creator_saved_username", "legacy");
+    storage.setItem("creator_saved_password", "secret-must-die");
+    storage.setItem("creator_save_password", "true");
     const migrated = migrateLegacyCreatorLoginKeys(storage);
     expect(migrated[0]?.identifier).toBe("legacy@example.com");
     expect(migrated).toHaveLength(CREATOR_SAVED_ACCOUNT_LIMIT);
     expect(storage.getItem("creator_saved_password")).toBeNull();
     expect(storage.getItem("creator_save_password")).toBeNull();
     expect(storage.getItem("creator_saved_identifier")).toBeNull();
+    expect(storage.getItem("creator_saved_username")).toBeNull();
     expect(JSON.stringify(migrated)).not.toMatch(/secret-must-die/);
+  });
+
+  it("read path absorbs legacy then deletes the OLD→NEW bridge keys", () => {
+    const storage = memoryStorage({
+      creator_saved_identifier: "bridge@example.com",
+      creator_saved_username: "bridge",
+      creator_saved_password: "nope",
+    });
+    const listed = readCreatorSavedAccounts(storage);
+    expect(listed).toEqual([{ identifier: "bridge@example.com", username: "bridge" }]);
+    expect(storage.getItem("creator_saved_identifier")).toBeNull();
+    expect(storage.getItem("creator_saved_username")).toBeNull();
+    expect(storage.getItem("creator_saved_password")).toBeNull();
+    expect(storage.getItem(CREATOR_SAVED_ACCOUNTS_KEY)).toContain("bridge@example.com");
   });
 
   it("recovers corrupt storage to an empty list", () => {

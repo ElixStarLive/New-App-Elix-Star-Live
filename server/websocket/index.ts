@@ -3,7 +3,6 @@ import type { IncomingMessage, Server } from "node:http";
 import { randomUUID } from "node:crypto";
 import { verifyAccessToken } from "../infra/tokens.js";
 import { getPool } from "../infra/postgres.js";
-import { isLiveNeonSchema } from "../infra/liveSchema.js";
 import { logger } from "../infra/logger.js";
 import { env } from "../infra/env.js";
 import { valkeyPub, valkeySub } from "../infra/valkey.js";
@@ -18,15 +17,19 @@ import { addHostConnection, markHostConnected, removeHostConnection } from "../m
 import type { BattleSeat } from "../../shared/contracts/realtime.js";
 import { clearGiftGoal, getGiftGoal, setGiftGoal } from "../modules/gifts/goal.js";
 import { handleCallSignal } from "../modules/calls/signaling.js";
+import { recordCreatorWatchProgress, spawnTreasureChest } from "../modules/engagement/collections.js";
 
 type SocketClient = {
   ws: WebSocket;
   userId: string;
   roomId: string;
   connectionId: string;
+  connectedAtMs: number;
+  hostId: string | null;
 };
 
 const localSockets = new Map<WebSocket, SocketClient>();
+const LIVE_WATCH_MINUTES_PER_REWARD = 1;
 const INSTANCE_ID = randomUUID();
 const USER_EVENT_CHANNEL = "user:events";
 
@@ -154,16 +157,8 @@ async function handleConnection(ws: WebSocket, req: IncomingMessage): Promise<vo
     ws.close(1008, "unauthorized");
     return;
   }
-  const live = await isLiveNeonSchema();
-  const { rows } = live
-    ? await getPool().query<{ revoked_at: Date | null; banned_until: Date | null }>(
-        `SELECT NULL::timestamptz AS revoked_at, p.banned_until
-           FROM elix_auth_sessions s
-           LEFT JOIN profiles p ON p.user_id = s.user_id
-          WHERE s.token_hash = $1 AND s.user_id = $2 AND s.expires_at > NOW()`,
-        [claims.sessionId, claims.userId],
-      )
-    : await getPool().query<{ revoked_at: Date | null; banned_until: Date | null }>(
+  
+  const { rows } = await getPool().query<{ revoked_at: Date | null; banned_until: Date | null }>(
         `SELECT s.revoked_at, u.banned_until
          FROM auth_sessions s JOIN users u ON u.id = s.user_id
          WHERE s.id = $1 AND s.user_id = $2`,
@@ -174,7 +169,14 @@ async function handleConnection(ws: WebSocket, req: IncomingMessage): Promise<vo
     return;
   }
   const connectionId = `${claims.userId}:${randomUUID()}`;
-  localSockets.set(ws, { ws, userId: claims.userId, roomId, connectionId });
+  localSockets.set(ws, {
+    ws,
+    userId: claims.userId,
+    roomId,
+    connectionId,
+    connectedAtMs: Date.now(),
+    hostId: null,
+  });
   addPresenceSocket(ws);
   const isFeed = roomId === "__feed__";
   if (!isFeed && !env().valkeyUrl) {
@@ -185,6 +187,8 @@ async function handleConnection(ws: WebSocket, req: IncomingMessage): Promise<vo
     return;
   }
   const hostId = isFeed ? null : await liveHostId(roomId);
+  const connected = localSockets.get(ws);
+  if (connected) connected.hostId = hostId;
   const isHost = Boolean(hostId && hostId === claims.userId);
   const countsAsViewer = !isFeed && !isHost;
   if (isHost) {
@@ -228,6 +232,7 @@ async function handleConnection(ws: WebSocket, req: IncomingMessage): Promise<vo
   });
 
   ws.on("close", () => {
+    const closed = localSockets.get(ws);
     localSockets.delete(ws);
     removePresenceSocket(ws);
     if (isHost) {
@@ -237,6 +242,19 @@ async function handleConnection(ws: WebSocket, req: IncomingMessage): Promise<vo
       void removeViewer(roomId, connectionId).then(() => emitViewerCount(roomId)).catch((error) => {
         logger.warn({ err: error, roomId }, "viewer leave failed");
       });
+
+      if (closed?.hostId && closed.hostId !== claims.userId) {
+        const watchedMs = Math.max(0, Date.now() - closed.connectedAtMs);
+        const watchedMinutes = Math.floor(watchedMs / 60_000);
+        if (watchedMinutes >= LIVE_WATCH_MINUTES_PER_REWARD) {
+          void recordCreatorWatchProgress(claims.userId, closed.hostId, watchedMinutes).catch((error) => {
+            logger.warn({ err: error, roomId, userId: claims.userId }, "creator watch progress failed");
+          });
+          void spawnTreasureChest(claims.userId, "chest_common_watch", "live_watch").catch((error) => {
+            logger.warn({ err: error, roomId, userId: claims.userId }, "live watch chest spawn failed");
+          });
+        }
+      }
     }
     if (!isFeed) void fanout(roomId, "user_left", { userId: claims.userId });
   });

@@ -30,37 +30,19 @@ export async function attachSession(req: AuthedRequest, _res: Response, next: Ne
     next();
     return;
   }
-  const { isLiveNeonSchema } = await import("../infra/liveSchema.js");
-  const live = await isLiveNeonSchema();
-  const { rows } = live
-    ? await getPool().query<{
-        revoked_at: Date | null;
-        expires_at: Date;
-        is_admin: boolean;
-        banned_until: Date | null;
-        deleted_at: Date | null;
-      }>(
-        `SELECT NULL::timestamptz AS revoked_at, s.expires_at,
-                COALESCE(p.is_admin, FALSE) AS is_admin,
-                p.banned_until, NULL::timestamptz AS deleted_at
-           FROM elix_auth_sessions s
-           LEFT JOIN profiles p ON p.user_id = s.user_id
-          WHERE s.token_hash = $1 AND s.user_id = $2 AND s.expires_at > NOW()`,
-        [claims.sessionId, claims.userId],
-      )
-    : await getPool().query<{
-        revoked_at: Date | null;
-        expires_at: Date;
-        is_admin: boolean;
-        banned_until: Date | null;
-        deleted_at: Date | null;
-      }>(
-        `SELECT s.revoked_at, s.expires_at, u.is_admin, u.banned_until, u.deleted_at
+  const { rows } = await getPool().query<{
+    revoked_at: Date | null;
+    expires_at: Date;
+    is_admin: boolean;
+    banned_until: Date | null;
+    deleted_at: Date | null;
+  }>(
+    `SELECT s.revoked_at, s.expires_at, u.is_admin, u.banned_until, u.deleted_at
          FROM auth_sessions s
          JOIN users u ON u.id = s.user_id
          WHERE s.id = $1 AND s.user_id = $2`,
-        [claims.sessionId, claims.userId],
-      );
+    [claims.sessionId, claims.userId],
+  );
   const row = rows[0];
   if (!row || row.revoked_at || row.expires_at < new Date() || row.deleted_at) {
     next();
@@ -97,16 +79,10 @@ export async function requireAdmin(req: AuthedRequest, _res: Response, next: Nex
     return;
   }
   try {
-    const { isLiveNeonSchema } = await import("../infra/liveSchema.js");
-    const { rows } = (await isLiveNeonSchema())
-      ? await getPool().query<{ is_admin: boolean | null }>(
-          `SELECT COALESCE(is_admin, FALSE) AS is_admin FROM profiles WHERE user_id = $1`,
-          [req.userId],
-        )
-      : await getPool().query<{ is_admin: boolean | null }>(
-          `SELECT is_admin FROM users WHERE id = $1 AND deleted_at IS NULL`,
-          [req.userId],
-        );
+    const { rows } = await getPool().query<{ is_admin: boolean | null }>(
+      `SELECT is_admin FROM users WHERE id = $1 AND deleted_at IS NULL`,
+      [req.userId],
+    );
     if (rows[0]?.is_admin !== true) {
       req.isAdmin = false;
       next(new AppError("forbidden", "Admin only", 403));

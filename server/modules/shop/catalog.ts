@@ -1,6 +1,5 @@
 import type { Response } from "express";
 import { getPool } from "../../infra/postgres.js";
-import { isLiveNeonSchema } from "../../infra/liveSchema.js";
 import { AppError } from "../../middleware/errors.js";
 import type { AuthedRequest } from "../../middleware/auth.js";
 import { shopCategorySchema } from "../../../shared/contracts/shop.js";
@@ -86,50 +85,7 @@ export async function listShopItems(req: AuthedRequest, res: Response): Promise<
   const category = typeof req.query.category === "string" ? req.query.category : "";
   const values: unknown[] = [];
 
-  if (await isLiveNeonSchema()) {
-    // Live shop_items: user_id + price (GBP), not seller_id + price_pence.
-    let where = "WHERE is_active = TRUE";
-    if (seller) {
-      values.push(seller);
-      where += ` AND user_id = $${values.length}`;
-    }
-    // Live dual-path read has no reliable category column — do not invent filters.
-    if (category && category !== "all" && shopCategorySchema.safeParse(category).success) {
-      res.json({ items: [] });
-      return;
-    }
-    const { rows } = await getPool().query<{
-      id: string;
-      seller_id: string;
-      title: string;
-      description: string;
-      price: string | number;
-      image_url: string | null;
-    }>(
-      `SELECT id, user_id AS seller_id, title, COALESCE(description, '') AS description, price, image_url
-       FROM shop_items
-       ${where}
-       ORDER BY created_at DESC
-       LIMIT 100`,
-      values,
-    );
-    res.json({
-      items: rows.map((row) => {
-        const priceGbp = Number(row.price);
-        const price_pence = Number.isFinite(priceGbp) ? Math.round(priceGbp * 100) : 0;
-        return mapShopItem({
-          id: row.id,
-          seller_id: row.seller_id,
-          title: row.title,
-          description: row.description,
-          price_pence,
-          image_url: row.image_url,
-          category: "other",
-        });
-      }),
-    });
-    return;
-  }
+  
 
   let where = "WHERE deleted_at IS NULL AND is_active = TRUE";
   if (seller) {
@@ -152,9 +108,7 @@ export async function listShopItems(req: AuthedRequest, res: Response): Promise<
 }
 
 export async function createShopItem(req: AuthedRequest, res: Response): Promise<void> {
-  if (await isLiveNeonSchema()) {
-    throw new AppError("SCHEMA_UNAVAILABLE", "SCHEMA_UNAVAILABLE", 503);
-  }
+  
   const parsed = parseWriteBody(req.body, true);
   const { rows } = await getPool().query<ShopItemRow>(
     `INSERT INTO shop_items (seller_id, title, description, price_pence, image_url, category, is_active)
@@ -166,9 +120,7 @@ export async function createShopItem(req: AuthedRequest, res: Response): Promise
 }
 
 export async function updateShopItem(req: AuthedRequest, res: Response): Promise<void> {
-  if (await isLiveNeonSchema()) {
-    throw new AppError("SCHEMA_UNAVAILABLE", "SCHEMA_UNAVAILABLE", 503);
-  }
+  
   const itemId = param(req, "itemId");
   const parsed = parseWriteBody(req.body, true);
   const { rows } = await getPool().query<ShopItemRow>(
@@ -187,9 +139,7 @@ export async function updateShopItem(req: AuthedRequest, res: Response): Promise
 }
 
 export async function deleteShopItem(req: AuthedRequest, res: Response): Promise<void> {
-  if (await isLiveNeonSchema()) {
-    throw new AppError("SCHEMA_UNAVAILABLE", "SCHEMA_UNAVAILABLE", 503);
-  }
+  
   const itemId = param(req, "itemId");
   const result = await getPool().query(
     `UPDATE shop_items SET deleted_at = NOW(), is_active = FALSE

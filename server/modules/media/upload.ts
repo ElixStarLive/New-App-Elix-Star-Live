@@ -1,7 +1,6 @@
 import { randomUUID } from "node:crypto";
 import type { Response } from "express";
 import { getPool } from "../../infra/postgres.js";
-import { isLiveNeonSchema } from "../../infra/liveSchema.js";
 import { bunnyDelete, bunnyUpload } from "../../infra/bunny.js";
 import { parseMultipart, readRequestBuffer } from "../../infra/multipart.js";
 import { AppError } from "../../middleware/errors.js";
@@ -44,15 +43,7 @@ export async function handleAvatarUpload(req: AuthedRequest, res: Response): Pro
   const storagePath = `avatars/${userId}/${randomUUID()}${ext}`;
   const url = await bunnyUpload(storagePath, parsed.file.buffer, parsed.file.contentType);
   try {
-    if (await isLiveNeonSchema()) {
-      await getPool().query(
-        `UPDATE profiles SET avatar_url = $2, updated_at = NOW() WHERE user_id = $1`,
-        [userId, url],
-      );
-      await getPool().query(`UPDATE elix_auth_users SET avatar_url = $2 WHERE id = $1`, [userId, url]);
-    } else {
-      await getPool().query(`UPDATE users SET avatar_url = $2, updated_at = NOW() WHERE id = $1`, [userId, url]);
-    }
+    await getPool().query(`UPDATE users SET avatar_url = $2, updated_at = NOW() WHERE id = $1`, [userId, url]);
   } catch (error) {
     await bunnyDelete(storagePath).catch(() => undefined);
     throw error instanceof Error ? error : new AppError("unavailable", "Could not save avatar", 500);

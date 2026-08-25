@@ -1,0 +1,56 @@
+version: "3.9"
+
+services:
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      args:
+        VITE_API_URL: ${VITE_API_URL}
+        VITE_WS_URL: ${VITE_WS_URL}
+        VITE_LIVEKIT_URL: ${VITE_LIVEKIT_URL}
+        VITE_BUNNY_CDN_HOSTNAME: ${VITE_BUNNY_CDN_HOSTNAME}
+        VITE_BUNNY_STORAGE_ZONE: ${VITE_BUNNY_STORAGE_ZONE}
+        VITE_STRIPE_PUBLISHABLE_KEY: ${VITE_STRIPE_PUBLISHABLE_KEY}
+        VITE_APP_NAME: ${VITE_APP_NAME:-Elix Star Live}
+        VITE_CDN_URL: ${VITE_CDN_URL}
+    image: elix-star-live:latest
+    restart: unless-stopped
+    ports:
+      - "8080:8080"
+    environment:
+      NODE_ENV: production
+      PORT: 8080
+      LOG_LEVEL: ${LOG_LEVEL:-info}
+
+      DATABASE_URL: ${DATABASE_URL}
+      JWT_SECRET: ${JWT_SECRET}
+      CLIENT_URL: ${CLIENT_URL}
+
+      VALKEY_URL: ${VALKEY_URL}
+      REDIS_URL: ${REDIS_URL:-}
+
+      LIVEKIT_URL: ${LIVEKIT_URL}
+      LIVEKIT_API_KEY: ${LIVEKIT_API_KEY}
+      LIVEKIT_API_SECRET: ${LIVEKIT_API_SECRET}
+
+      BUNNY_STORAGE_ZONE: ${BUNNY_STORAGE_ZONE}
+      BUNNY_STORAGE_API_KEY: ${BUNNY_STORAGE_API_KEY}
+      BUNNY_CDN_HOSTNAME: ${BUNNY_CDN_HOSTNAME}
+
+      STRIPE_SECRET_KEY: ${STRIPE_SECRET_KEY}
+      STRIPE_WEBHOOK_SECRET: ${STRIPE_WEBHOOK_SECRET}
+
+      APPLE_BUNDLE_ID: ${APPLE_BUNDLE_ID:-com.elixstarlive.app}
+      APPLE_SIGN_IN_ENABLED: ${APPLE_SIGN_IN_ENABLED:-false}
+
+      SMTP_URL: ${SMTP_URL:-}
+
+      ELIX_JOB_WORKER: ${ELIX_JOB_WORKER:-true}
+
+    healthcheck:
+      test: ["CMD", "node", "-e", "fetch('http://localhost:8080/health').then((r)=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 30s

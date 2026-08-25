@@ -2,7 +2,6 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const queryMock = vi.fn();
 const blockedMock = vi.fn();
-const liveSchemaMock = vi.fn(async () => false);
 
 vi.mock("../../infra/postgres.js", () => ({
   getPool: () => ({ query: queryMock }),
@@ -10,12 +9,8 @@ vi.mock("../../infra/postgres.js", () => ({
 vi.mock("../inbox/thread.js", () => ({
   isBlockedEitherWay: (...args: unknown[]) => blockedMock(...args),
 }));
-vi.mock("../../infra/liveSchema.js", () => ({
-  isLiveNeonSchema: () => liveSchemaMock(),
-}));
 
 import { handleCallSignal, isCallRoomName } from "./signaling.js";
-import { AppError } from "../../middleware/errors.js";
 
 const callerId = "11111111-1111-4111-8111-111111111111";
 const calleeId = "22222222-2222-4222-8222-222222222222";
@@ -28,17 +23,6 @@ describe("PAGE-034 call signalling", () => {
     queryMock.mockReset();
     blockedMock.mockReset();
     blockedMock.mockResolvedValue(false);
-    liveSchemaMock.mockResolvedValue(false);
-  });
-
-  it("fails closed on live Neon without writing calls", async () => {
-    liveSchemaMock.mockResolvedValue(true);
-    await expect(handleCallSignal(callerId, "call_invite", { calleeId, threadId })).rejects.toMatchObject({
-      code: "unavailable",
-      message: "CALLS_LIVE_SCHEMA_UNAVAILABLE",
-      status: 503,
-    } satisfies Partial<AppError>);
-    expect(queryMock).not.toHaveBeenCalled();
   });
 
   it("mints a call_* room and fans invite to both participants", async () => {

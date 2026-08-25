@@ -1,5 +1,4 @@
 import { getPool } from "../../infra/postgres.js";
-import { isLiveNeonSchema } from "../../infra/liveSchema.js";
 import { AppError } from "../../middleware/errors.js";
 import { isBlockedEitherWay } from "../blocks/service.js";
 
@@ -83,13 +82,8 @@ export function dmRealtimePayloads(threadId: string, message: ChatMessageRow, se
 
 async function requireMembership(threadId: string, viewerId: string): Promise<void> {
   assertThreadId(threadId);
-  const live = await isLiveNeonSchema();
-  const { rows } = live
-    ? await getPool().query(
-        `SELECT 1 FROM chat_threads WHERE id = $1 AND (user1_id = $2 OR user2_id = $2)`,
-        [threadId, viewerId],
-      )
-    : await getPool().query(
+  
+  const { rows } = await getPool().query(
         `SELECT 1 FROM chat_thread_members WHERE thread_id = $1 AND user_id = $2`,
         [threadId, viewerId],
       );
@@ -97,25 +91,8 @@ async function requireMembership(threadId: string, viewerId: string): Promise<vo
 }
 
 async function otherMember(threadId: string, viewerId: string): Promise<OtherMemberRow | null> {
-  const live = await isLiveNeonSchema();
-  if (live) {
-    const { rows } = await getPool().query<OtherMemberRow>(
-      `SELECT o.id,
-              COALESCE(NULLIF(p.username, ''), o.username, '') AS username,
-              COALESCE(NULLIF(p.display_name, ''), o.display_name, o.username, '') AS display_name,
-              COALESCE(NULLIF(p.avatar_url, ''), o.avatar_url) AS avatar_url,
-              NULL::timestamptz AS deleted_at,
-              p.banned_until,
-              COALESCE(p.level, 1) AS level
-         FROM chat_threads t
-         JOIN elix_auth_users o ON o.id = CASE WHEN t.user1_id = $2 THEN t.user2_id ELSE t.user1_id END
-         LEFT JOIN profiles p ON p.user_id = o.id
-        WHERE t.id = $1 AND (t.user1_id = $2 OR t.user2_id = $2)
-        LIMIT 1`,
-      [threadId, viewerId],
-    );
-    return rows[0] ?? null;
-  }
+  
+  
   const { rows } = await getPool().query<OtherMemberRow>(
     `SELECT u.id, u.username, u.display_name, u.avatar_url, u.deleted_at, u.banned_until, NULL::int AS level
      FROM chat_thread_members m
@@ -164,27 +141,8 @@ export async function getThreadDetail(viewerId: string, threadId: string): Promi
 
 export async function listThreadMessages(viewerId: string, threadId: string): Promise<ChatMessageRow[]> {
   await requireMembership(threadId, viewerId);
-  const live = await isLiveNeonSchema();
-  const { rows } = live
-    ? await getPool().query<{
-        id: string;
-        thread_id: string;
-        sender_id: string;
-        body: string;
-        created_at: Date;
-      }>(
-        `SELECT id, thread_id, sender_id, body, created_at
-         FROM (
-           SELECT id, thread_id, sender_id, text AS body, created_at
-           FROM messages
-           WHERE thread_id = $1
-           ORDER BY created_at DESC, id DESC
-           LIMIT $2
-         ) recent
-         ORDER BY created_at ASC, id ASC`,
-        [threadId, HISTORY_LIMIT],
-      )
-    : await getPool().query<{
+  
+  const { rows } = await getPool().query<{
         id: string;
         thread_id: string;
         sender_id: string;
@@ -207,14 +165,7 @@ export async function listThreadMessages(viewerId: string, threadId: string): Pr
 
 export async function markThreadRead(viewerId: string, threadId: string): Promise<void> {
   await requireMembership(threadId, viewerId);
-  if (await isLiveNeonSchema()) {
-    await getPool().query(
-      `UPDATE messages SET read = TRUE
-       WHERE thread_id = $1 AND sender_id <> $2 AND COALESCE(read, FALSE) = FALSE`,
-      [threadId, viewerId],
-    );
-    return;
-  }
+  
   await getPool().query(
     `UPDATE chat_thread_members SET last_read_at = NOW() WHERE thread_id = $1 AND user_id = $2`,
     [threadId, viewerId],
@@ -245,39 +196,7 @@ export async function sendThreadMessage(
     throw new AppError("validation_error", "Invalid request", 400);
   }
 
-  if (await isLiveNeonSchema()) {
-    const client = await getPool().connect();
-    try {
-      await client.query("BEGIN");
-      const inserted = await client.query<{
-        id: string;
-        thread_id: string;
-        sender_id: string;
-        body: string;
-        created_at: Date;
-      }>(
-        `INSERT INTO messages (thread_id, sender_id, text, created_at, read)
-         VALUES ($1, $2, $3, NOW(), FALSE)
-         RETURNING id, thread_id, sender_id, text AS body, created_at`,
-        [threadId, viewerId, body],
-      );
-      await client.query(
-        `UPDATE chat_threads SET last_message = $2, last_at = NOW() WHERE id = $1`,
-        [threadId, body],
-      );
-      await client.query("COMMIT");
-      return { message: mapMessage(inserted.rows[0]), created: true, otherUserId: other.id };
-    } catch (error) {
-      try {
-        await client.query("ROLLBACK");
-      } catch {
-        /* ignore */
-      }
-      throw error;
-    } finally {
-      client.release();
-    }
-  }
+  
 
   if (requestId) {
     const existing = await getPool().query<{

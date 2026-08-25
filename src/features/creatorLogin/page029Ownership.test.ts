@@ -22,6 +22,7 @@ describe("PAGE-029 creator login details ownership", () => {
     expect(session).not.toMatch(/setTimeout|location\.reload/);
     expect(storage).toMatch(/creator_saved_accounts/);
     expect(storage).toMatch(/creator_saved_password/);
+    expect(storage).toMatch(/clearAllLegacyCreatorLoginKeys/);
     expect(storage).toMatch(/CREATOR_SAVED_ACCOUNT_LIMIT = 5/);
   });
 

@@ -1,5 +1,5 @@
 import { getPool, withTransaction } from "../../infra/postgres.js";
-import { isLiveNeonSchema, publicTableExists } from "../../infra/liveSchema.js";
+import { publicTableExists } from "../../infra/liveSchema.js";
 import { AppError } from "../../middleware/errors.js";
 import { isSchemaUnavailable } from "../engagement/settings.js";
 import { isUniqueViolation, parseCreatorWithdrawBody, penceFromDb } from "./moneyParse.js";
@@ -73,9 +73,8 @@ function mapPayoutDbError(error: unknown): never {
   throw new AppError("DATABASE_UNAVAILABLE", "DATABASE_UNAVAILABLE", 503);
 }
 
-/** Live Neon lacks NEW payout tables → fail closed (never fake £0 success). */
+/** Fail closed if canonical payout tables are missing (never fake £0 success). */
 async function assertNewPayoutTables(): Promise<void> {
-  if (!(await isLiveNeonSchema())) return;
   const [wallet, methods, withdrawals] = await Promise.all([
     publicTableExists("creator_wallet_gbp"),
     publicTableExists("payout_methods"),

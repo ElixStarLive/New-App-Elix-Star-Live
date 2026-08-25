@@ -1,6 +1,5 @@
 import { Router } from "express";
 import { getPool } from "../../infra/postgres.js";
-import { isLiveNeonSchema } from "../../infra/liveSchema.js";
 import { logger } from "../../infra/logger.js";
 import { requireAuth, type AuthedRequest } from "../../middleware/auth.js";
 import { AppError } from "../../middleware/errors.js";
@@ -30,23 +29,8 @@ router.get("/", async (req: AuthedRequest, res) => {
     res.json(videos);
     return;
   }
-  const liveNeon = await isLiveNeonSchema();
-  const live = liveNeon
-    ? await getPool().query(
-        `SELECT s.stream_key AS id, 'live'::text AS kind, s.user_id,
-                COALESCE(p.username, '') AS username,
-                COALESCE(NULLIF(s.display_name, ''), p.display_name, '') AS display_name,
-                p.avatar_url, NULL::text AS caption, NULL::text AS media_url,
-                p.avatar_url AS thumbnail_url, s.stream_key AS stream_id,
-                0 AS like_count, 0 AS comment_count, 0 AS save_count,
-                COALESCE(s.viewer_count, 0) AS view_count, TRUE AS is_live, s.started_at AS created_at,
-                NULL::text AS sound_id, '{}'::text[] AS hashtags, FALSE AS liked, FALSE AS saved, FALSE AS is_following
-           FROM live_streams s
-           LEFT JOIN profiles p ON p.user_id = s.user_id
-          WHERE s.is_live = TRUE AND s.ended_at IS NULL
-          ORDER BY s.started_at DESC LIMIT 20`,
-      )
-    : await getPool().query(
+  
+  const live = await getPool().query(
         `SELECT s.id, 'live'::text AS kind, s.host_id AS user_id, u.username, u.display_name, u.avatar_url,
             s.title AS caption, NULL::text AS media_url, u.avatar_url AS thumbnail_url, s.id AS stream_id,
             0 AS like_count, 0 AS comment_count, 0 AS save_count, 0 AS view_count, TRUE AS is_live, s.started_at AS created_at,
@@ -141,13 +125,8 @@ router.post("/track-view", requireAuth, async (req: AuthedRequest, res) => {
   if (!parsed.success) throw new AppError("validation_error", "Invalid view payload", 400);
   const viewerId = req.userId as string;
   const videoId = parsed.data.videoId;
-  const liveNeon = await isLiveNeonSchema();
-  const owned = liveNeon
-    ? await getPool().query<{ user_id: string; deleted_at: Date | null; privacy: string }>(
-        `SELECT user_id, NULL::timestamptz AS deleted_at, COALESCE(privacy, 'public') AS privacy FROM videos WHERE id = $1`,
-        [videoId],
-      )
-    : await getPool().query<{ user_id: string; deleted_at: Date | null; privacy: string }>(
+  
+  const owned = await getPool().query<{ user_id: string; deleted_at: Date | null; privacy: string }>(
         `SELECT user_id, deleted_at, privacy FROM videos WHERE id = $1`,
         [videoId],
       );
@@ -188,9 +167,7 @@ router.post("/track-view", requireAuth, async (req: AuthedRequest, res) => {
 router.post("/track-interaction", requireAuth, async (req: AuthedRequest, res) => {
   const parsed = trackInteractionBodySchema.safeParse(req.body ?? {});
   if (!parsed.success) throw new AppError("validation_error", "Invalid interaction payload", 400);
-  const found = (await isLiveNeonSchema())
-    ? await getPool().query(`SELECT 1 FROM videos WHERE id = $1`, [parsed.data.videoId])
-    : await getPool().query(`SELECT 1 FROM videos WHERE id = $1 AND deleted_at IS NULL`, [
+  const found = await getPool().query(`SELECT 1 FROM videos WHERE id = $1 AND deleted_at IS NULL`, [
         parsed.data.videoId,
       ]);
   if (!found.rows[0]) throw new AppError("not_found", "Video not found", 404);

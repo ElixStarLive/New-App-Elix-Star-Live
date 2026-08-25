@@ -1,5 +1,4 @@
 import { getPool, withTransaction } from "../../infra/postgres.js";
-import { isLiveNeonSchema } from "../../infra/liveSchema.js";
 import { AppError } from "../../middleware/errors.js";
 import { applyWalletDelta, parseCoinCount } from "../wallet/ledger.js";
 import { grantEngagementXp } from "./progression.js";
@@ -156,10 +155,8 @@ async function spawnTreasureChestOnClient(
   chestDefId: string,
   locationHint: string,
 ): Promise<SpawnResult> {
-  const live = await isLiveNeonSchema();
-  const owner = live
-    ? await client.query<{ id: string }>(`SELECT id FROM elix_auth_users WHERE id = $1 FOR UPDATE`, [userId])
-    : await client.query<{ id: string }>(`SELECT id FROM users WHERE id = $1 FOR UPDATE`, [userId]);
+  
+  const owner = await client.query<{ id: string }>(`SELECT id FROM users WHERE id = $1 FOR UPDATE`, [userId]);
   if (!owner.rows[0]) return { ok: false as const, error: "SPAWN_FAILED" };
   const def = await client.query<{ id: string }>(
     `SELECT id FROM treasure_chest_defs WHERE id = $1 AND enabled = TRUE`,

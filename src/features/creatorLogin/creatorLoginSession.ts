@@ -1,10 +1,10 @@
 import { authResendConfirmation } from "@/features/auth/authSession";
 import {
   browserCreatorAccountStorage,
+  clearAllLegacyCreatorLoginKeys,
   migrateLegacyCreatorLoginKeys,
   readCreatorSavePref,
   removeCreatorSavedAccount,
-  stripLegacyCreatorPasswordKeys,
   upsertCreatorSavedAccount,
   writeCreatorSavePref,
   writeCreatorSavedAccounts,
@@ -131,7 +131,7 @@ export function createCreatorLoginSession(storage: CreatorAccountStorage = brows
     setSavePref(enabled: boolean, viewer?: { email: string; username: string; avatarUrl?: string | null }) {
       savePref = enabled;
       writeCreatorSavePref(storage, enabled);
-      stripLegacyCreatorPasswordKeys(storage);
+      clearAllLegacyCreatorLoginKeys(storage);
       if (enabled) {
         const identifier = email.trim() || viewer?.email || "";
         if (identifier) {
@@ -214,7 +214,7 @@ export function createCreatorLoginSession(storage: CreatorAccountStorage = brows
           username: trimmedUsername,
         }),
       );
-      stripLegacyCreatorPasswordKeys(storage);
+      clearAllLegacyCreatorLoginKeys(storage);
       password = "";
       notify();
       return { ok: true };

@@ -14,16 +14,7 @@ function secretKey(): Uint8Array {
   return new TextEncoder().encode(env().JWT_SECRET);
 }
 
-export async function signAccessToken(userId: string, sessionId: string, email = ""): Promise<string> {
-  const { isLiveNeonSchema } = await import("./liveSchema.js");
-  if (await isLiveNeonSchema()) {
-    return new SignJWT({ email })
-      .setProtectedHeader({ alg: "HS256", typ: "JWT" })
-      .setSubject(userId)
-      .setIssuedAt()
-      .setExpirationTime("7d")
-      .sign(secretKey());
-  }
+export async function signAccessToken(userId: string, sessionId: string, _email = ""): Promise<string> {
   return new SignJWT({ sid: sessionId })
     .setProtectedHeader({ alg: "HS256" })
     .setSubject(userId)
@@ -39,10 +30,6 @@ export async function verifyAccessToken(
     const { payload } = await jwtVerify(token, secretKey());
     if (payload.purpose) return null;
     if (typeof payload.sub !== "string") return null;
-    const { isLiveNeonSchema } = await import("./liveSchema.js");
-    if (await isLiveNeonSchema()) {
-      return { userId: payload.sub, sessionId: sha256(token) };
-    }
     if (typeof payload.sid !== "string") return null;
     return { userId: payload.sub, sessionId: payload.sid };
   } catch {

@@ -11,8 +11,8 @@ describe("PAGE-036 Stripe webhook", () => {
     expect(handlers).toMatch(/STRIPE_WEBHOOK_SECRET/);
     expect(handlers).toMatch(/Missing Stripe signature/);
     expect(handlers).toMatch(/fulfillShopCheckoutSession/);
-    expect(fulfill).toMatch(/shop_purchases|elix_shop_purchases/);
-    expect(fulfill).toMatch(/elix_shop_purchases/);
+    expect(fulfill).toMatch(/shop_purchases/);
+    expect(fulfill).not.toMatch(/elix_shop_purchases/);
     expect(fulfill).toMatch(/shop_purchases/);
     expect(fulfill).not.toMatch(/coin_balance|paid_coin|starter_coins|test_coins|wallet_balances/);
     expect(fulfill).not.toMatch(/new Map\(/);

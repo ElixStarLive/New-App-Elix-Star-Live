@@ -1,3 +1,13 @@
+/**
+ * HTTP integration suite — TEST-ONLY harness.
+ *
+ * Intentionally mocks/disables Valkey, LiveKit, SMTP, and Bunny credentials
+ * so unit-style API contract tests can run without real third-party services.
+ *
+ * This file is NOT production/runtime code and MUST NOT be counted as release
+ * proof for Valkey, LiveKit, Bunny, SMTP, or full NEW Coolify runtime.
+ * Real release proof: scripts/_new_neon_runtime_proof.ts (real env only).
+ */
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { Pool } from "pg";
 import type { AddressInfo } from "node:net";
@@ -55,13 +65,24 @@ async function issueResetJwtForUser(userId: string): Promise<string> {
 }
 
 async function resetIntegrationDatabase(url: string): Promise<void> {
+  const parsed = new URL(url);
+  const dbName = parsed.pathname.replace(/^\//, "");
+  const host = (parsed.hostname || "").toLowerCase();
+  if (!/^[a-zA-Z0-9_]+$/.test(dbName)) {
+    throw new Error("Invalid TEST_DATABASE_URL database name");
+  }
+  if (!/(^|[_-])(test|integration)([_-]|$)/i.test(dbName)) {
+    throw new Error("Refusing to reset non-test database from TEST_DATABASE_URL");
+  }
+  if (host.includes("neon.tech") || host.includes("aws.neon.tech")) {
+    throw new Error("Refusing to reset Neon database from integration tests");
+  }
+  if (host && !["127.0.0.1", "localhost", "::1"].includes(host)) {
+    throw new Error("Refusing to reset non-local TEST_DATABASE_URL host");
+  }
+
   const pool = new Pool({ connectionString: url });
   try {
-    const dbName = new URL(url).pathname.replace(/^\//, "");
-    if (!/^[a-zA-Z0-9_]+$/.test(dbName)) {
-      throw new Error("Invalid TEST_DATABASE_URL database name");
-    }
-
     await pool.query("DROP SCHEMA IF EXISTS public CASCADE");
     await pool.query("CREATE SCHEMA public");
     await pool.query("GRANT ALL ON SCHEMA public TO CURRENT_USER");

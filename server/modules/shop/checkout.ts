@@ -2,7 +2,6 @@ import Stripe from "stripe";
 import type { Response } from "express";
 import { getPool } from "../../infra/postgres.js";
 import { env } from "../../infra/env.js";
-import { isLiveNeonSchema } from "../../infra/liveSchema.js";
 import { AppError } from "../../middleware/errors.js";
 import type { AuthedRequest } from "../../middleware/auth.js";
 import { SHOP_STRIPE_GBP_MIN_PENCE } from "../../../shared/contracts/shop.js";
@@ -29,33 +28,7 @@ type ShopItemPriceRow = {
 };
 
 async function loadCheckoutItems(ids: string[]): Promise<ShopItemPriceRow[]> {
-  if (await isLiveNeonSchema()) {
-    const { rows } = await getPool().query<{
-      id: string;
-      seller_id: string;
-      title: string;
-      description: string;
-      price: string | number;
-      image_url: string | null;
-    }>(
-      `SELECT id, user_id AS seller_id, title, COALESCE(description, '') AS description, price, image_url
-       FROM shop_items
-       WHERE id = ANY($1::text[]) AND is_active = TRUE`,
-      [ids],
-    );
-    return rows.map((row) => {
-      const priceGbp = Number(row.price);
-      const price_pence = Number.isFinite(priceGbp) ? Math.round(priceGbp * 100) : 0;
-      return {
-        id: row.id,
-        seller_id: row.seller_id,
-        title: row.title,
-        description: row.description,
-        price_pence,
-        image_url: row.image_url,
-      };
-    });
-  }
+  
   const { rows } = await getPool().query<ShopItemPriceRow>(
     `SELECT id, seller_id, title, description, price_pence, image_url
      FROM shop_items
@@ -70,10 +43,10 @@ export async function createShopCheckout(req: AuthedRequest, res: Response): Pro
   if (typeof req.body?.success_url === "string" || typeof req.body?.cancel_url === "string") {
     throw new AppError("validation_error", "Checkout URLs are server-owned", 400);
   }
-  const live = await isLiveNeonSchema();
+  
   const lines = parseShopCheckoutLines(req.body);
   const idempotency = shopCheckoutIdempotencyKey(buyerId, (req.body as { idempotencyKey?: unknown }).idempotencyKey);
-  if (idempotency && !live) {
+  if (idempotency) {
     const existing = await getPool().query<{ url: string; stripe_session_id: string }>(
       `SELECT url, stripe_session_id FROM shop_checkout_intents
        WHERE buyer_id = $1 AND idempotency_key = $2`,
@@ -147,8 +120,7 @@ export async function createShopCheckout(req: AuthedRequest, res: Response): Pro
   );
   if (!session.url || !session.id) throw new AppError("unavailable", "Checkout session was not created", 503);
 
-  if (!live) {
-    for (const line of lines) {
+  for (const line of lines) {
       const item = byId.get(line.id)!;
       await getPool().query(
         `INSERT INTO shop_purchases (buyer_id, item_id, seller_id, stripe_session_id, status, quantity, amount_pence)
@@ -165,7 +137,6 @@ export async function createShopCheckout(req: AuthedRequest, res: Response): Pro
         [buyerId, idempotency, session.id, session.url],
       );
     }
-  }
   res.json({ url: session.url, sessionId: session.id });
 }
 
@@ -184,19 +155,11 @@ export async function getShopCheckoutSession(req: AuthedRequest, res: Response):
     throw new AppError("forbidden", "Session does not belong to this account", 403);
   }
   let recordedPaid = false;
-  if (await isLiveNeonSchema()) {
-    const local = await getPool().query<{ id: string }>(
-      `SELECT id::text AS id FROM elix_shop_purchases WHERE stripe_session_id = $1 AND buyer_id = $2 LIMIT 1`,
-      [session.id, req.userId],
-    );
-    recordedPaid = Boolean(local.rows[0]);
-  } else {
-    const local = await getPool().query<{ status: string }>(
+  const local = await getPool().query<{ status: string }>(
       `SELECT status FROM shop_purchases WHERE stripe_session_id = $1 AND buyer_id = $2`,
       [session.id, req.userId],
     );
     recordedPaid = local.rows.some((row) => row.status === "paid");
-  }
   res.json({
     sessionId: session.id,
     status: session.status,

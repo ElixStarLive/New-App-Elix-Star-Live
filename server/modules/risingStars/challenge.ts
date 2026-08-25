@@ -555,18 +555,7 @@ export async function attachRisingStarsLive(input: {
   const userId = requireRisingStarsUuid(input.userId, "userId");
   const roomId = input.roomId.trim();
   if (!roomId) throw new AppError("validation_error", "roomId required", 400);
-  const { isLiveNeonSchema } = await import("../../infra/liveSchema.js");
-  const liveNeon = await isLiveNeonSchema();
-  const live = liveNeon
-    ? await getPool().query<{ room_id: string; host_id: string; status: string }>(
-        `SELECT stream_key AS room_id, user_id AS host_id,
-                CASE WHEN is_live AND ended_at IS NULL THEN 'live' ELSE 'ended' END AS status
-           FROM live_streams
-          WHERE stream_key = $1
-          LIMIT 1`,
-        [roomId],
-      )
-    : await getPool().query<{ room_id: string; host_id: string; status: string }>(
+  const live = await getPool().query<{ room_id: string; host_id: string; status: string }>(
         `SELECT room_id, host_id, status
            FROM live_streams
           WHERE room_id = $1

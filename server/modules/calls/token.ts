@@ -1,6 +1,5 @@
 import { AppError } from "../../middleware/errors.js";
 import { getPool } from "../../infra/postgres.js";
-import { isLiveNeonSchema } from "../../infra/liveSchema.js";
 import { createLivekitToken, isLivekitConfigured } from "../../infra/livekit.js";
 import { isCallRoomName } from "./signaling.js";
 
@@ -16,9 +15,6 @@ export async function issueCallToken(
   userId: string,
   callId: string,
 ): Promise<{ callId: string; roomName: string; token: string; url: string }> {
-  if (await isLiveNeonSchema()) {
-    throw new AppError("unavailable", "CALLS_LIVE_SCHEMA_UNAVAILABLE", 503);
-  }
   const { rows } = await getPool().query<CallAuthRow>(
     `SELECT id, caller_id, callee_id, room_name, status FROM calls WHERE id = $1`,
     [callId],

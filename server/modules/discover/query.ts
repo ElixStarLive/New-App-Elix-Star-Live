@@ -1,5 +1,4 @@
 import { getPool } from "../../infra/postgres.js";
-import { isLiveNeonSchema, liveBlockedActorFilter, liveBlockedVideoFilter, liveFeedSelectSql, livePublicVideoFilter } from "../../infra/liveSchema.js";
 import { exploreIndecentLikePatterns } from "../../../shared/stemEligibility.js";
 import { mapFeedRow } from "../feed/query.js";
 import type { FeedVideo } from "../../../shared/contracts/social.js";
@@ -42,18 +41,7 @@ export async function queryDiscoverPage(viewerId: string | null): Promise<{
 
 export async function queryDiscoverTrending(viewerId: string | null): Promise<FeedVideo[]> {
   const patterns = exploreIndecentLikePatterns();
-  if (await isLiveNeonSchema()) {
-    const { rows } = await getPool().query(
-      `${liveFeedSelectSql(1)}
-       ${livePublicVideoFilter()}
-       ${viewerId ? liveBlockedVideoFilter(1) : ""}
-       AND lower(COALESCE(v.description, '') || ' ' || COALESCE(v.hashtags::text, '')) LIKE ANY ($2::text[])
-       ORDER BY COALESCE(v.views, 0) DESC, v.created_at DESC, v.id DESC
-       LIMIT 30`,
-      [viewerId, patterns],
-    );
-    return rows.map(mapFeedRow);
-  }
+  
   const params: unknown[] = [viewerId];
   const viewerSql = viewerId ? blockSql("v.user_id", 1) : "";
   const likeSql = patterns
@@ -90,22 +78,7 @@ export async function queryDiscoverTrending(viewerId: string | null): Promise<Fe
 }
 
 export async function queryDiscoverHashtags(): Promise<DiscoverHashtag[]> {
-  if (await isLiveNeonSchema()) {
-    const { rows } = await getPool().query<{ tag: string; use_count: number }>(
-      `SELECT regexp_replace(lower(tag), '^#', '') AS tag, COUNT(*)::int AS use_count
-         FROM videos v
-         CROSS JOIN LATERAL jsonb_array_elements_text(
-           CASE WHEN jsonb_typeof(v.hashtags) = 'array' THEN v.hashtags ELSE '[]'::jsonb END
-         ) AS tag
-        WHERE (v.privacy IS NULL OR v.privacy <> 'private')
-          AND btrim(COALESCE(v.url, '')) <> ''
-        GROUP BY 1
-        HAVING regexp_replace(lower(tag), '^#', '') <> ''
-        ORDER BY use_count DESC, tag ASC
-        LIMIT 50`,
-    );
-    return rows.map((row) => ({ tag: row.tag, useCount: Number(row.use_count) }));
-  }
+  
   const { rows } = await getPool().query<{ tag: string; use_count: number }>(
     `SELECT regexp_replace(lower(tag), '^#', '') AS tag, COUNT(*)::int AS use_count
      FROM videos v
@@ -121,46 +94,7 @@ export async function queryDiscoverHashtags(): Promise<DiscoverHashtag[]> {
 }
 
 export async function queryDiscoverRankings(viewerId: string | null): Promise<DiscoverRanking[]> {
-  if (await isLiveNeonSchema()) {
-    const params: unknown[] = [];
-    let viewerSql = "";
-    if (viewerId) {
-      params.push(viewerId);
-      viewerSql = liveBlockedActorFilter("p.user_id", 1);
-    }
-    // OLD /rankings/weekly: sum elix_creator_earnings (kind=gift), not gift room_id→profile join.
-    const { rows } = await getPool().query<{
-      id: string;
-      username: string;
-      display_name: string;
-      avatar_url: string | null;
-      total_coins: string;
-    }>(
-      `SELECT p.user_id AS id, p.username, p.display_name, p.avatar_url,
-              COALESCE(e.total_received, 0)::text AS total_coins
-         FROM profiles p
-         JOIN (
-           SELECT creator_id, SUM(coins) AS total_received
-             FROM elix_creator_earnings
-            WHERE kind = 'gift'
-              AND created_at > NOW() - interval '7 days'
-            GROUP BY creator_id
-         ) e ON e.creator_id = p.user_id
-        WHERE (p.banned_until IS NULL OR p.banned_until < NOW())
-          ${viewerSql}
-        ORDER BY COALESCE(e.total_received, 0) DESC, COALESCE(p.followers, 0) DESC, p.username ASC
-        LIMIT 50`,
-      params,
-    );
-    return rows.map((row, index) => ({
-      rank: index + 1,
-      userId: row.id,
-      username: row.username,
-      displayName: row.display_name,
-      avatarUrl: row.avatar_url,
-      totalCoins: Number(row.total_coins) || 0,
-    }));
-  }
+  
   const params: unknown[] = [];
   let viewerSql = "";
   if (viewerId) {
@@ -202,54 +136,7 @@ export async function queryDiscoverSearch(
   q: string,
 ): Promise<{ users: DiscoverSearchUser[]; videos: FeedVideo[] }> {
   const like = `%${q.replaceAll("%", "\\%").replaceAll("_", "\\_")}%`;
-  if (await isLiveNeonSchema()) {
-    const users = await getPool().query<{
-      id: string;
-      username: string;
-      display_name: string;
-      avatar_url: string | null;
-      followers: string;
-      is_following: boolean;
-    }>(
-      `SELECT u.id,
-              COALESCE(NULLIF(p.username, ''), u.username) AS username,
-              COALESCE(NULLIF(p.display_name, ''), u.display_name, u.username) AS display_name,
-              COALESCE(NULLIF(p.avatar_url, ''), u.avatar_url) AS avatar_url,
-              (SELECT COUNT(*)::text FROM follows WHERE following_id = u.id) AS followers,
-              CASE WHEN $2::text IS NULL THEN FALSE ELSE EXISTS(
-                SELECT 1 FROM follows WHERE follower_id = $2 AND following_id = u.id
-              ) END AS is_following
-         FROM elix_auth_users u
-         LEFT JOIN profiles p ON p.user_id = u.id
-        WHERE (p.banned_until IS NULL OR p.banned_until < NOW())
-          AND (COALESCE(p.username, u.username) ILIKE $1 OR COALESCE(p.display_name, u.display_name) ILIKE $1)
-          AND ($2::text IS NULL OR u.id <> $2)
-          ${viewerId ? liveBlockedActorFilter("u.id", 2) : ""}
-        ORDER BY COALESCE(p.username, u.username) ASC
-        LIMIT 20`,
-      [like, viewerId],
-    );
-    const videos = await getPool().query(
-      `${liveFeedSelectSql(2)}
-       ${livePublicVideoFilter()}
-       ${viewerId ? liveBlockedVideoFilter(2) : ""}
-       AND lower(COALESCE(v.description, '')) ILIKE $1
-       ORDER BY v.created_at DESC
-       LIMIT 20`,
-      viewerId ? [like, viewerId] : [like],
-    );
-    return {
-      users: users.rows.map((row) => ({
-        userId: row.id,
-        username: row.username,
-        displayName: row.display_name,
-        avatarUrl: row.avatar_url,
-        followerCount: Number(row.followers),
-        isFollowing: Boolean(row.is_following),
-      })),
-      videos: videos.rows.map(mapFeedRow),
-    };
-  }
+  
   const users = await getPool().query<{
     id: string;
     username: string;

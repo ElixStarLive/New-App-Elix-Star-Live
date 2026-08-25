@@ -19,29 +19,15 @@ export type ShopCheckoutLine = { id: string; quantity: number };
 
 export function parseShopItem(raw: unknown): ShopItem | null {
   if (!isRecord(raw) || typeof raw.id !== "string") return null;
-  const sellerId =
-    typeof raw.sellerId === "string" ? raw.sellerId : typeof raw.user_id === "string" ? raw.user_id : "";
+  const sellerId = typeof raw.sellerId === "string" ? raw.sellerId : "";
   if (!sellerId) return null;
-  const title =
-    typeof raw.title === "string" && raw.title.trim()
-      ? raw.title
-      : typeof raw.name === "string"
-        ? raw.name
-        : "";
+  const title = typeof raw.title === "string" && raw.title.trim() ? raw.title : "";
   if (!title) return null;
-  const pricePence =
-    typeof raw.pricePence === "number" && Number.isFinite(raw.pricePence)
-      ? Math.round(raw.pricePence)
-      : typeof raw.price === "number" && Number.isFinite(raw.price)
-        ? Math.round(raw.price * 100)
-        : null;
-  if (pricePence === null || pricePence < 0) return null;
+  if (typeof raw.pricePence !== "number" || !Number.isFinite(raw.pricePence)) return null;
+  const pricePence = Math.round(raw.pricePence);
+  if (pricePence < 0) return null;
   const imageUrl =
-    typeof raw.imageUrl === "string"
-      ? raw.imageUrl
-      : typeof raw.image_url === "string"
-        ? raw.image_url
-        : null;
+    raw.imageUrl === null ? null : typeof raw.imageUrl === "string" ? raw.imageUrl : null;
   return {
     id: raw.id,
     sellerId,

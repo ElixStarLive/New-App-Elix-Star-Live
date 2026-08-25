@@ -30,6 +30,191 @@ CREATE TABLE IF NOT EXISTS users (
   CONSTRAINT users_apple_sub_unique UNIQUE (apple_sub)
 );
 
+-- Legacy-production compatibility preflight:
+-- Neon may already have legacy tables keyed by user_id / video_id / stream_id /
+-- gift_id / etc. CREATE TABLE IF NOT EXISTS is a no-op on those tables, so
+-- later REFERENCES ...(id) fail unless id exists and is unique. Additively
+-- ensure FK-ready id columns before any child CREATE ... REFERENCES.
+DO $$
+DECLARE
+  uuid_re CONSTANT TEXT := '^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$';
+BEGIN
+  -- users.id
+  IF to_regclass('public.users') IS NOT NULL THEN
+    IF NOT EXISTS (
+      SELECT 1 FROM information_schema.columns
+      WHERE table_schema = 'public' AND table_name = 'users' AND column_name = 'id'
+    ) THEN
+      ALTER TABLE users ADD COLUMN id UUID;
+    END IF;
+
+    IF EXISTS (
+      SELECT 1 FROM information_schema.columns
+      WHERE table_schema = 'public' AND table_name = 'users' AND column_name = 'user_id'
+    ) THEN
+      EXECUTE format(
+        'UPDATE users SET id = user_id::uuid WHERE id IS NULL AND user_id::text ~* %L',
+        uuid_re
+      );
+    END IF;
+
+    UPDATE users SET id = gen_random_uuid() WHERE id IS NULL;
+    ALTER TABLE users ALTER COLUMN id SET NOT NULL;
+    CREATE UNIQUE INDEX IF NOT EXISTS users_id_unique_idx ON users(id);
+  END IF;
+
+  -- videos.id
+  IF to_regclass('public.videos') IS NOT NULL THEN
+    IF NOT EXISTS (
+      SELECT 1 FROM information_schema.columns
+      WHERE table_schema = 'public' AND table_name = 'videos' AND column_name = 'id'
+    ) THEN
+      ALTER TABLE videos ADD COLUMN id UUID;
+    END IF;
+
+    IF EXISTS (
+      SELECT 1 FROM information_schema.columns
+      WHERE table_schema = 'public' AND table_name = 'videos' AND column_name = 'video_id'
+    ) THEN
+      EXECUTE format(
+        'UPDATE videos SET id = video_id::uuid WHERE id IS NULL AND video_id::text ~* %L',
+        uuid_re
+      );
+    END IF;
+
+    UPDATE videos SET id = gen_random_uuid() WHERE id IS NULL;
+    ALTER TABLE videos ALTER COLUMN id SET NOT NULL;
+    CREATE UNIQUE INDEX IF NOT EXISTS videos_id_unique_idx ON videos(id);
+  END IF;
+
+  -- live_streams.id (failure site for REFERENCES live_streams(id))
+  IF to_regclass('public.live_streams') IS NOT NULL THEN
+    IF NOT EXISTS (
+      SELECT 1 FROM information_schema.columns
+      WHERE table_schema = 'public' AND table_name = 'live_streams' AND column_name = 'id'
+    ) THEN
+      ALTER TABLE live_streams ADD COLUMN id UUID;
+    END IF;
+
+    IF EXISTS (
+      SELECT 1 FROM information_schema.columns
+      WHERE table_schema = 'public' AND table_name = 'live_streams' AND column_name = 'stream_id'
+    ) THEN
+      EXECUTE format(
+        'UPDATE live_streams SET id = stream_id::uuid WHERE id IS NULL AND stream_id::text ~* %L',
+        uuid_re
+      );
+    END IF;
+
+    UPDATE live_streams SET id = gen_random_uuid() WHERE id IS NULL;
+    ALTER TABLE live_streams ALTER COLUMN id SET NOT NULL;
+    CREATE UNIQUE INDEX IF NOT EXISTS live_streams_id_unique_idx ON live_streams(id);
+  END IF;
+
+  -- battle_results.id
+  IF to_regclass('public.battle_results') IS NOT NULL THEN
+    IF NOT EXISTS (
+      SELECT 1 FROM information_schema.columns
+      WHERE table_schema = 'public' AND table_name = 'battle_results' AND column_name = 'id'
+    ) THEN
+      ALTER TABLE battle_results ADD COLUMN id UUID;
+    END IF;
+
+    IF EXISTS (
+      SELECT 1 FROM information_schema.columns
+      WHERE table_schema = 'public' AND table_name = 'battle_results' AND column_name = 'battle_id'
+    ) THEN
+      EXECUTE format(
+        'UPDATE battle_results SET id = battle_id::uuid WHERE id IS NULL AND battle_id::text ~* %L',
+        uuid_re
+      );
+    END IF;
+
+    UPDATE battle_results SET id = gen_random_uuid() WHERE id IS NULL;
+    ALTER TABLE battle_results ALTER COLUMN id SET NOT NULL;
+    CREATE UNIQUE INDEX IF NOT EXISTS battle_results_id_unique_idx ON battle_results(id);
+  END IF;
+
+  -- gifts.id (TEXT; legacy often uses gift_id)
+  IF to_regclass('public.gifts') IS NOT NULL THEN
+    IF NOT EXISTS (
+      SELECT 1 FROM information_schema.columns
+      WHERE table_schema = 'public' AND table_name = 'gifts' AND column_name = 'id'
+    ) THEN
+      ALTER TABLE gifts ADD COLUMN id TEXT;
+    END IF;
+
+    IF EXISTS (
+      SELECT 1 FROM information_schema.columns
+      WHERE table_schema = 'public' AND table_name = 'gifts' AND column_name = 'gift_id'
+    ) THEN
+      UPDATE gifts SET id = gift_id::text WHERE id IS NULL AND gift_id IS NOT NULL;
+    END IF;
+
+    IF EXISTS (
+      SELECT 1 FROM information_schema.columns
+      WHERE table_schema = 'public' AND table_name = 'gifts' AND column_name = 'name'
+    ) THEN
+      UPDATE gifts SET id = name::text WHERE id IS NULL AND name IS NOT NULL;
+    END IF;
+
+    IF EXISTS (SELECT 1 FROM gifts WHERE id IS NULL) THEN
+      RAISE EXCEPTION 'baseline preflight: gifts.id cannot be derived for all rows';
+    END IF;
+
+    ALTER TABLE gifts ALTER COLUMN id SET NOT NULL;
+    CREATE UNIQUE INDEX IF NOT EXISTS gifts_id_unique_idx ON gifts(id);
+  END IF;
+
+  -- chat_threads.id
+  IF to_regclass('public.chat_threads') IS NOT NULL THEN
+    IF NOT EXISTS (
+      SELECT 1 FROM information_schema.columns
+      WHERE table_schema = 'public' AND table_name = 'chat_threads' AND column_name = 'id'
+    ) THEN
+      ALTER TABLE chat_threads ADD COLUMN id UUID;
+    END IF;
+
+    IF EXISTS (
+      SELECT 1 FROM information_schema.columns
+      WHERE table_schema = 'public' AND table_name = 'chat_threads' AND column_name = 'thread_id'
+    ) THEN
+      EXECUTE format(
+        'UPDATE chat_threads SET id = thread_id::uuid WHERE id IS NULL AND thread_id::text ~* %L',
+        uuid_re
+      );
+    END IF;
+
+    UPDATE chat_threads SET id = gen_random_uuid() WHERE id IS NULL;
+    ALTER TABLE chat_threads ALTER COLUMN id SET NOT NULL;
+    CREATE UNIQUE INDEX IF NOT EXISTS chat_threads_id_unique_idx ON chat_threads(id);
+  END IF;
+
+  -- shop_items.id
+  IF to_regclass('public.shop_items') IS NOT NULL THEN
+    IF NOT EXISTS (
+      SELECT 1 FROM information_schema.columns
+      WHERE table_schema = 'public' AND table_name = 'shop_items' AND column_name = 'id'
+    ) THEN
+      ALTER TABLE shop_items ADD COLUMN id UUID;
+    END IF;
+
+    IF EXISTS (
+      SELECT 1 FROM information_schema.columns
+      WHERE table_schema = 'public' AND table_name = 'shop_items' AND column_name = 'item_id'
+    ) THEN
+      EXECUTE format(
+        'UPDATE shop_items SET id = item_id::uuid WHERE id IS NULL AND item_id::text ~* %L',
+        uuid_re
+      );
+    END IF;
+
+    UPDATE shop_items SET id = gen_random_uuid() WHERE id IS NULL;
+    ALTER TABLE shop_items ALTER COLUMN id SET NOT NULL;
+    CREATE UNIQUE INDEX IF NOT EXISTS shop_items_id_unique_idx ON shop_items(id);
+  END IF;
+END $$;
+
 CREATE TABLE IF NOT EXISTS auth_sessions (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
@@ -118,8 +303,28 @@ CREATE TABLE IF NOT EXISTS videos (
   deleted_at TIMESTAMPTZ,
   created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
-CREATE INDEX IF NOT EXISTS videos_user_created_idx ON videos(user_id, created_at DESC);
-CREATE INDEX IF NOT EXISTS videos_created_idx ON videos(created_at DESC) WHERE deleted_at IS NULL;
+DO $$
+BEGIN
+  IF EXISTS (
+    SELECT 1 FROM information_schema.columns
+    WHERE table_schema = 'public' AND table_name = 'videos' AND column_name = 'user_id'
+  ) AND EXISTS (
+    SELECT 1 FROM information_schema.columns
+    WHERE table_schema = 'public' AND table_name = 'videos' AND column_name = 'created_at'
+  ) THEN
+    CREATE INDEX IF NOT EXISTS videos_user_created_idx ON videos(user_id, created_at DESC);
+  END IF;
+
+  IF EXISTS (
+    SELECT 1 FROM information_schema.columns
+    WHERE table_schema = 'public' AND table_name = 'videos' AND column_name = 'created_at'
+  ) AND EXISTS (
+    SELECT 1 FROM information_schema.columns
+    WHERE table_schema = 'public' AND table_name = 'videos' AND column_name = 'deleted_at'
+  ) THEN
+    CREATE INDEX IF NOT EXISTS videos_created_idx ON videos(created_at DESC) WHERE deleted_at IS NULL;
+  END IF;
+END $$;
 
 CREATE TABLE IF NOT EXISTS video_likes (
   user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
@@ -170,8 +375,25 @@ CREATE TABLE IF NOT EXISTS live_streams (
   ended_at TIMESTAMPTZ,
   CONSTRAINT live_streams_status_chk CHECK (status IN ('live', 'ended'))
 );
-CREATE INDEX IF NOT EXISTS live_streams_host_idx ON live_streams(host_id, started_at DESC);
-CREATE INDEX IF NOT EXISTS live_streams_live_idx ON live_streams(status) WHERE status = 'live';
+DO $$
+BEGIN
+  IF EXISTS (
+    SELECT 1 FROM information_schema.columns
+    WHERE table_schema = 'public' AND table_name = 'live_streams' AND column_name = 'host_id'
+  ) AND EXISTS (
+    SELECT 1 FROM information_schema.columns
+    WHERE table_schema = 'public' AND table_name = 'live_streams' AND column_name = 'started_at'
+  ) THEN
+    CREATE INDEX IF NOT EXISTS live_streams_host_idx ON live_streams(host_id, started_at DESC);
+  END IF;
+
+  IF EXISTS (
+    SELECT 1 FROM information_schema.columns
+    WHERE table_schema = 'public' AND table_name = 'live_streams' AND column_name = 'status'
+  ) THEN
+    CREATE INDEX IF NOT EXISTS live_streams_live_idx ON live_streams(status) WHERE status = 'live';
+  END IF;
+END $$;
 
 CREATE TABLE IF NOT EXISTS live_stream_moderators (
   stream_id UUID NOT NULL REFERENCES live_streams(id) ON DELETE CASCADE,
@@ -440,9 +662,36 @@ INSERT INTO coin_packages (product_id, provider, coins, label) VALUES
   ('coins200000', 'google', 200000, '200,000 Coins'),
   ('coins350000', 'google', 350000, '350,000 Coins');
 
-INSERT INTO gifts (id, name, coin_cost, sort_order) VALUES
-  ('rose', 'Rose', 1, 1),
-  ('heart', 'Heart', 10, 2),
-  ('star', 'Star', 100, 3),
-  ('diamond', 'Diamond', 1000, 4),
-  ('universe', 'Universe', 50000, 5);
+-- Additive gifts columns for legacy catalogs (CREATE IF NOT EXISTS is a no-op).
+ALTER TABLE gifts ADD COLUMN IF NOT EXISTS name TEXT;
+ALTER TABLE gifts ADD COLUMN IF NOT EXISTS coin_cost INTEGER DEFAULT 1;
+ALTER TABLE gifts ADD COLUMN IF NOT EXISTS animation_url TEXT;
+ALTER TABLE gifts ADD COLUMN IF NOT EXISTS sort_order INTEGER NOT NULL DEFAULT 0;
+ALTER TABLE gifts ADD COLUMN IF NOT EXISTS active BOOLEAN NOT NULL DEFAULT TRUE;
+UPDATE gifts SET name = COALESCE(NULLIF(name, ''), id, 'gift') WHERE name IS NULL;
+UPDATE gifts SET coin_cost = COALESCE(coin_cost, 1) WHERE coin_cost IS NULL;
+
+-- Seed gifts; populate legacy gift_id when present (NOT NULL on old Neon).
+DO $$
+BEGIN
+  IF EXISTS (
+    SELECT 1 FROM information_schema.columns
+    WHERE table_schema = 'public' AND table_name = 'gifts' AND column_name = 'gift_id'
+  ) THEN
+    INSERT INTO gifts (id, gift_id, name, coin_cost, sort_order) VALUES
+      ('rose', 'rose', 'Rose', 1, 1),
+      ('heart', 'heart', 'Heart', 10, 2),
+      ('star', 'star', 'Star', 100, 3),
+      ('diamond', 'diamond', 'Diamond', 1000, 4),
+      ('universe', 'universe', 'Universe', 50000, 5)
+    ON CONFLICT DO NOTHING;
+  ELSE
+    INSERT INTO gifts (id, name, coin_cost, sort_order) VALUES
+      ('rose', 'Rose', 1, 1),
+      ('heart', 'Heart', 10, 2),
+      ('star', 'Star', 100, 3),
+      ('diamond', 'Diamond', 1000, 4),
+      ('universe', 'Universe', 50000, 5)
+    ON CONFLICT (id) DO NOTHING;
+  END IF;
+END $$;

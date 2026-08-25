@@ -13,7 +13,8 @@ describe("PAGE-010 Friends ownership", () => {
     expect(page).toMatch(/returnPath="\/friends"/);
     expect(page).toMatch(/No friend videos yet/);
     expect(query).toMatch(/queryFriendsPage/);
-    expect(query).toMatch(/follower_id FROM follows WHERE following_id|follower_id FROM follows WHERE followee_id/);
+    expect(query).toMatch(/follower_id FROM follows WHERE followee_id/);
+    expect(query).not.toMatch(/following_id/);
     expect(router).toMatch(/\/friends/);
   });
 });

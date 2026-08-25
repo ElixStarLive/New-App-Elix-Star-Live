@@ -1,5 +1,4 @@
 import { getPool } from "../../infra/postgres.js";
-import { isLiveNeonSchema, liveBlockedVideoFilter, liveFeedSelectSql, livePublicVideoFilter } from "../../infra/liveSchema.js";
 import { mapFeedRow } from "../feed/query.js";
 import type { FeedVideo } from "../../../shared/contracts/social.js";
 import {
@@ -59,36 +58,7 @@ export async function querySearchPage(
 
 export async function querySearchUsers(viewerId: string | null, q: string): Promise<SearchUser[]> {
   const like = `%${escapeIlike(q)}%`;
-  if (await isLiveNeonSchema()) {
-    const { rows } = await getPool().query<{
-      id: string;
-      username: string;
-      display_name: string;
-      avatar_url: string | null;
-    }>(
-      `SELECT u.id,
-              COALESCE(NULLIF(p.username, ''), u.username) AS username,
-              COALESCE(NULLIF(p.display_name, ''), u.display_name, u.username) AS display_name,
-              COALESCE(NULLIF(p.avatar_url, ''), u.avatar_url) AS avatar_url
-         FROM elix_auth_users u
-         LEFT JOIN profiles p ON p.user_id = u.id
-        WHERE (p.banned_until IS NULL OR p.banned_until < NOW())
-          AND (COALESCE(p.username, u.username) ILIKE $1 OR COALESCE(p.display_name, u.display_name) ILIKE $1)
-          AND ($2::text IS NULL OR (
-            u.id NOT IN (SELECT blocked_user_id FROM elix_blocked_users WHERE blocker_user_id = $2)
-            AND u.id NOT IN (SELECT blocker_user_id FROM elix_blocked_users WHERE blocked_user_id = $2)
-          ))
-        ORDER BY COALESCE(p.username, u.username) ASC
-        LIMIT 20`,
-      [like, viewerId],
-    );
-    return rows.map((row) => ({
-      userId: row.id,
-      username: row.username,
-      displayName: row.display_name,
-      avatarUrl: row.avatar_url,
-    }));
-  }
+  
   const { rows } = await getPool().query<{
     id: string;
     username: string;
@@ -115,21 +85,7 @@ export async function querySearchUsers(viewerId: string | null, q: string): Prom
 
 export async function querySearchVideos(viewerId: string | null, q: string): Promise<FeedVideo[]> {
   const like = `%${escapeIlike(q.toLowerCase())}%`;
-  if (await isLiveNeonSchema()) {
-    const { rows } = await getPool().query(
-      `${liveFeedSelectSql(2)}
-       ${livePublicVideoFilter()}
-       ${viewerId ? liveBlockedVideoFilter(2) : ""}
-       AND (
-         lower(COALESCE(v.description, '')) LIKE $1
-         OR lower(COALESCE(v.hashtags::text, '')) LIKE $1
-       )
-       ORDER BY v.created_at DESC, v.id DESC
-       LIMIT 30`,
-      [like, viewerId],
-    );
-    return rows.map(mapFeedRow);
-  }
+  
   const { rows } = await getPool().query(
     `${videoSelect(viewerBlockSql("v.user_id", 2))}
        AND (
@@ -174,35 +130,7 @@ export async function querySearchBrowse(
     )`;
   }
 
-  if (await isLiveNeonSchema()) {
-    const liveExtra =
-      category !== "All" && category !== "Trending" && category !== "For You"
-        ? `AND (
-      lower(COALESCE(v.description, '')) LIKE $2
-      OR lower(COALESCE(v.hashtags::text, '')) LIKE $2
-    )`
-        : "";
-    const liveOrder =
-      category === "Trending"
-        ? `COALESCE(v.views, 0) DESC, v.created_at DESC, v.id DESC`
-        : category === "For You"
-          ? `COALESCE(v.likes, 0) DESC, COALESCE(v.views, 0) DESC, v.created_at DESC, v.id DESC`
-          : `v.created_at DESC, v.id DESC`;
-    const { rows } = await getPool().query(
-      `${liveFeedSelectSql(1)}
-       ${livePublicVideoFilter()}
-       ${viewerId ? liveBlockedVideoFilter(1) : ""}
-       ${liveExtra}
-       ORDER BY ${liveOrder}
-       LIMIT ${limit}`,
-      params,
-    );
-    const videos = rows.map(mapFeedRow);
-    if (videos.length === 0 && category !== "All") {
-      return querySearchBrowse(viewerId, "All");
-    }
-    return videos;
-  }
+  
   const { rows } = await getPool().query(
     `${videoSelect(viewerSql)}
        ${extra}

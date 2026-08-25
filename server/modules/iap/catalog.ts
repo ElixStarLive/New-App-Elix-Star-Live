@@ -14,20 +14,17 @@ function requestedProvider(raw: unknown): "apple" | "google" | null {
 }
 
 export async function loadCoinPackages(provider: "apple" | "google" | null): Promise<CoinPackageRow[]> {
-  const { isLiveNeonSchema } = await import("../../infra/liveSchema.js");
-  const live = await isLiveNeonSchema();
-  const table = live ? "elix_coin_packages" : "coin_packages";
   const { rows } = provider
     ? await getPool().query<{ product_id: string; provider: "apple" | "google"; coins: number; label: string }>(
         `SELECT product_id, provider, coins, COALESCE(label, product_id) AS label
-         FROM ${table}
+         FROM coin_packages
          WHERE active = TRUE AND provider = $1
          ORDER BY coins ASC`,
         [provider],
       )
     : await getPool().query<{ product_id: string; provider: "apple" | "google"; coins: number; label: string }>(
         `SELECT product_id, provider, coins, COALESCE(label, product_id) AS label
-         FROM ${table}
+         FROM coin_packages
          WHERE active = TRUE
          ORDER BY coins ASC, provider ASC`,
       );

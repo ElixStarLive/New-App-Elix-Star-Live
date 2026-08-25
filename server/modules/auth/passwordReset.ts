@@ -1,10 +1,9 @@
 import { createHash } from "node:crypto";
-import { getPool, withTransaction } from "../../infra/postgres.js";
+import { withTransaction } from "../../infra/postgres.js";
 import { env } from "../../infra/env.js";
 import { requireValkey } from "../../infra/valkey.js";
 import { hashPassword } from "../../infra/password.js";
 import { sha256, signPurposeToken, verifyPurposeToken } from "../../infra/tokens.js";
-import { isLiveNeonSchema } from "../../infra/liveSchema.js";
 import { AppError } from "../../middleware/errors.js";
 
 /** Frozen OLD: 1 hour purpose-bound password reset JWT. */
@@ -79,29 +78,8 @@ export async function applyPasswordReset(
     throw new AppError("invalid_credentials", "Invalid or expired reset link.", 401);
   }
 
-  const live = await isLiveNeonSchema();
-  if (live) {
-    const { rows } = await getPool().query<{ id: string; password_hash: string }>(
-      `SELECT id, password_hash FROM elix_auth_users WHERE id = $1 LIMIT 1`,
-      [payload.sub],
-    );
-    const user = rows[0];
-    if (!user) throw new AppError("not_found", "User not found.", 404);
-    if (payload.pv !== passwordResetBinding(user.password_hash)) {
-      throw new AppError(
-        "invalid_credentials",
-        "This reset link has already been used or is no longer valid.",
-        401,
-      );
-    }
-    const passwordHash = await hashPassword(newPassword);
-    await getPool().query(`UPDATE elix_auth_users SET password_hash = $2 WHERE id = $1`, [
-      user.id,
-      passwordHash,
-    ]);
-    await getPool().query(`DELETE FROM elix_auth_sessions WHERE user_id = $1`, [user.id]);
-    return { userId: user.id };
-  }
+  
+  
 
   return withTransaction(async (client) => {
     const { rows } = await client.query<{

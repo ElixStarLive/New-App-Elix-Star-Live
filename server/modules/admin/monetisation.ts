@@ -123,31 +123,26 @@ export async function loadAdminMonetisationPage(): Promise<{
   withdrawals: AdminMonetisationWithdrawal[];
 }> {
   const config = await loadAdminMonetisationConfig();
-  const live = await (await import("../../infra/liveSchema.js")).isLiveNeonSchema();
-  const lotsTable = live ? "elix_paid_coin_lots" : "paid_coin_lots";
-  const earningsTable = live ? "elix_creator_earnings" : "creator_earnings";
-  const ledgerTable = live ? "elix_financial_ledger" : "financial_ledger";
-  const walletTable = live ? "elix_creator_wallet_gbp" : "creator_wallet_gbp";
   const [pendingLots, settledLots, giftCreator, giftPlatform, wallets, withdrawalGroups, shop, iap, withdrawalRows] =
     await Promise.all([
       getPool().query<{ c: number; gross: string }>(
         `SELECT COUNT(*)::int AS c, COALESCE(SUM(gross_pence), 0)::text AS gross
-           FROM ${lotsTable}
+           FROM paid_coin_lots
           WHERE settlement_status = 'pending_settlement'`,
       ),
       getPool().query<{ c: number; gross: string }>(
         `SELECT COUNT(*)::int AS c, COALESCE(SUM(gross_pence), 0)::text AS gross
-           FROM ${lotsTable}
+           FROM paid_coin_lots
           WHERE settlement_status = 'settled'`,
       ),
       getPool().query<{ n: string }>(
         `SELECT COALESCE(SUM(amount_pence), 0)::text AS n
-           FROM ${earningsTable}
+           FROM creator_earnings
           WHERE status <> 'reversed'`,
       ),
       getPool().query<{ n: string }>(
         `SELECT COALESCE(SUM(amount_pence), 0)::text AS n
-           FROM ${ledgerTable}
+           FROM financial_ledger
           WHERE reason = 'gift_platform'`,
       ),
       getPool().query<{
@@ -160,7 +155,7 @@ export async function loadAdminMonetisationPage(): Promise<{
                 COALESCE(SUM(available_pence), 0)::text AS available,
                 COALESCE(SUM(withdrawn_pence), 0)::text AS withdrawn,
                 COALESCE(SUM(held_pence), 0)::text AS held
-           FROM ${walletTable}`,
+           FROM creator_wallet_gbp`,
       ),
       getPool().query<{ status: string; c: number; pence: string }>(
         `SELECT status, COUNT(*)::int AS c, COALESCE(SUM(amount_pence), 0)::text AS pence

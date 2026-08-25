@@ -314,25 +314,14 @@ export async function apiFetchProfiles(): Promise<{
   const profiles = rows
     .map((row) => {
       if (!isRecord(row)) return null;
-      const user_id = typeof row.user_id === "string" ? row.user_id : typeof row.userId === "string" ? row.userId : "";
+      const user_id = typeof row.user_id === "string" ? row.user_id : "";
       if (!user_id) return null;
+      const username = typeof row.username === "string" ? row.username : "user";
       return {
         user_id,
-        username: typeof row.username === "string" ? row.username : "user",
-        display_name:
-          typeof row.display_name === "string"
-            ? row.display_name
-            : typeof row.displayName === "string"
-              ? row.displayName
-              : typeof row.username === "string"
-                ? row.username
-                : "User",
-        avatar_url:
-          typeof row.avatar_url === "string"
-            ? row.avatar_url
-            : typeof row.avatarUrl === "string"
-              ? row.avatarUrl
-              : "",
+        username,
+        display_name: typeof row.display_name === "string" ? row.display_name : username,
+        avatar_url: typeof row.avatar_url === "string" ? row.avatar_url : "",
       };
     })
     .filter((row): row is NonNullable<typeof row> => Boolean(row));

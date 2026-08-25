@@ -39,7 +39,10 @@ describe("PAGE-007 For You ownership", () => {
     expect(lifecycle).toMatch(/export async function sweepForYouLifecycle/);
     expect(session).toMatch(/enrollVideoInForYou/);
     expect(jobs).toMatch(/sweepForYouLifecycle/);
-    expect(migration).toMatch(/elix_video_foryou_state/);
-    expect(migration).toMatch(/elix_foryou_config/);
+    expect(migration).toMatch(/CREATE TABLE IF NOT EXISTS video_foryou_state/);
+    expect(migration).toMatch(/CREATE TABLE IF NOT EXISTS foryou_config/);
+    expect(lifecycle).toMatch(/FROM foryou_config/);
+    expect(lifecycle).toMatch(/video_foryou_state/);
+    expect(lifecycle).not.toMatch(/elix_foryou_config|elix_video_foryou_state/);
   });
 });

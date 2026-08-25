@@ -1,6 +1,5 @@
 import type { Response } from "express";
 import { getPool, withTransaction } from "../../infra/postgres.js";
-import { isLiveNeonSchema } from "../../infra/liveSchema.js";
 import { logger } from "../../infra/logger.js";
 import { AppError } from "../../middleware/errors.js";
 import type { AuthedRequest } from "../../middleware/auth.js";
@@ -25,24 +24,6 @@ export const ADMIN_USERS_LIST_SQL = `
        OR LOWER(email) LIKE $2 ESCAPE E'\\\\'
      )
    ORDER BY created_at DESC NULLS LAST
-   LIMIT ${ADMIN_USERS_LIMIT}
-`;
-
-export const ADMIN_USERS_LIST_SQL_LIVE = `
-  SELECT u.id::text AS id,
-         COALESCE(NULLIF(p.username, ''), u.username) AS username,
-         u.email,
-         COALESCE(NULLIF(p.avatar_url, ''), u.avatar_url) AS avatar_url,
-         u.created_at,
-         (p.banned_until IS NOT NULL AND p.banned_until > NOW()) AS is_banned
-    FROM elix_auth_users u
-    LEFT JOIN profiles p ON p.user_id = u.id
-   WHERE (
-       $1 = ''
-       OR LOWER(COALESCE(p.username, u.username)) LIKE $2 ESCAPE E'\\\\'
-       OR LOWER(u.email) LIKE $2 ESCAPE E'\\\\'
-     )
-   ORDER BY u.created_at DESC NULLS LAST
    LIMIT ${ADMIN_USERS_LIMIT}
 `;
 
@@ -121,7 +102,6 @@ function mapUserRow(row: {
 export async function loadAdminUsers(query: unknown): Promise<AdminUserRow[]> {
   const q = parseAdminUsersQuery(query);
   const like = q ? `%${escapeAdminUserLike(q.toLowerCase())}%` : "";
-  const live = await isLiveNeonSchema();
   const { rows } = await getPool().query<{
     id: string;
     username: string;
@@ -129,18 +109,15 @@ export async function loadAdminUsers(query: unknown): Promise<AdminUserRow[]> {
     avatar_url: string | null;
     created_at: Date;
     is_banned: boolean;
-  }>(live ? ADMIN_USERS_LIST_SQL_LIVE : ADMIN_USERS_LIST_SQL, [q, like]);
+  }>(ADMIN_USERS_LIST_SQL, [q, like]);
   return rows.map(mapUserRow);
 }
 
 async function requireTargetUser(userId: string): Promise<void> {
-  const live = await isLiveNeonSchema();
-  const { rows } = live
-    ? await getPool().query<{ id: string }>(`SELECT id FROM elix_auth_users WHERE id = $1`, [userId])
-    : await getPool().query<{ id: string }>(
-        `SELECT id FROM users WHERE id = $1 AND deleted_at IS NULL`,
-        [userId],
-      );
+  const { rows } = await getPool().query<{ id: string }>(
+    `SELECT id FROM users WHERE id = $1 AND deleted_at IS NULL`,
+    [userId],
+  );
   if (!rows[0]) throw new AppError("not_found", "User not found", 404);
 }
 
@@ -162,33 +139,18 @@ export async function applyAdminBan(
 ): Promise<{ ok: true; userId: string; banned_until: string; is_banned: true }> {
   await requireTargetUser(userId);
   const bannedUntil = until ?? new Date(Date.now() + 100 * 365 * 24 * 60 * 60 * 1000);
-  const live = await isLiveNeonSchema();
   await withTransaction(async (client) => {
-    if (live) {
-      await client.query(
-        `INSERT INTO profiles (user_id, banned_until, updated_at) VALUES ($1, $2, NOW())
-         ON CONFLICT (user_id) DO UPDATE
-           SET banned_until = EXCLUDED.banned_until, updated_at = NOW()`,
-        [userId, bannedUntil],
-      );
-      await client.query(
-        `UPDATE elix_auth_sessions SET revoked_at = NOW()
-          WHERE user_id = $1 AND (revoked_at IS NULL)`,
-        [userId],
-      );
-    } else {
-      const updated = await client.query(
-        `UPDATE users
-            SET banned_until = $2, updated_at = NOW()
-          WHERE id = $1 AND deleted_at IS NULL`,
-        [userId, bannedUntil],
-      );
-      if (!updated.rowCount) throw new AppError("not_found", "User not found", 404);
-      await client.query(
-        `UPDATE auth_sessions SET revoked_at = NOW() WHERE user_id = $1 AND revoked_at IS NULL`,
-        [userId],
-      );
-    }
+    const updated = await client.query(
+      `UPDATE users
+          SET banned_until = $2, updated_at = NOW()
+        WHERE id = $1 AND deleted_at IS NULL`,
+      [userId, bannedUntil],
+    );
+    if (!updated.rowCount) throw new AppError("not_found", "User not found", 404);
+    await client.query(
+      `UPDATE auth_sessions SET revoked_at = NOW() WHERE user_id = $1 AND revoked_at IS NULL`,
+      [userId],
+    );
   });
   await notifyBannedSessions(userId);
   logger.warn({ userId, bannedUntil, reason, by: actorId }, "admin ban applied");
@@ -205,22 +167,13 @@ export async function applyAdminUnban(
   userId: string,
 ): Promise<{ ok: true; userId: string; is_banned: false }> {
   await requireTargetUser(userId);
-  const live = await isLiveNeonSchema();
-  if (live) {
-    const updated = await getPool().query(
-      `UPDATE profiles SET banned_until = NULL, updated_at = NOW() WHERE user_id = $1`,
-      [userId],
-    );
-    if (!updated.rowCount) throw new AppError("not_found", "User not found", 404);
-  } else {
-    const updated = await getPool().query(
-      `UPDATE users
-          SET banned_until = NULL, updated_at = NOW()
-        WHERE id = $1 AND deleted_at IS NULL`,
-      [userId],
-    );
-    if (!updated.rowCount) throw new AppError("not_found", "User not found", 404);
-  }
+  const updated = await getPool().query(
+    `UPDATE users
+        SET banned_until = NULL, updated_at = NOW()
+      WHERE id = $1 AND deleted_at IS NULL`,
+    [userId],
+  );
+  if (!updated.rowCount) throw new AppError("not_found", "User not found", 404);
   logger.info({ userId, by: actorId }, "admin ban lifted");
   return { ok: true, userId, is_banned: false };
 }

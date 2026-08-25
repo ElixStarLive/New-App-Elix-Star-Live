@@ -1,7 +1,6 @@
 import { requireValkey, valkeyTrySetNx } from "./valkey.js";
 import { env } from "./env.js";
 import { getPool, withTransaction } from "./postgres.js";
-import { isLiveNeonSchema } from "./liveSchema.js";
 import { logger } from "./logger.js";
 import { scanAndTickBattles } from "../modules/battle/runtime.js";
 import { matureCreatorEarnings } from "../modules/gifts/settle.js";
@@ -22,13 +21,6 @@ export function startBackgroundJobs(): void {
 }
 
 async function expireStaleLiveRows(): Promise<void> {
-  if (await isLiveNeonSchema()) {
-    await getPool().query(
-      `UPDATE live_streams SET is_live = FALSE, ended_at = NOW()
-       WHERE is_live = TRUE AND started_at < NOW() - INTERVAL '12 hours'`,
-    );
-    return;
-  }
   await getPool().query(`DELETE FROM stories WHERE expires_at < NOW()`);
   await getPool().query(
     `UPDATE live_streams SET status = 'ended', ended_at = NOW()
@@ -39,15 +31,11 @@ async function expireStaleLiveRows(): Promise<void> {
 async function runOnce(): Promise<void> {
   if (!env().valkeyUrl) {
     await expireStaleLiveRows();
-    if (!(await isLiveNeonSchema())) {
-      await cleanupStaleUploadSessions();
-    }
+    await cleanupStaleUploadSessions();
     await expireAbandonedLives();
-    if (!(await isLiveNeonSchema())) {
-      await withTransaction(async (client) => {
-        await matureCreatorEarnings(client);
-      });
-    }
+    await withTransaction(async (client) => {
+      await matureCreatorEarnings(client);
+    });
     forYouSweepTicks += 1;
     if (forYouSweepTicks >= 30) {
       forYouSweepTicks = 0;
@@ -59,15 +47,11 @@ async function runOnce(): Promise<void> {
   const leader = await valkeyTrySetNx(LEADER_KEY, token, 90_000);
   if (!leader) return;
   await expireStaleLiveRows();
-  if (!(await isLiveNeonSchema())) {
-    await cleanupStaleUploadSessions();
-  }
+  await cleanupStaleUploadSessions();
   await expireAbandonedLives();
-  if (!(await isLiveNeonSchema())) {
-    await withTransaction(async (client) => {
-      await matureCreatorEarnings(client);
-    });
-  }
+  await withTransaction(async (client) => {
+    await matureCreatorEarnings(client);
+  });
   await scanAndTickBattles();
   await drainPushNotifyJobs();
   // OLD ran For You sweep ~every 15m; job loop is 30s → every 30 ticks.

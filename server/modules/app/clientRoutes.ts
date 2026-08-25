@@ -1,6 +1,5 @@
 import { Router } from "express";
 import { getPool, withTransaction } from "../../infra/postgres.js";
-import { isLiveNeonSchema } from "../../infra/liveSchema.js";
 import { requireAuth, requireAdmin, type AuthedRequest } from "../../middleware/auth.js";
 import { issueCallToken } from "../calls/token.js";
 import { AppError } from "../../middleware/errors.js";
@@ -89,27 +88,8 @@ async function ensureInboxThread(req: AuthedRequest, res: import("express").Resp
   if (await isBlockedEitherWay(req.userId as string, userId)) {
     throw new AppError("forbidden", "You cannot message this user.", 403);
   }
-  const live = await isLiveNeonSchema();
-  if (live) {
-    const existing = await getPool().query<{ id: string }>(
-      `SELECT id FROM chat_threads
-       WHERE (user1_id = $1 AND user2_id = $2) OR (user1_id = $2 AND user2_id = $1)
-       LIMIT 1`,
-      [req.userId, userId],
-    );
-    if (existing.rows[0]) {
-      res.json({ id: existing.rows[0].id });
-      return;
-    }
-    const created = await getPool().query<{ id: string }>(
-      `INSERT INTO chat_threads (user1_id, user2_id, last_message, last_at, created_at)
-       VALUES ($1, $2, '', NOW(), NOW())
-       RETURNING id`,
-      [req.userId, userId],
-    );
-    res.status(201).json({ id: created.rows[0].id });
-    return;
-  }
+  
+  
   const existing = await getPool().query<{ id: string }>(
     `SELECT t.id
      FROM chat_threads t
@@ -159,37 +139,7 @@ inboxRouter.post("/threads", requireAuth, async (req: AuthedRequest, res) => {
 
 inboxRouter.delete("/threads/:threadId", requireAuth, async (req: AuthedRequest, res) => {
   const threadId = param(req, "threadId");
-  if (await isLiveNeonSchema()) {
-    const client = await getPool().connect();
-    try {
-      await client.query("BEGIN");
-      const owned = await client.query(
-        `SELECT 1 FROM chat_threads WHERE id = $1 AND (user1_id = $2 OR user2_id = $2) FOR UPDATE`,
-        [threadId, req.userId],
-      );
-      if (!owned.rows[0]) {
-        await client.query("ROLLBACK");
-        throw new AppError("not_found", "Thread not found", 404);
-      }
-      await client.query(`DELETE FROM messages WHERE thread_id = $1`, [threadId]);
-      await client.query(
-        `DELETE FROM chat_threads WHERE id = $1 AND (user1_id = $2 OR user2_id = $2)`,
-        [threadId, req.userId],
-      );
-      await client.query("COMMIT");
-    } catch (error) {
-      try {
-        await client.query("ROLLBACK");
-      } catch {
-        /* ignore */
-      }
-      throw error;
-    } finally {
-      client.release();
-    }
-    res.json({ ok: true });
-    return;
-  }
+  
   const result = await getPool().query(
     `DELETE FROM chat_threads t
      USING chat_thread_members m

@@ -10,7 +10,9 @@ describe("PAGE-009 Following ownership", () => {
   it("keeps following feed contract and overlay title", () => {
     expect(page).toMatch(/FollowingFeedOverlay|title="Following"|Following/);
     expect(query).toMatch(/queryFollowingPage/);
-    expect(query).toMatch(/RELATION_FEED_LIMIT|following_id|followee_id/);
+    expect(query).toMatch(/RELATION_FEED_LIMIT/);
+    expect(query).toMatch(/followee_id/);
+    expect(query).not.toMatch(/following_id/);
   });
 
   it("suggests profiles with followed-first then live, and advances image stories", () => {

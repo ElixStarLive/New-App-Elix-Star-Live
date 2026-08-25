@@ -1,7 +1,5 @@
 import { Router } from "express";
-import { randomUUID } from "node:crypto";
 import { getPool } from "../../infra/postgres.js";
-import { isLiveNeonSchema } from "../../infra/liveSchema.js";
 import { requireAuth, type AuthedRequest } from "../../middleware/auth.js";
 import { AppError } from "../../middleware/errors.js";
 import { routeParam } from "../../http/param.js";
@@ -24,9 +22,7 @@ router.get("/saved/feed", requireAuth, async (req: AuthedRequest, res) => {
   res.setHeader("Cache-Control", "private, no-store");
   res.json(
     await queryVideoPage({
-      extraWhere: (await isLiveNeonSchema())
-        ? `AND v.id IN (SELECT video_id FROM saves WHERE user_id = $1)`
-        : `AND v.id IN (SELECT video_id FROM video_saves WHERE user_id = $1)`,
+      extraWhere: `AND v.id IN (SELECT video_id FROM video_saves WHERE user_id = $1)`,
       extraParams: [req.userId],
       cursor: cursorFromQuery(req.query),
       privacy: "any",
@@ -37,9 +33,7 @@ router.get("/saved/feed", requireAuth, async (req: AuthedRequest, res) => {
 router.get("/liked/list", requireAuth, async (req: AuthedRequest, res) => {
   res.json(
     await queryVideoPage({
-      extraWhere: (await isLiveNeonSchema())
-        ? `AND v.id IN (SELECT video_id FROM likes WHERE user_id = $1)`
-        : `AND v.id IN (SELECT video_id FROM video_likes WHERE user_id = $1)`,
+      extraWhere: `AND v.id IN (SELECT video_id FROM video_likes WHERE user_id = $1)`,
       extraParams: [req.userId],
       cursor: cursorFromQuery(req.query),
       privacy: "any",
@@ -52,9 +46,7 @@ router.get("/user/:userId/saved", async (req: AuthedRequest, res) => {
   await publicProfile(userId, req.userId);
   res.json(
     await queryVideoPage({
-      extraWhere: (await isLiveNeonSchema())
-        ? `AND v.id IN (SELECT video_id FROM saves WHERE user_id = $1)`
-        : `AND v.id IN (SELECT video_id FROM video_saves WHERE user_id = $1)`,
+      extraWhere: `AND v.id IN (SELECT video_id FROM video_saves WHERE user_id = $1)`,
       extraParams: [userId],
       cursor: cursorFromQuery(req.query),
       privacy: "public",
@@ -67,9 +59,7 @@ router.get("/user/:userId/liked", async (req: AuthedRequest, res) => {
   await publicProfile(userId, req.userId);
   res.json(
     await queryVideoPage({
-      extraWhere: (await isLiveNeonSchema())
-        ? `AND v.id IN (SELECT video_id FROM likes WHERE user_id = $1)`
-        : `AND v.id IN (SELECT video_id FROM video_likes WHERE user_id = $1)`,
+      extraWhere: `AND v.id IN (SELECT video_id FROM video_likes WHERE user_id = $1)`,
       extraParams: [userId],
       cursor: cursorFromQuery(req.query),
       privacy: "public",
@@ -108,7 +98,7 @@ router.get("/user/:userId", async (req: AuthedRequest, res) => {
 
 router.get("/:videoId/comments", async (req, res) => {
   const videoId = routeParam(req, "videoId");
-  const live = await isLiveNeonSchema();
+  
   const { rows } = await getPool().query<{
     id: string;
     user_id: string;
@@ -119,18 +109,7 @@ router.get("/:videoId/comments", async (req, res) => {
     created_at: Date;
     like_count: string;
   }>(
-    live
-      ? `SELECT c.id, c.user_id,
-                COALESCE(p.username, '') AS username,
-                COALESCE(p.display_name, p.username, '') AS display_name,
-                p.avatar_url, c.text AS body, c.created_at,
-                (SELECT COUNT(*)::text FROM comment_likes cl WHERE cl.comment_id = c.id) AS like_count
-           FROM comments c
-           LEFT JOIN profiles p ON p.user_id = c.user_id
-          WHERE c.video_id = $1
-          ORDER BY c.created_at DESC
-          LIMIT 200`
-      : `SELECT c.id, c.user_id, u.username, u.display_name, u.avatar_url, c.body, c.created_at,
+    `SELECT c.id, c.user_id, u.username, u.display_name, u.avatar_url, c.body, c.created_at,
             (SELECT COUNT(*)::text FROM comment_likes cl WHERE cl.comment_id = c.id) AS like_count
      FROM comments c
      JOIN users u ON u.id = c.user_id
@@ -159,9 +138,7 @@ router.get("/:videoId/download", async (req: AuthedRequest, res) => {
     user_id: string;
     privacy: string;
   }>(
-    (await isLiveNeonSchema())
-      ? `SELECT url AS bunny_path, user_id, COALESCE(privacy, 'public') AS privacy FROM videos WHERE id = $1`
-      : `SELECT bunny_path, user_id, privacy FROM videos WHERE id = $1 AND deleted_at IS NULL`,
+    `SELECT bunny_path, user_id, privacy FROM videos WHERE id = $1 AND deleted_at IS NULL`,
     [routeParam(req, "videoId")],
   );
   const video = rows[0];
@@ -198,29 +175,17 @@ router.post("/:videoId/comments", requireAuth, async (req: AuthedRequest, res) =
   if (!body) throw new AppError("validation_error", "Comment required", 400);
   const parentId = typeof req.body?.parentId === "string" ? req.body.parentId : null;
   const videoId = routeParam(req, "videoId");
-  const inserted = (await isLiveNeonSchema())
-    ? await getPool().query<{ id: string }>(
-        `INSERT INTO comments (id, video_id, user_id, text, parent_id) VALUES ($1, $2, $3, $4, $5) RETURNING id`,
-        [randomUUID(), videoId, req.userId, body, parentId],
-      )
-    : await getPool().query<{ id: string }>(
+  const inserted = await getPool().query<{ id: string }>(
         `INSERT INTO comments (video_id, user_id, body, parent_id) VALUES ($1, $2, $3, $4) RETURNING id`,
         [videoId, req.userId, body, parentId],
       );
-  if (await isLiveNeonSchema()) {
-    await getPool().query(`UPDATE videos SET comments = COALESCE(comments, 0) + 1 WHERE id = $1`, [videoId]);
-  }
+  
   res.status(201).json({ ok: true, id: inserted.rows[0].id });
 });
 
 router.post("/:videoId/comments/:commentId/like", requireAuth, async (req: AuthedRequest, res) => {
   await getPool().query(
-    (await isLiveNeonSchema())
-      ? `INSERT INTO comment_likes (user_id, comment_id)
-     SELECT $1, c.id FROM comments c
-     WHERE c.id = $2 AND c.video_id = $3
-     ON CONFLICT DO NOTHING`
-      : `INSERT INTO comment_likes (user_id, comment_id)
+    `INSERT INTO comment_likes (user_id, comment_id)
      SELECT $1, c.id FROM comments c
      WHERE c.id = $2 AND c.video_id = $3 AND c.deleted_at IS NULL
      ON CONFLICT DO NOTHING`,
@@ -238,17 +203,12 @@ router.delete("/:videoId/comments/:commentId/like", requireAuth, async (req: Aut
 });
 
 router.delete("/:videoId/comments/:commentId", requireAuth, async (req: AuthedRequest, res) => {
-  const result = (await isLiveNeonSchema())
-    ? await getPool().query(
-        `DELETE FROM comments WHERE id = $1 AND video_id = $2 AND user_id = $3`,
-        [routeParam(req, "commentId"), routeParam(req, "videoId"), req.userId],
-      )
-    : await getPool().query(
+  const result = await getPool().query(
         `UPDATE comments SET deleted_at = NOW()
      WHERE id = $1 AND video_id = $2 AND user_id = $3 AND deleted_at IS NULL`,
         [routeParam(req, "commentId"), routeParam(req, "videoId"), req.userId],
       );
-  if ((await isLiveNeonSchema()) && (result.rowCount ?? 0) > 0) {
+  if ((result.rowCount ?? 0) > 0) {
     await getPool().query(
       `UPDATE videos SET comments = GREATEST(COALESCE(comments, 0) - 1, 0) WHERE id = $1`,
       [routeParam(req, "videoId")],
@@ -260,20 +220,13 @@ router.delete("/:videoId/comments/:commentId", requireAuth, async (req: AuthedRe
 
 router.post("/:videoId/like", requireAuth, async (req: AuthedRequest, res) => {
   const videoId = routeParam(req, "videoId");
-  const live = await isLiveNeonSchema();
-  const liked = live
-    ? await getPool().query(
-        `INSERT INTO likes (user_id, video_id) VALUES ($1, $2) ON CONFLICT DO NOTHING RETURNING video_id`,
-        [req.userId, videoId],
-      )
-    : await getPool().query(
+  
+  const liked = await getPool().query(
         `INSERT INTO video_likes (user_id, video_id) VALUES ($1, $2) ON CONFLICT DO NOTHING RETURNING video_id`,
         [req.userId, videoId],
       );
   if ((liked.rowCount ?? 0) > 0) {
-    if (live) {
-      await getPool().query(`UPDATE videos SET likes = COALESCE(likes, 0) + 1 WHERE id = $1`, [videoId]);
-    }
+    
     await bumpEngagement(req.userId as string, "like", 1);
   }
   res.json({ ok: true });
@@ -281,58 +234,28 @@ router.post("/:videoId/like", requireAuth, async (req: AuthedRequest, res) => {
 
 router.post("/:videoId/unlike", requireAuth, async (req: AuthedRequest, res) => {
   const videoId = routeParam(req, "videoId");
-  if (await isLiveNeonSchema()) {
-    const removed = await getPool().query(`DELETE FROM likes WHERE user_id = $1 AND video_id = $2`, [
+  await getPool().query(`DELETE FROM video_likes WHERE user_id = $1 AND video_id = $2`, [
       req.userId,
       videoId,
     ]);
-    if ((removed.rowCount ?? 0) > 0) {
-      await getPool().query(`UPDATE videos SET likes = GREATEST(COALESCE(likes, 0) - 1, 0) WHERE id = $1`, [videoId]);
-    }
-  } else {
-    await getPool().query(`DELETE FROM video_likes WHERE user_id = $1 AND video_id = $2`, [
-      req.userId,
-      videoId,
-    ]);
-  }
   res.json({ ok: true });
 });
 
 router.post("/:videoId/save", requireAuth, async (req: AuthedRequest, res) => {
   const videoId = routeParam(req, "videoId");
-  if (await isLiveNeonSchema()) {
-    const saved = await getPool().query(
-      `INSERT INTO saves (user_id, video_id) VALUES ($1, $2) ON CONFLICT DO NOTHING RETURNING video_id`,
-      [req.userId, videoId],
-    );
-    if ((saved.rowCount ?? 0) > 0) {
-      await getPool().query(`UPDATE videos SET saves = COALESCE(saves, 0) + 1 WHERE id = $1`, [videoId]);
-    }
-  } else {
-    await getPool().query(
+  await getPool().query(
       `INSERT INTO video_saves (user_id, video_id) VALUES ($1, $2) ON CONFLICT DO NOTHING`,
       [req.userId, videoId],
     );
-  }
   res.json({ ok: true });
 });
 
 router.post("/:videoId/unsave", requireAuth, async (req: AuthedRequest, res) => {
   const videoId = routeParam(req, "videoId");
-  if (await isLiveNeonSchema()) {
-    const removed = await getPool().query(`DELETE FROM saves WHERE user_id = $1 AND video_id = $2`, [
+  await getPool().query(`DELETE FROM video_saves WHERE user_id = $1 AND video_id = $2`, [
       req.userId,
       videoId,
     ]);
-    if ((removed.rowCount ?? 0) > 0) {
-      await getPool().query(`UPDATE videos SET saves = GREATEST(COALESCE(saves, 0) - 1, 0) WHERE id = $1`, [videoId]);
-    }
-  } else {
-    await getPool().query(`DELETE FROM video_saves WHERE user_id = $1 AND video_id = $2`, [
-      req.userId,
-      videoId,
-    ]);
-  }
   res.json({ ok: true });
 });
 

@@ -1,6 +1,5 @@
 import type pg from "pg";
 import { getPool, withTransaction } from "../../infra/postgres.js";
-import { isLiveNeonSchema } from "../../infra/liveSchema.js";
 import { AppError } from "../../middleware/errors.js";
 import { mergeHashtags } from "../../lib/hashtags.js";
 import { isStemExtraCaption } from "../../../shared/stemEligibility.js";
@@ -225,43 +224,7 @@ async function insertVideo(
 ): Promise<string> {
   const isStem = isStemExtraCaption(meta.caption, meta.hashtags);
   try {
-    if (await isLiveNeonSchema()) {
-      const identity = await client.query<{ username: string; display_name: string; avatar_url: string | null }>(
-        `SELECT COALESCE(NULLIF(p.username, ''), u.username, '') AS username,
-                COALESCE(NULLIF(p.display_name, ''), u.display_name, u.username, '') AS display_name,
-                COALESCE(NULLIF(p.avatar_url, ''), u.avatar_url) AS avatar_url
-           FROM elix_auth_users u
-           LEFT JOIN profiles p ON p.user_id = u.id
-          WHERE u.id = $1`,
-        [userId],
-      );
-      const row = identity.rows[0];
-      if (!row) throw new AppError("not_found", "User not found", 404);
-      const durationSeconds =
-        session.duration_ms > 0 ? Math.max(1, Math.round(session.duration_ms / 1000)) : null;
-      const inserted = await client.query<{ id: string }>(
-        `INSERT INTO videos (
-           id, user_id, url, description, hashtags, privacy, duration,
-           username, display_name, avatar, thumbnail, music
-         ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12)
-         RETURNING id`,
-        [
-          session.id,
-          userId,
-          session.bunny_url,
-          meta.caption,
-          meta.hashtags,
-          meta.privacy,
-          durationSeconds,
-          row.username,
-          row.display_name,
-          row.avatar_url,
-          null,
-          meta.soundId,
-        ],
-      );
-      return inserted.rows[0].id;
-    }
+    
     const inserted = await client.query<{ id: string }>(
       `INSERT INTO videos (id, user_id, bunny_path, caption, hashtags, duration_ms, is_stem, privacy, sound_id)
        VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9)

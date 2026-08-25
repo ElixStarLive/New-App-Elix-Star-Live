@@ -16,12 +16,12 @@ async function fetchList<T>(path: string, parse: (raw: unknown) => T | null): Pr
 export async function apiFetchCameraFilters(): Promise<CameraFilterOption[]> {
   return fetchList("/api/camera-filters", (raw) => {
     if (!isRecord(raw) || typeof raw.id !== "string" || typeof raw.name !== "string") return null;
-    const css = typeof raw.css === "string" ? raw.css : typeof raw.filter === "string" ? raw.filter : "none";
+    if (typeof raw.css !== "string") return null;
     return {
       id: raw.id,
       name: raw.name,
       color: typeof raw.color === "string" ? raw.color : "#3A3A3A",
-      css,
+      css: raw.css,
     };
   });
 }

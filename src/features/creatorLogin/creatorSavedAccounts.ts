@@ -31,9 +31,17 @@ export function browserCreatorAccountStorage(): CreatorAccountStorage {
   return window.localStorage;
 }
 
-export function stripLegacyCreatorPasswordKeys(storage: CreatorAccountStorage): void {
+/** One-shot cleanup: never keep OLD creator login keys after NEW store is in use. */
+export function clearAllLegacyCreatorLoginKeys(storage: CreatorAccountStorage): void {
+  storage.removeItem(LEGACY_IDENTIFIER_KEY);
+  storage.removeItem(LEGACY_USERNAME_KEY);
   storage.removeItem(LEGACY_PASSWORD_KEY);
   storage.removeItem(LEGACY_SAVE_PASSWORD_KEY);
+}
+
+/** Clears all legacy creator login keys (identifier/username/password). */
+export function stripLegacyCreatorPasswordKeys(storage: CreatorAccountStorage): void {
+  clearAllLegacyCreatorLoginKeys(storage);
 }
 
 function asAccount(value: unknown): SavedCreatorAccount | null {
@@ -47,8 +55,7 @@ function asAccount(value: unknown): SavedCreatorAccount | null {
   return avatar ? { identifier, username, avatar } : { identifier, username };
 }
 
-export function readCreatorSavedAccounts(storage: CreatorAccountStorage): SavedCreatorAccount[] {
-  stripLegacyCreatorPasswordKeys(storage);
+function parseStoredAccounts(storage: CreatorAccountStorage): SavedCreatorAccount[] {
   const raw = storage.getItem(CREATOR_SAVED_ACCOUNTS_KEY);
   if (!raw) return [];
   let parsed: unknown;
@@ -74,11 +81,10 @@ export function readCreatorSavedAccounts(storage: CreatorAccountStorage): SavedC
   return accounts;
 }
 
-export function writeCreatorSavedAccounts(
+function persistAccounts(
   storage: CreatorAccountStorage,
   accounts: SavedCreatorAccount[],
 ): SavedCreatorAccount[] {
-  stripLegacyCreatorPasswordKeys(storage);
   const limited = accounts.slice(0, CREATOR_SAVED_ACCOUNT_LIMIT).map((account) => {
     const next: SavedCreatorAccount = {
       identifier: account.identifier,
@@ -88,7 +94,35 @@ export function writeCreatorSavedAccounts(
     return next;
   });
   storage.setItem(CREATOR_SAVED_ACCOUNTS_KEY, JSON.stringify(limited));
+  clearAllLegacyCreatorLoginKeys(storage);
   return limited;
+}
+
+/**
+ * Absorb any leftover OLD single-account keys into the NEW list, persist, then DELETE legacy keys.
+ * Every read path does this so we never keep a permanent OLD→NEW bridge.
+ */
+export function readCreatorSavedAccounts(storage: CreatorAccountStorage): SavedCreatorAccount[] {
+  const accounts = parseStoredAccounts(storage);
+  const legacyId = (storage.getItem(LEGACY_IDENTIFIER_KEY) || "").trim();
+  const legacyUser = (storage.getItem(LEGACY_USERNAME_KEY) || "").trim();
+
+  if (legacyId && !accounts.some((account) => account.identifier === legacyId)) {
+    return persistAccounts(storage, [
+      { identifier: legacyId, username: legacyUser || legacyId.split("@")[0] || legacyId },
+      ...accounts,
+    ]);
+  }
+
+  clearAllLegacyCreatorLoginKeys(storage);
+  return accounts;
+}
+
+export function writeCreatorSavedAccounts(
+  storage: CreatorAccountStorage,
+  accounts: SavedCreatorAccount[],
+): SavedCreatorAccount[] {
+  return persistAccounts(storage, accounts);
 }
 
 export function upsertCreatorSavedAccount(
@@ -117,20 +151,5 @@ export function writeCreatorSavePref(storage: CreatorAccountStorage, enabled: bo
 }
 
 export function migrateLegacyCreatorLoginKeys(storage: CreatorAccountStorage): SavedCreatorAccount[] {
-  stripLegacyCreatorPasswordKeys(storage);
-  const accounts = readCreatorSavedAccounts(storage);
-  const legacyId = (storage.getItem(LEGACY_IDENTIFIER_KEY) || "").trim();
-  const legacyUser = (storage.getItem(LEGACY_USERNAME_KEY) || "").trim();
-  let next = accounts;
-  if (legacyId && !accounts.some((account) => account.identifier === legacyId)) {
-    next = writeCreatorSavedAccounts(storage, [
-      { identifier: legacyId, username: legacyUser || legacyId.split("@")[0] || legacyId },
-      ...accounts,
-    ]);
-  }
-  storage.removeItem(LEGACY_IDENTIFIER_KEY);
-  storage.removeItem(LEGACY_USERNAME_KEY);
-  storage.removeItem(LEGACY_PASSWORD_KEY);
-  storage.removeItem(LEGACY_SAVE_PASSWORD_KEY);
-  return next;
+  return readCreatorSavedAccounts(storage);
 }

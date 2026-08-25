@@ -1,5 +1,4 @@
 import { getPool } from "../../infra/postgres.js";
-import { isLiveNeonSchema } from "../../infra/liveSchema.js";
 import { AppError } from "../../middleware/errors.js";
 import {
   reportBodySchema,
@@ -47,20 +46,12 @@ export async function createReport(reporterId: string, body: unknown): Promise<{
   const targetUserId =
     parsed.targetType === "user" && UUID_RE.test(parsed.targetId) ? parsed.targetId : null;
   try {
-    const live = await isLiveNeonSchema();
-    const inserted = live
-      ? await getPool().query<{ id: string }>(
-          `INSERT INTO elix_reports (reporter_id, target_user_id, target_kind, target_id, reason, details, status)
-           VALUES ($1, $2, $3, $4, $5, $6, 'open')
-           RETURNING id::text AS id`,
-          [reporterId, targetUserId, parsed.targetType, parsed.targetId, parsed.reason, parsed.details],
-        )
-      : await getPool().query<{ id: string }>(
-          `INSERT INTO reports (reporter_id, target_user_id, target_kind, target_id, reason, details, status)
-           VALUES ($1, $2, $3, $4, $5, $6, 'open')
-           RETURNING id::text AS id`,
-          [reporterId, targetUserId, parsed.targetType, parsed.targetId, parsed.reason, parsed.details],
-        );
+    const inserted = await getPool().query<{ id: string }>(
+      `INSERT INTO reports (reporter_id, target_user_id, target_kind, target_id, reason, details, status)
+       VALUES ($1, $2, $3, $4, $5, $6, 'open')
+       RETURNING id::text AS id`,
+      [reporterId, targetUserId, parsed.targetType, parsed.targetId, parsed.reason, parsed.details],
+    );
     const id = inserted.rows[0]?.id;
     if (!id) throw new AppError("DATABASE_UNAVAILABLE", "DATABASE_UNAVAILABLE", 503);
     return { ok: true, id };

@@ -1,18 +1,11 @@
 import type { Response } from "express";
 import { getPool } from "../../infra/postgres.js";
-import { isLiveNeonSchema } from "../../infra/liveSchema.js";
 import { logger } from "../../infra/logger.js";
 import type { AuthedRequest } from "../../middleware/auth.js";
 
 export const ADMIN_DAU_QUERY = `
   SELECT COUNT(DISTINCT user_id)::text AS dau
   FROM auth_sessions
-  WHERE created_at > NOW() - INTERVAL '24 hours'
-`;
-
-export const ADMIN_DAU_QUERY_LIVE = `
-  SELECT COUNT(DISTINCT user_id)::text AS dau
-  FROM elix_auth_sessions
   WHERE created_at > NOW() - INTERVAL '24 hours'
 `;
 
@@ -24,17 +17,6 @@ export const ADMIN_DASHBOARD_QUERY = `
     (SELECT COUNT(*)::text FROM reports WHERE status IN ('open', 'pending')) AS reports,
     (SELECT COALESCE(SUM(amount_pence), 0)::text FROM shop_purchases WHERE status = 'paid') AS revenue,
     (SELECT COUNT(DISTINCT user_id)::text FROM auth_sessions WHERE created_at > NOW() - INTERVAL '24 hours') AS dau
-`;
-
-export const ADMIN_DASHBOARD_QUERY_LIVE = `
-  SELECT
-    (SELECT COUNT(*)::text FROM elix_auth_users) AS users,
-    (SELECT COUNT(*)::text FROM videos WHERE btrim(COALESCE(url, '')) <> '') AS videos,
-    (SELECT COUNT(*)::text FROM live_streams WHERE is_live = TRUE AND ended_at IS NULL) AS live,
-    (SELECT COUNT(*)::text FROM elix_reports WHERE status IN ('open', 'pending')) AS reports,
-    (SELECT COALESCE(SUM(ROUND(COALESCE(amount_gbp, 0) * 100))::bigint, 0)::text
-       FROM elix_shop_purchases) AS revenue,
-    (SELECT COUNT(DISTINCT user_id)::text FROM elix_auth_sessions WHERE created_at > NOW() - INTERVAL '24 hours') AS dau
 `;
 
 export type AdminDashboardStats = {
@@ -86,9 +68,9 @@ export function mapDashboardRow(row: Record<string, unknown> | undefined): Admin
 }
 
 export async function loadAdminDashboardStats(): Promise<AdminDashboardStats> {
-  const live = await isLiveNeonSchema();
+  
   const { rows } = await getPool().query<Record<string, unknown>>(
-    live ? ADMIN_DASHBOARD_QUERY_LIVE : ADMIN_DASHBOARD_QUERY,
+    ADMIN_DASHBOARD_QUERY,
   );
   const stats = mapDashboardRow(rows[0]);
   if (!stats) throw new Error("DASHBOARD_SHAPE_INVALID");
@@ -96,8 +78,8 @@ export async function loadAdminDashboardStats(): Promise<AdminDashboardStats> {
 }
 
 export async function loadAdminDau(): Promise<number> {
-  const live = await isLiveNeonSchema();
-  const { rows } = await getPool().query<{ dau: string }>(live ? ADMIN_DAU_QUERY_LIVE : ADMIN_DAU_QUERY);
+  
+  const { rows } = await getPool().query<{ dau: string }>(ADMIN_DAU_QUERY);
   const dau = parseAdminCount(rows[0]?.dau);
   if (dau == null) throw new Error("DAU_SHAPE_INVALID");
   return dau;
