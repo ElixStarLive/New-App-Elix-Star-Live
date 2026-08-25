@@ -84,7 +84,7 @@ try {
   await redis.connect();
   const pong = await redis.ping();
   if (pong !== "PONG") throw new Error("unexpected ping: " + pong);
-  const probeKey = `elix:proof:${Date.now()}`;
+  const probeKey = `new:proof:${Date.now()}`;
   await redis.set(probeKey, "1", "EX", 30);
   const got = await redis.get(probeKey);
   await redis.del(probeKey);
