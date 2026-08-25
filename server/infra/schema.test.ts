@@ -27,15 +27,11 @@ describe("baseline schema", () => {
     expect(sql.includes("restore_rose_battle_points")).toBe(false);
   });
 
-  it("preflights legacy FK parent id columns before REFERENCES", () => {
-    expect(sql).toContain("live_streams_id_unique_idx");
-    expect(sql).toContain("videos_id_unique_idx");
-    expect(sql).toContain("gifts_id_unique_idx");
-    expect(sql).toContain("users_id_unique_idx");
-    const liveIdIdx = sql.indexOf("CREATE UNIQUE INDEX IF NOT EXISTS live_streams_id_unique_idx");
-    const liveRefIdx = sql.indexOf("stream_id UUID NOT NULL REFERENCES live_streams(id)");
-    expect(liveIdIdx).toBeGreaterThan(0);
-    expect(liveRefIdx).toBeGreaterThan(liveIdIdx);
+  it("is greenfield-only and does not embed legacy id renames", () => {
+    expect(sql.includes("RENAME COLUMN id TO")).toBe(false);
+    expect(sql.includes("legacy_id_compat")).toBe(false);
+    expect(sql).toContain("CREATE TABLE IF NOT EXISTS live_streams");
+    expect(sql).toContain("REFERENCES live_streams(id)");
   });
 });
 
