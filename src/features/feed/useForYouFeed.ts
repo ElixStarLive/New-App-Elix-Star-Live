@@ -240,7 +240,7 @@ export function useForYouFeed() {
   const liveByHost = useMemo(() => {
     const next = new Map<string, string>();
     for (const stream of lives) {
-      const roomId = stream.roomId || stream.streamId;
+      const roomId = stream.roomId.trim();
       if (stream.hostId && roomId) next.set(stream.hostId, roomId);
     }
     return next;

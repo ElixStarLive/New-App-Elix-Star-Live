@@ -57,7 +57,7 @@ export function StemFeedOverlay({
       if (res.error) return;
       const next = new Map<string, string>();
       for (const stream of res.streams) {
-        const roomId = stream.roomId || stream.streamId;
+        const roomId = stream.roomId.trim();
         if (stream.hostId && roomId) next.set(stream.hostId, roomId);
       }
       setLiveByHost(next);
