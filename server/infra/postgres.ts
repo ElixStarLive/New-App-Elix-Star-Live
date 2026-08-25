@@ -65,21 +65,6 @@ export async function withTransaction<T>(fn: (client: pg.PoolClient) => Promise<
   }
 }
 
-async function columnUdtName(
-  client: pg.PoolClient,
-  table: string,
-  column: string,
-): Promise<string | null> {
-  const { rows } = await client.query<{ udt_name: string }>(
-    `SELECT udt_name
-       FROM information_schema.columns
-      WHERE table_schema = 'public' AND table_name = $1 AND column_name = $2
-      LIMIT 1`,
-    [table, column],
-  );
-  return rows[0]?.udt_name ?? null;
-}
-
 async function baseTableExists(client: pg.PoolClient, table: string): Promise<boolean> {
   const { rows } = await client.query<{ exists: boolean }>(
     `SELECT EXISTS (
@@ -94,77 +79,49 @@ async function baseTableExists(client: pg.PoolClient, table: string): Promise<bo
 }
 
 /**
- * NEW baseline is greenfield-only (uuid id primary keys).
- * Pointing Coolify at OLD production Neon and "making baseline legacy-safe"
- * is not supported. Fail before any destructive/half-migration work.
+ * NEW app must use a NEW Neon database created from scratch.
+ * OLD production Neon is reference/rollback only — never migrate against it.
+ *
+ * Detect OLD production markers and refuse before any migration DDL runs.
  */
-async function assertGreenfieldOrCanonicalDatabase(
+async function assertNewAppDatabaseTarget(
   client: pg.PoolClient,
   alreadyApplied: Set<string>,
 ): Promise<void> {
+  // If NEW baseline already applied on this database, it is the NEW DB target.
   if (alreadyApplied.has(BASELINE_MIGRATION)) return;
 
-  const problems: string[] = [];
-
-  const uuidParents: Array<{ table: string; legacyKey?: string }> = [
-    { table: "users", legacyKey: "user_id" },
-    { table: "videos", legacyKey: "video_id" },
-    { table: "live_streams", legacyKey: "stream_id" },
-    { table: "battle_results", legacyKey: "battle_id" },
-    { table: "chat_threads", legacyKey: "thread_id" },
-    { table: "shop_items", legacyKey: "item_id" },
-  ];
-
-  for (const parent of uuidParents) {
-    if (!(await baseTableExists(client, parent.table))) continue;
-    const idUdt = await columnUdtName(client, parent.table, "id");
-    if (!idUdt) {
-      if (parent.legacyKey && (await columnUdtName(client, parent.table, parent.legacyKey))) {
-        problems.push(
-          `${parent.table} exists with ${parent.legacyKey} but without canonical uuid id (legacy Neon shape)`,
-        );
-      }
-      continue;
-    }
-    if (idUdt !== "uuid") {
-      problems.push(`${parent.table}.id is type ${idUdt}, NEW baseline requires uuid`);
-    }
+  const oldMarkers: string[] = [];
+  for (const table of [
+    "elix_auth_users",
+    "elix_wallet_balances",
+    "elix_blocked_users",
+    "profiles",
+  ] as const) {
+    if (await baseTableExists(client, table)) oldMarkers.push(table);
   }
 
-  if (await baseTableExists(client, "gifts")) {
-    const giftIdUdt = await columnUdtName(client, "gifts", "id");
-    const hasGiftId = Boolean(await columnUdtName(client, "gifts", "gift_id"));
-    if (!giftIdUdt && hasGiftId) {
-      problems.push("gifts exists with gift_id but without canonical text id (legacy Neon shape)");
-    } else if (giftIdUdt && giftIdUdt !== "text" && giftIdUdt !== "varchar" && giftIdUdt !== "bpchar") {
-      problems.push(`gifts.id is type ${giftIdUdt}, NEW baseline requires text`);
-    }
-  }
-
-  if (await baseTableExists(client, "elix_auth_users")) {
-    const usersIdUdt = (await baseTableExists(client, "users"))
-      ? await columnUdtName(client, "users", "id")
-      : null;
-    if (usersIdUdt !== "uuid") {
-      problems.push("elix_auth_users is present without canonical public.users(id uuid) (legacy Neon shape)");
-    }
-  }
-
-  if (problems.length === 0) return;
+  // Empty public schema (or only elix_schema_migrations) is the correct NEW target.
+  if (oldMarkers.length === 0) return;
 
   throw new Error(
     [
-      "NEW app refused to migrate: DATABASE_URL points at a legacy / incompatible Neon schema.",
-      ...problems.map((p) => `- ${p}`),
+      "NEW app refused to migrate: DATABASE_URL points at the OLD production Neon schema.",
+      `OLD markers found: ${oldMarkers.join(", ")}`,
       "",
-      "Proper fix (not a bootstrap patch):",
-      "1. Keep OLD Coolify + OLD Neon serving production.",
-      "2. Create a NEW empty Neon database for the NEW app.",
-      "3. Set the NEW Coolify service DATABASE_URL to that empty database.",
-      "4. Deploy NEW so greenfield baseline can create the uuid schema cleanly.",
-      "5. Cut over data / DNS only after NEW health + migrations pass.",
+      "Required architecture:",
+      "- OLD app → OLD Neon (untouched reference / rollback)",
+      "- NEW staging/app → NEW empty Neon (clean NEW migrations only)",
       "",
-      "Do not point NEW start:prod at OLD production Neon.",
+      "Safe sequence:",
+      "1. Create a NEW empty Neon/PostgreSQL database.",
+      "2. Point a NEW/staging Coolify deployment DATABASE_URL at that NEW database (do not flip live production yet).",
+      "3. Deploy NEW there; greenfield migrations create the NEW schema.",
+      "4. Verify contracts, APIs, tests, and runtime on NEW Neon.",
+      "5. Later: migrate data OLD → NEW (preserve IDs), verify, then switch production NEW app to NEW Neon.",
+      "",
+      "Keep OLD Neon connected only to OLD / rollback until NEW production is proven.",
+      "Do not run NEW migrations against OLD. Do not ALTER OLD tables at boot.",
     ].join("\n"),
   );
 }
@@ -195,7 +152,7 @@ export async function applyPendingMigrations(databaseUrl = env().DATABASE_URL): 
     );
     const already = new Set(rows.map((r) => r.filename));
 
-    await assertGreenfieldOrCanonicalDatabase(client, already);
+    await assertNewAppDatabaseTarget(client, already);
 
     for (const name of listMigrationFilenames()) {
       if (already.has(name)) continue;
