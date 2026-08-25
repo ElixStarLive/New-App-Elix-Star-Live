@@ -280,7 +280,7 @@ export default function Shop() {
     const payload = {
       title: newTitle.trim(),
       description: newDescription.trim(),
-      price: Math.round(parsed * 100) / 100,
+      pricePence: Math.round(parsed * 100),
       imageUrl,
       category: newCategory,
     };
@@ -561,7 +561,7 @@ export default function Shop() {
                           id: item.id,
                           title: item.title,
                           price: item.price,
-                          image_url: item.imageUrl,
+                          imageUrl: item.imageUrl,
                         });
                         if (!added.ok) {
                           showToast(added.error);
@@ -827,8 +827,8 @@ export default function Shop() {
                         const qty = Math.max(1, Math.floor(Number(ci.quantity) || 1));
                         return (
                           <div key={ci.id} className="flex items-center gap-3 py-2 border-b border-white/5">
-                            {ci.image_url ? (
-                              <img src={ci.image_url} alt={ci.title} className="w-12 h-12 rounded-lg object-cover flex-shrink-0" />
+                            {ci.imageUrl ? (
+                              <img src={ci.imageUrl} alt={ci.title} className="w-12 h-12 rounded-lg object-cover flex-shrink-0" />
                             ) : (
                               <div className="w-12 h-12 rounded-lg bg-white/5 flex items-center justify-center flex-shrink-0">
                                 <Tag size={16} className="text-white/20" />

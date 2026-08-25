@@ -27,7 +27,6 @@ export const shopCheckoutBodySchema = z
 export const shopItemWriteSchema = z.object({
   title: z.string().trim().min(1).max(200),
   description: z.string().trim().max(5000).optional(),
-  price: z.number().positive().optional(),
   pricePence: z.number().int().positive().optional(),
   imageUrl: z.string().url().nullable().optional(),
   category: shopCategorySchema.optional(),

@@ -75,6 +75,21 @@ await c.connect();
 const { rows: ping } = await c.query<{ ok: number }>("SELECT 1::int AS ok");
 if (ping[0]?.ok !== 1) throw new Error("Neon ping failed");
 console.log("NEON_PING=PASS");
+{
+  const { rows: mig } = await c.query<{ n: number }>(
+    `SELECT COUNT(*)::int AS n FROM information_schema.tables
+     WHERE table_schema = 'public' AND table_name = 'schema_migrations'`,
+  );
+  if (mig[0]?.n !== 1) throw new Error("schema_migrations missing after applyPendingMigrations");
+  const { rows: legacy } = await c.query<{ n: number }>(
+    `SELECT COUNT(*)::int AS n FROM information_schema.tables
+     WHERE table_schema = 'public' AND table_name = 'elix_schema_migrations'`,
+  );
+  if ((legacy[0]?.n ?? 0) > 0) {
+    throw new Error("elix_schema_migrations still present; expect rename to schema_migrations");
+  }
+  console.log("NEON_MIGRATIONS_TABLE=schema_migrations");
+}
 await c.end();
 
 // --- Valkey (real) ---

@@ -34,21 +34,20 @@ const tables = await pool.query(`
     )
   ORDER BY 1
 `);
-console.log("TABLES=" + JSON.stringify(tables.rows.map((r) => r.table_name)));
+const names = tables.rows.map((r) => r.table_name);
+console.log("TABLES=" + JSON.stringify(names));
 
-const migTable = tables.rows.some((r) => r.table_name === "schema_migrations")
-  ? "schema_migrations"
-  : tables.rows.some((r) => r.table_name === "elix_schema_migrations")
-    ? "elix_schema_migrations"
-    : null;
-
-if (!migTable) {
+if (names.includes("elix_schema_migrations") && !names.includes("schema_migrations")) {
+  console.error("LEGACY_MIGRATIONS_TABLE_ONLY: rename/boot to schema_migrations required");
+  process.exit(1);
+}
+if (!names.includes("schema_migrations")) {
   console.error("NO_MIGRATIONS_TABLE");
   process.exit(1);
 }
 
-const count = await pool.query(`SELECT COUNT(*)::int AS n FROM ${migTable}`);
-console.log("MIGRATIONS_TABLE=" + migTable + " COUNT=" + count.rows[0].n);
+const count = await pool.query(`SELECT COUNT(*)::int AS n FROM schema_migrations`);
+console.log("MIGRATIONS_TABLE=schema_migrations COUNT=" + count.rows[0].n);
 
 const auth = await pool.query(`SELECT COUNT(*)::int AS n FROM users`);
 console.log("USERS_COUNT=" + auth.rows[0].n);

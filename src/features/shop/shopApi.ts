@@ -70,7 +70,7 @@ export async function apiListShopItems(sellerId?: string): Promise<{ items: Shop
 export async function apiCreateShopItem(body: {
   title: string;
   description: string;
-  price: number;
+  pricePence: number;
   imageUrl?: string | null;
   category: string;
 }): Promise<{ item: ShopItem | null; error: string | null }> {
@@ -88,7 +88,7 @@ export async function apiUpdateShopItem(
   body: {
     title: string;
     description: string;
-    price: number;
+    pricePence: number;
     imageUrl?: string | null;
     category: string;
   },

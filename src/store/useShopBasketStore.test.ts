@@ -5,7 +5,7 @@ const item = (n: number) => ({
   id: `00000000-0000-4000-8000-0000000000${String(n).padStart(2, "0")}`,
   title: `Item ${n}`,
   price: 1,
-  image_url: null,
+  imageUrl: null,
 });
 
 describe("PAGE-036 shop basket", () => {

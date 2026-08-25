@@ -8,7 +8,7 @@ export type ShopBasketLine = {
   id: string;
   title: string;
   price: number;
-  image_url: string | null;
+  imageUrl: string | null;
   quantity: number;
 };
 
@@ -52,7 +52,7 @@ export const useShopBasketStore = create<ShopBasketState>()(
               id: item.id,
               title: item.title,
               price: item.price,
-              image_url: item.image_url,
+              imageUrl: item.imageUrl,
               quantity: 1,
             },
           ],
@@ -73,6 +73,6 @@ export const useShopBasketStore = create<ShopBasketState>()(
       clear: () => set({ items: [] }),
       totalUnits: () => get().items.reduce((sum, line) => sum + clampQty(line.quantity), 0),
     }),
-    { name: "elix_shop_basket_v1" },
+    { name: "elix_shop_basket_v2" },
   ),
 );

@@ -33,8 +33,13 @@ describe("PAGE-036 Shop ownership", () => {
     expect(catalog).not.toMatch(/user_id: row\.seller_id/);
     expect(catalog).not.toMatch(/image_url: row\.image_url/);
     expect(catalog).not.toMatch(/req\.query\.user_id/);
+    expect(catalog).not.toMatch(/typeof raw\.price ===/);
+    expect(catalog).toMatch(/typeof raw\.pricePence ===/);
     expect(checkout).toMatch(/paymentStatus: session\.payment_status/);
     expect(checkout).not.toMatch(/payment_status: session\.payment_status/);
+    expect(page).toMatch(/pricePence:/);
+    expect(page).toMatch(/imageUrl: item\.imageUrl/);
+    expect(page).not.toMatch(/image_url: item\.imageUrl/);
     expect(webhook).toMatch(/fulfillShopCheckoutSession/);
     expect(index).toMatch(/app\.use\("\/api\/shop", shopRouter\)/);
     expect(index).not.toMatch(/shopCheckout/);
