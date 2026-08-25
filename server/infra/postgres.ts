@@ -64,6 +64,17 @@ export async function withTransaction<T>(fn: (client: pg.PoolClient) => Promise<
   }
 }
 
+async function isLegacyProductionShape(client: pg.PoolClient): Promise<boolean> {
+  const { rows } = await client.query<{ name: string }>(
+    `SELECT table_name AS name
+       FROM information_schema.tables
+      WHERE table_schema = 'public'
+        AND table_name IN ('elix_auth_users', 'profiles', 'elix_wallet_balances', 'live_streams')`,
+  );
+  const names = new Set(rows.map((row) => row.name));
+  return names.has("elix_auth_users") || (names.has("profiles") && names.has("live_streams"));
+}
+
 export async function applyPendingMigrations(databaseUrl = env().DATABASE_URL): Promise<string[]> {
   const url = directDatabaseUrl(databaseUrl);
   const needsSsl = url.includes("neon.tech") || url.includes("sslmode=require");
@@ -88,7 +99,23 @@ export async function applyPendingMigrations(databaseUrl = env().DATABASE_URL): 
       "SELECT filename FROM elix_schema_migrations ORDER BY id",
     );
     const already = new Set(rows.map((r) => r.filename));
-    for (const name of listMigrationFilenames()) {
+    const filenames = listMigrationFilenames();
+
+    if (!already.has("20260819100000_baseline.sql") && rows.length === 0) {
+      const legacyShape = await isLegacyProductionShape(client);
+      if (legacyShape) {
+        logger.info(
+          { migration: "20260819100000_baseline.sql" },
+          "marking baseline as applied on legacy production schema",
+        );
+        await client.query("INSERT INTO elix_schema_migrations (filename) VALUES ($1)", [
+          "20260819100000_baseline.sql",
+        ]);
+        already.add("20260819100000_baseline.sql");
+      }
+    }
+
+    for (const name of filenames) {
       if (already.has(name)) continue;
       logger.info({ migration: name }, "applying migration");
       await client.query("BEGIN");
