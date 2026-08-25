@@ -99,6 +99,26 @@ function mapUserRow(row: {
   };
 }
 
+function adminUserWire(row: AdminUserRow) {
+  return {
+    id: row.id,
+    username: row.username,
+    email: row.email,
+    avatar_url: row.avatarUrl,
+    created_at: row.createdAt,
+    is_banned: row.isBanned,
+  };
+}
+
+function adminBanWire(result: { ok: true; userId: string; bannedUntil?: string; isBanned: boolean }) {
+  return {
+    ok: true,
+    userId: result.userId,
+    ...(result.bannedUntil ? { banned_until: result.bannedUntil } : {}),
+    is_banned: result.isBanned,
+  };
+}
+
 export async function loadAdminUsers(query: unknown): Promise<AdminUserRow[]> {
   const q = parseAdminUsersQuery(query);
   const like = q ? `%${escapeAdminUserLike(q.toLowerCase())}%` : "";
@@ -182,7 +202,7 @@ export async function handleAdminUsers(req: AuthedRequest, res: Response): Promi
   res.setHeader("Cache-Control", "private, no-store");
   try {
     const users = await loadAdminUsers(req.query.q);
-    res.json({ users });
+    res.json({ users: users.map(adminUserWire) });
   } catch (error) {
     writeDatabaseFailure(res, error, "admin list users failed");
   }
@@ -195,7 +215,7 @@ export async function handleAdminBan(req: AuthedRequest, res: Response): Promise
   const until = parseOptionalBanUntil(req.body?.until);
   const reason = parseOptionalBanReason(req.body?.reason);
   try {
-    res.json(await applyAdminBan(req.userId as string, userId, until, reason));
+    res.json(adminBanWire(await applyAdminBan(req.userId as string, userId, until, reason)));
   } catch (error) {
     if (error instanceof AppError) throw error;
     writeDatabaseFailure(res, error, "admin ban failed");
@@ -207,7 +227,7 @@ export async function handleAdminUnban(req: AuthedRequest, res: Response): Promi
   const userId = String(req.params.userId ?? "");
   if (!isAdminUserId(userId)) throw new AppError("validation_error", "Invalid user", 400);
   try {
-    res.json(await applyAdminUnban(req.userId as string, userId));
+    res.json(adminBanWire(await applyAdminUnban(req.userId as string, userId)));
   } catch (error) {
     if (error instanceof AppError) throw error;
     writeDatabaseFailure(res, error, "admin unban failed");

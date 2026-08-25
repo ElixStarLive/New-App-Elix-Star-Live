@@ -113,30 +113,35 @@ export async function createConnectOnboardingLink(userId: string): Promise<{
   if (!stripe) {
     throw new AppError("unavailable", "Stripe Connect is not configured", 503);
   }
-  let accountId = await sessionAccountId(userId);
-  if (!accountId) {
-    const account = await stripe.accounts.create({
-      type: "express",
-      country: "GB",
-      capabilities: { transfers: { requested: true } },
+  try {
+    let accountId = await sessionAccountId(userId);
+    if (!accountId) {
+      const account = await stripe.accounts.create({
+        type: "express",
+        country: "GB",
+        capabilities: { transfers: { requested: true } },
+      });
+      accountId = account.id;
+      await getPool().query(
+        `INSERT INTO payout_accounts (user_id, stripe_account_id)
+         VALUES ($1, $2)
+         ON CONFLICT (user_id) DO UPDATE SET stripe_account_id = EXCLUDED.stripe_account_id`,
+        [userId, accountId],
+      );
+    }
+    const urls = payoutReturnUrls();
+    const link = await stripe.accountLinks.create({
+      account: accountId,
+      refresh_url: urls.refresh_url,
+      return_url: urls.return_url,
+      type: "account_onboarding",
     });
-    accountId = account.id;
-    await getPool().query(
-      `INSERT INTO payout_accounts (user_id, stripe_account_id)
-       VALUES ($1, $2)
-       ON CONFLICT (user_id) DO UPDATE SET stripe_account_id = EXCLUDED.stripe_account_id`,
-      [userId, accountId],
-    );
+    if (!link.url || !/^https:\/\//i.test(link.url)) {
+      throw new AppError("unavailable", "Connect onboarding was not created", 503);
+    }
+    return { ok: true, onboardingUrl: link.url, payouts_enabled: false };
+  } catch (error) {
+    if (error instanceof AppError) throw error;
+    throw new AppError("unavailable", "Stripe Connect is not configured", 503);
   }
-  const urls = payoutReturnUrls();
-  const link = await stripe.accountLinks.create({
-    account: accountId,
-    refresh_url: urls.refresh_url,
-    return_url: urls.return_url,
-    type: "account_onboarding",
-  });
-  if (!link.url || !/^https:\/\//i.test(link.url)) {
-    throw new AppError("unavailable", "Connect onboarding was not created", 503);
-  }
-  return { ok: true, onboardingUrl: link.url, payouts_enabled: false };
 }

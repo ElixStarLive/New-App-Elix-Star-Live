@@ -50,6 +50,8 @@ function parseWriteBody(body: unknown, requirePrice: boolean): {
   let pricePence: number | null = null;
   if (typeof raw.pricePence === "number" && Number.isFinite(raw.pricePence)) {
     pricePence = Math.round(raw.pricePence);
+  } else if (typeof raw.price === "number" && Number.isFinite(raw.price)) {
+    pricePence = Math.round(raw.price * 100);
   }
   if (requirePrice && (pricePence === null || !Number.isFinite(pricePence) || pricePence < 1)) {
     throw new AppError("validation_error", "Invalid price", 400);

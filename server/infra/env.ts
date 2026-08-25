@@ -29,11 +29,53 @@ export type Env = z.infer<typeof envSchema> & {
 
 let cached: Env | null = null;
 
+function resolveValkeyUrl(
+  parsed: z.infer<typeof envSchema>,
+  merged: Record<string, string | undefined>,
+): string | null {
+  // server/http.it.test.ts harness: local disposable Postgres only — never inherit
+  // production Valkey from developer .env unless TEST_VALKEY_URL is explicitly set.
+  if (parsed.NODE_ENV === "test" && merged.TEST_DATABASE_URL?.trim()) {
+    const testValkey = merged.TEST_VALKEY_URL?.trim();
+    return testValkey || null;
+  }
+  const raw = parsed.VALKEY_URL?.trim() || parsed.REDIS_URL?.trim() || "";
+  return raw || null;
+}
+
+function resolveIntegrationOverride(
+  parsed: z.infer<typeof envSchema>,
+  merged: Record<string, string | undefined>,
+  testKey: string | undefined,
+  liveKeys: Array<string | undefined>,
+): string | undefined {
+  if (parsed.NODE_ENV === "test" && merged.TEST_DATABASE_URL?.trim()) {
+    return testKey?.trim() || undefined;
+  }
+  for (const key of liveKeys) {
+    const trimmed = key?.trim();
+    if (trimmed) return trimmed;
+  }
+  return undefined;
+}
+
 export function loadEnv(overrides: Record<string, string | undefined> = {}): Env {
   const merged = { ...process.env, ...overrides };
   const parsed = envSchema.parse(merged);
-  const valkeyUrl = parsed.VALKEY_URL || parsed.REDIS_URL || null;
+  const valkeyUrl = resolveValkeyUrl(parsed, merged);
   const isProduction = parsed.NODE_ENV === "production";
+  const stripeSecretKey = resolveIntegrationOverride(
+    parsed,
+    merged,
+    merged.TEST_STRIPE_SECRET_KEY,
+    [parsed.STRIPE_SECRET_KEY],
+  );
+  const stripeWebhookSecret = resolveIntegrationOverride(
+    parsed,
+    merged,
+    merged.TEST_STRIPE_WEBHOOK_SECRET,
+    [parsed.STRIPE_WEBHOOK_SECRET],
+  );
   if (isProduction && !valkeyUrl) {
     throw new Error("VALKEY_URL is required in production");
   }
@@ -79,7 +121,13 @@ export function loadEnv(overrides: Record<string, string | undefined> = {}): Env
       throw new Error("CLIENT_URL must be a public https origin in production");
     }
   }
-  const env: Env = { ...parsed, valkeyUrl, isProduction };
+  const env: Env = {
+    ...parsed,
+    STRIPE_SECRET_KEY: stripeSecretKey,
+    STRIPE_WEBHOOK_SECRET: stripeWebhookSecret,
+    valkeyUrl,
+    isProduction,
+  };
   cached = env;
   return env;
 }

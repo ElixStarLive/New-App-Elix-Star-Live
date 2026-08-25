@@ -31,6 +31,25 @@ import {
 const TEST_JWT = "integration-test-jwt-secret-key-32chars";
 let httpIntegrationSkipReason = "";
 
+function clearIntegrationSecrets(): void {
+  delete process.env.VALKEY_URL;
+  delete process.env.REDIS_URL;
+  delete process.env.TEST_VALKEY_URL;
+  delete process.env.STRIPE_SECRET_KEY;
+  delete process.env.STRIPE_WEBHOOK_SECRET;
+  delete process.env.FIREBASE_SERVICE_ACCOUNT_JSON;
+  delete process.env.FIREBASE_SERVICE_ACCOUNT_BASE64;
+  delete process.env.FIREBASE_PROJECT_ID;
+  delete process.env.APNS_KEY_ID;
+  delete process.env.APNS_TEAM_ID;
+  delete process.env.APNS_PRIVATE_KEY;
+  delete process.env.APNS_BUNDLE_ID;
+  delete process.env.SMTP_URL;
+  delete process.env.LIVEKIT_URL;
+  delete process.env.LIVEKIT_API_KEY;
+  delete process.env.LIVEKIT_API_SECRET;
+}
+
 async function issueVerifyJwtForUser(userId: string): Promise<string> {
   const { rows } = await getPool().query<{
     email: string;
@@ -147,22 +166,12 @@ describe("http integration", () => {
     process.env.BUNNY_STORAGE_ZONE = "integration-zone";
     process.env.BUNNY_STORAGE_API_KEY = "integration-key";
     process.env.BUNNY_CDN_HOSTNAME = "cdn.test";
-    // Blank (do not delete) so dotenv/config in server/index.ts cannot reload .env Valkey.
-    process.env.VALKEY_URL = "";
-    process.env.REDIS_URL = "";
-    delete process.env.SMTP_URL;
-    delete process.env.LIVEKIT_URL;
-    delete process.env.LIVEKIT_API_KEY;
-    delete process.env.LIVEKIT_API_SECRET;
+    clearIntegrationSecrets();
     resetEnvCache();
     await resetIntegrationDatabase(db.url);
     await applyPendingMigrations(db.url);
     const { createApp } = await import("./index.js");
-    process.env.VALKEY_URL = "";
-    process.env.REDIS_URL = "";
-    delete process.env.LIVEKIT_URL;
-    delete process.env.LIVEKIT_API_KEY;
-    delete process.env.LIVEKIT_API_SECRET;
+    clearIntegrationSecrets();
     await closeValkey().catch(() => undefined);
     resetEnvCache();
     if (!originalFetch) {
@@ -223,7 +232,11 @@ describe("http integration", () => {
       "Content-Type": "application/json",
       ...(init.headers as Record<string, string> | undefined),
     };
-    if (token) headers.Authorization = `Bearer ${token}`;
+    const isPublicAuth =
+      pathName.startsWith("/api/auth/register") || pathName.startsWith("/api/auth/login");
+    if (token && !isPublicAuth && !headers.Authorization) {
+      headers.Authorization = `Bearer ${token}`;
+    }
     const res = await fetch(`${base}${pathName}`, { ...init, headers });
     const body = (await res.json().catch(() => ({}))) as Record<string, unknown>;
     return { status: res.status, body, setCookie: res.headers.get("set-cookie") ?? "" };
