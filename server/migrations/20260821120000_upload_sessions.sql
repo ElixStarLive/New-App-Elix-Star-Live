@@ -1,4 +1,4 @@
-CREATE TABLE upload_sessions (
+CREATE TABLE IF NOT EXISTS upload_sessions (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
   kind TEXT NOT NULL,
@@ -19,5 +19,5 @@ CREATE TABLE upload_sessions (
   CONSTRAINT upload_sessions_status_chk CHECK (status IN ('pending', 'uploaded', 'published', 'failed', 'aborted')),
   CONSTRAINT upload_sessions_user_idempotency UNIQUE (user_id, idempotency_key)
 );
-CREATE INDEX upload_sessions_status_updated_idx ON upload_sessions (status, updated_at);
-CREATE INDEX upload_sessions_user_idx ON upload_sessions (user_id, created_at DESC);
+CREATE INDEX IF NOT EXISTS upload_sessions_status_updated_idx ON upload_sessions (status, updated_at);
+CREATE INDEX IF NOT EXISTS upload_sessions_user_idx ON upload_sessions (user_id, created_at DESC);

@@ -1,4 +1,4 @@
-CREATE TABLE calls (
+CREATE TABLE IF NOT EXISTS calls (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   caller_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
   callee_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
@@ -9,5 +9,5 @@ CREATE TABLE calls (
   CONSTRAINT calls_status_chk CHECK (status IN ('ringing', 'active', 'ended', 'rejected')),
   CONSTRAINT calls_no_self CHECK (caller_id <> callee_id)
 );
-CREATE INDEX calls_callee_idx ON calls(callee_id, created_at DESC);
-CREATE INDEX calls_caller_idx ON calls(caller_id, created_at DESC);
+CREATE INDEX IF NOT EXISTS calls_callee_idx ON calls(callee_id, created_at DESC);
+CREATE INDEX IF NOT EXISTS calls_caller_idx ON calls(caller_id, created_at DESC);
