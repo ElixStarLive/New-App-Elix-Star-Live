@@ -65,7 +65,7 @@ router.get("/status", requireAuth, async (req: AuthedRequest, res) => {
   res.json({
     room: status.room,
     active: status.active,
-    host_user_id: status.hostUserId,
+    hostUserId: status.hostUserId,
   });
 });
 

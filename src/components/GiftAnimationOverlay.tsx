@@ -38,13 +38,13 @@ function readGiftDetail(data: unknown): ElixGiftPillDetail | null {
   if (!isRecord(data)) return null;
   return {
     username: typeof data.username === "string" ? data.username : undefined,
-    giftName: typeof data.giftName === "string" ? data.giftName : typeof data.gift_name === "string" ? data.gift_name : undefined,
-    giftIcon: typeof data.giftIcon === "string" ? data.giftIcon : typeof data.gift_icon === "string" ? data.gift_icon : undefined,
+    giftName: typeof data.giftName === "string" ? data.giftName : undefined,
+    giftIcon: typeof data.giftIcon === "string" ? data.giftIcon : undefined,
     avatar: typeof data.avatar === "string" ? data.avatar : undefined,
     quantity: typeof data.quantity === "number" ? data.quantity : 1,
-    creatorName: typeof data.creatorName === "string" ? data.creatorName : typeof data.creator_name === "string" ? data.creator_name : undefined,
-    streamId: typeof data.streamId === "string" ? data.streamId : typeof data.stream_id === "string" ? data.stream_id : undefined,
-    userId: typeof data.userId === "string" ? data.userId : typeof data.user_id === "string" ? data.user_id : undefined,
+    creatorName: typeof data.creatorName === "string" ? data.creatorName : undefined,
+    streamId: typeof data.streamId === "string" ? data.streamId : undefined,
+    userId: typeof data.userId === "string" ? data.userId : undefined,
   };
 }
 

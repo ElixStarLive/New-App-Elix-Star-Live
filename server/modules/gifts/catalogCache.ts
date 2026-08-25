@@ -5,7 +5,7 @@ import { AppError } from "../../middleware/errors.js";
 import type { PublicGiftCatalogItem } from "./catalog.js";
 
 /** Exact NEW public GET /api/gifts cache key. DB remains persistent catalog authority. */
-export const PUBLIC_GIFTS_CATALOG_KEY = "elix:gifts:catalog:v1";
+export const PUBLIC_GIFTS_CATALOG_KEY = "gifts:catalog:v1";
 export const PUBLIC_GIFTS_CATALOG_TTL_MS = 120_000;
 
 function isPublicGiftItem(value: unknown): value is PublicGiftCatalogItem {

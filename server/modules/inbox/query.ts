@@ -322,20 +322,8 @@ export async function listInboxNotices(viewerId: string): Promise<{
       const payload = row.payload ?? {};
       const title = typeof payload.title === "string" ? payload.title : row.kind;
       const body = typeof payload.body === "string" ? payload.body : "";
-      const imageUrl =
-        typeof payload.imageUrl === "string"
-          ? payload.imageUrl
-          : typeof payload.image_url === "string"
-            ? payload.image_url
-            : typeof payload.avatar_url === "string"
-              ? payload.avatar_url
-              : null;
-      const actionUrl =
-        typeof payload.actionUrl === "string"
-          ? payload.actionUrl
-          : typeof payload.action_url === "string"
-            ? payload.action_url
-            : null;
+      const imageUrl = typeof payload.imageUrl === "string" ? payload.imageUrl : null;
+      const actionUrl = typeof payload.actionUrl === "string" ? payload.actionUrl : null;
       shop.push({
         id: row.id,
         title,

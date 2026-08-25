@@ -1,7 +1,7 @@
 -- Clean target schema for Elix Star Live (NEW app).
 -- One baseline. Not a replay of historical patch migrations.
 
-CREATE TABLE IF NOT EXISTS elix_schema_migrations (
+CREATE TABLE IF NOT EXISTS schema_migrations (
   id SERIAL PRIMARY KEY,
   filename TEXT NOT NULL UNIQUE,
   applied_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
@@ -444,14 +444,13 @@ CREATE TABLE IF NOT EXISTS wallet_balances (
   paid_coins BIGINT NOT NULL DEFAULT 0 CHECK (paid_coins >= 0),
   promo_coins BIGINT NOT NULL DEFAULT 0 CHECK (promo_coins >= 0),
   starter_coins BIGINT NOT NULL DEFAULT 0 CHECK (starter_coins >= 0),
-  test_coins BIGINT NOT NULL DEFAULT 0 CHECK (test_coins >= 0),
   updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
 CREATE TABLE IF NOT EXISTS wallet_ledger (
   id BIGSERIAL PRIMARY KEY,
   user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
-  bucket TEXT NOT NULL CHECK (bucket IN ('paid', 'promo', 'starter', 'test')),
+  bucket TEXT NOT NULL CHECK (bucket IN ('paid', 'promo', 'starter')),
   delta BIGINT NOT NULL,
   balance_after BIGINT NOT NULL CHECK (balance_after >= 0),
   reason TEXT NOT NULL,

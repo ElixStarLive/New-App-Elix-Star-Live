@@ -34,7 +34,7 @@ describe("PAGE-073 public gifts catalog cache", () => {
   });
 
   it("uses the exact NEW catalog key and rejects malformed blobs", () => {
-    expect(PUBLIC_GIFTS_CATALOG_KEY).toBe("elix:gifts:catalog:v1");
+    expect(PUBLIC_GIFTS_CATALOG_KEY).toBe("gifts:catalog:v1");
     expect(
       parsePublicGiftsCatalogCache(
         JSON.stringify([{ id: "rose", name: "Rose", coinCost: 1, animationUrl: null }]),

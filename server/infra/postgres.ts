@@ -116,7 +116,13 @@ async function assertNewAppDatabaseTarget(
   );
 }
 
-/** Prefer NEW schema_migrations; rename tracker once if an earlier NEW boot used elix_schema_migrations. */
+/**
+ * Prefer NEW `schema_migrations`.
+ * If an earlier NEW-app boot created `elix_schema_migrations` on the NEW Neon DB,
+ * rename that tracker table once to `schema_migrations`. This is only a rename of
+ * the NEW app's own migration ledger — never seeds/alters OLD `elix_auth*` tables,
+ * and never runs against OLD Neon (refused by assertNewAppDatabaseTarget).
+ */
 async function ensureMigrationsTable(client: pg.PoolClient): Promise<void> {
   const hasNew = await baseTableExists(client, MIGRATIONS_TABLE);
   const hasLegacyName = await baseTableExists(client, LEGACY_MIGRATIONS_TABLE);

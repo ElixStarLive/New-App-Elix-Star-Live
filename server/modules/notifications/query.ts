@@ -7,8 +7,8 @@ const LIVE_STILL_LIVE_NEW = `
     SELECT 1 FROM live_streams s
     WHERE s.status = 'live'
       AND (
-        s.room_id = COALESCE(NULLIF(n.payload->>'roomId', ''), NULLIF(n.payload->>'room_id', ''), NULLIF(n.payload->>'streamKey', ''))
-        OR s.host_id::text = COALESCE(NULLIF(n.payload->>'hostUserId', ''), NULLIF(n.payload->>'host_user_id', ''), NULLIF(n.payload->>'hostId', ''))
+        s.room_id = COALESCE(NULLIF(n.payload->>'roomId', ''), NULLIF(n.payload->>'streamKey', ''))
+        OR s.host_id::text = COALESCE(NULLIF(n.payload->>'hostUserId', ''), NULLIF(n.payload->>'hostId', ''))
       )
   )
 `;
@@ -67,8 +67,8 @@ export async function listAlerts(viewerId: string): Promise<{ items: AlertRow[];
               FROM live_streams s
               WHERE s.status = 'live'
                 AND (
-                  s.room_id = COALESCE(NULLIF(n.payload->>'roomId', ''), NULLIF(n.payload->>'room_id', ''), NULLIF(n.payload->>'streamKey', ''))
-                  OR s.host_id::text = COALESCE(NULLIF(n.payload->>'hostUserId', ''), NULLIF(n.payload->>'host_user_id', ''), NULLIF(n.payload->>'hostId', ''))
+                  s.room_id = COALESCE(NULLIF(n.payload->>'roomId', ''), NULLIF(n.payload->>'streamKey', ''))
+                  OR s.host_id::text = COALESCE(NULLIF(n.payload->>'hostUserId', ''), NULLIF(n.payload->>'hostId', ''))
                 )
               ORDER BY s.started_at DESC
               LIMIT 1
@@ -77,7 +77,7 @@ export async function listAlerts(viewerId: string): Promise<{ items: AlertRow[];
               SELECT u.avatar_url
               FROM users u
               WHERE u.deleted_at IS NULL
-                AND u.id::text = COALESCE(NULLIF(n.payload->>'hostUserId', ''), NULLIF(n.payload->>'host_user_id', ''), NULLIF(n.payload->>'hostId', ''))
+                AND u.id::text = COALESCE(NULLIF(n.payload->>'hostUserId', ''), NULLIF(n.payload->>'hostId', ''))
               LIMIT 1
             ) AS host_avatar_url
      FROM notifications n
@@ -97,10 +97,10 @@ export async function listAlerts(viewerId: string): Promise<{ items: AlertRow[];
     const title = payloadString(payload, ["title"]) || "";
     const body = payloadString(payload, ["body"]) || "";
     const imageUrl =
-      payloadString(payload, ["imageUrl", "image_url", "avatar_url"]) || row.host_avatar_url || null;
+      payloadString(payload, ["imageUrl"]) || row.host_avatar_url || null;
     const actionUrl = row.live_room_id
       ? `/watch/${encodeURIComponent(row.live_room_id)}`
-      : internalPath(payloadString(payload, ["actionUrl", "action_url"]));
+      : internalPath(payloadString(payload, ["actionUrl"]));
     if (!row.read_at) unreadIds.push(row.id);
     return {
       id: row.id,

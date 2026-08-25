@@ -34,13 +34,13 @@ export function LiveGiftFeedStack({
   useEffect(() => {
     const ingest = (raw: unknown) => {
       if (!isRecord(raw)) return;
-      const eventStreamId = typeof raw.streamId === "string" ? raw.streamId : typeof raw.stream_id === "string" ? raw.stream_id : "";
+      const eventStreamId = typeof raw.streamId === "string" ? raw.streamId : "";
       if (eventStreamId && eventStreamId !== streamId) return;
-      const userId = typeof raw.userId === "string" ? raw.userId : typeof raw.user_id === "string" ? raw.user_id : "";
+      const userId = typeof raw.userId === "string" ? raw.userId : "";
       if (userId && userId === useAuthStore.getState().user?.id) return;
       const username = typeof raw.username === "string" ? raw.username : "Someone";
-      const giftName = typeof raw.giftName === "string" ? raw.giftName : typeof raw.gift_name === "string" ? raw.gift_name : "gift";
-      const giftIcon = typeof raw.giftIcon === "string" ? raw.giftIcon : typeof raw.gift_icon === "string" ? raw.gift_icon : "";
+      const giftName = typeof raw.giftName === "string" ? raw.giftName : "gift";
+      const giftIcon = typeof raw.giftIcon === "string" ? raw.giftIcon : "";
       const avatar = typeof raw.avatar === "string" ? raw.avatar : "";
       const quantity = typeof raw.quantity === "number" && raw.quantity > 0 ? raw.quantity : 1;
       const now = Date.now();

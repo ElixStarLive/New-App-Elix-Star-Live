@@ -425,7 +425,7 @@ export async function apiLiveStatus(room: string): Promise<{
   if (!isRecord(data)) return { status: null, error: "Invalid live status" };
   const resolvedRoom = typeof data.room === "string" ? data.room : room;
   const active = Boolean(data.active);
-  const hostUserId = typeof data.host_user_id === "string" ? data.host_user_id : undefined;
+  const hostUserId = typeof data.hostUserId === "string" ? data.hostUserId : undefined;
   return { status: { room: resolvedRoom, active, hostUserId }, error: null };
 }
 

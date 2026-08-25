@@ -73,6 +73,6 @@ export const useShopBasketStore = create<ShopBasketState>()(
       clear: () => set({ items: [] }),
       totalUnits: () => get().items.reduce((sum, line) => sum + clampQty(line.quantity), 0),
     }),
-    { name: "elix_shop_basket_v2" },
+    { name: "shop_basket_v2" },
   ),
 );

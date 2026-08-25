@@ -4148,11 +4148,13 @@ describe("http integration", () => {
     expect(beforeBody.paidCoins).toBeUndefined();
     expect(beforeBody.coin_balance).not.toBe(beforeBody.starter_balance);
 
-    const neonTest = await getPool().query<{ test_coins: string }>(
-      `SELECT test_coins::text AS test_coins FROM wallet_balances WHERE user_id = $1`,
-      [user.id],
+    const neonTestCol = await getPool().query<{ exists: boolean }>(
+      `SELECT EXISTS (
+         SELECT 1 FROM information_schema.columns
+         WHERE table_schema = 'public' AND table_name = 'wallet_balances' AND column_name = 'test_coins'
+       ) AS exists`,
     );
-    expect(Number(neonTest.rows[0]?.test_coins ?? 0)).toBe(0);
+    expect(neonTestCol.rows[0]?.exists).toBe(false);
 
     const giftsWallet = await fetch(`${base}/api/gifts/wallet`, {
       headers: { Authorization: `Bearer ${user.token}` },
@@ -6284,11 +6286,13 @@ describe("http integration", () => {
     expect((await authJson("/api/creator/balance", viewer.token)).body).toMatchObject({
       gbp: { available_pence: 0, pending_pence: 0, held_pence: 0 },
     });
-    const testCoins = await getPool().query<{ test_coins: string }>(
-      `SELECT test_coins::text AS test_coins FROM wallet_balances WHERE user_id = $1`,
-      [viewer.id],
+    const testCoinsCol = await getPool().query<{ exists: boolean }>(
+      `SELECT EXISTS (
+         SELECT 1 FROM information_schema.columns
+         WHERE table_schema = 'public' AND table_name = 'wallet_balances' AND column_name = 'test_coins'
+       ) AS exists`,
     );
-    expect(Number(testCoins.rows[0]?.test_coins ?? 0)).toBe(0);
+    expect(testCoinsCol.rows[0]?.exists).toBe(false);
     const achievements = await authJson("/api/engagement/achievements", viewer.token);
     const streak = ((achievements.body.achievements as Array<Record<string, unknown>>) || []).find(
       (row) => row.id === "streak_7",
@@ -6549,11 +6553,13 @@ describe("http integration", () => {
       [viewer.id],
     );
     expect(paidLots.rows[0]?.n).toBe(0);
-    const testCoins = await getPool().query<{ test_coins: string }>(
-      `SELECT test_coins::text AS test_coins FROM wallet_balances WHERE user_id = $1`,
-      [viewer.id],
+    const testCoinsCol = await getPool().query<{ exists: boolean }>(
+      `SELECT EXISTS (
+         SELECT 1 FROM information_schema.columns
+         WHERE table_schema = 'public' AND table_name = 'wallet_balances' AND column_name = 'test_coins'
+       ) AS exists`,
     );
-    expect(Number(testCoins.rows[0]?.test_coins ?? 0)).toBe(0);
+    expect(testCoinsCol.rows[0]?.exists).toBe(false);
     expect((await authJson("/api/creator/balance", viewer.token)).body).toMatchObject({
       gbp: { available_pence: 0, pending_pence: 0, held_pence: 0 },
     });
