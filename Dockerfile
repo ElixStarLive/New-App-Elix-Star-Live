@@ -29,6 +29,10 @@ FROM node:20-bookworm-slim AS runner
 WORKDIR /app
 ENV NODE_ENV=production
 ENV PORT=8080
+# Coolify HTTP healthchecks invoke curl/wget inside the container.
+RUN apt-get update \
+  && apt-get install -y --no-install-recommends curl \
+  && rm -rf /var/lib/apt/lists/*
 COPY --from=build /app/package.json ./
 COPY --from=build /app/package-lock.json ./
 COPY --from=build /app/node_modules ./node_modules
@@ -39,6 +43,6 @@ COPY --from=build /app/src ./src
 COPY --from=build /app/tsconfig.json ./
 COPY --from=build /app/tsconfig.server.json ./
 EXPOSE 8080
-HEALTHCHECK --interval=30s --timeout=10s --start-period=30s --retries=3 \
-  CMD node -e "fetch('http://localhost:8080/health').then((r)=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"
+HEALTHCHECK --interval=30s --timeout=10s --start-period=60s --retries=5 \
+  CMD curl -fsS http://localhost:8080/api/health || exit 1
 CMD ["npm", "run", "start:prod"]
