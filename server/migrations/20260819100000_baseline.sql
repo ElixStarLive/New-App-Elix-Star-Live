@@ -30,6 +30,38 @@ CREATE TABLE IF NOT EXISTS users (
   CONSTRAINT users_apple_sub_unique UNIQUE (apple_sub)
 );
 
+-- Legacy-production compatibility preflight:
+-- If a legacy users table exists without users.id, add it additively so later
+-- canonical foreign keys can be created without destructive rewrites.
+DO $$
+BEGIN
+  IF EXISTS (
+    SELECT 1 FROM information_schema.tables
+    WHERE table_schema = 'public' AND table_name = 'users'
+  ) AND NOT EXISTS (
+    SELECT 1 FROM information_schema.columns
+    WHERE table_schema = 'public' AND table_name = 'users' AND column_name = 'id'
+  ) THEN
+    ALTER TABLE users ADD COLUMN id UUID;
+
+    IF EXISTS (
+      SELECT 1 FROM information_schema.columns
+      WHERE table_schema = 'public' AND table_name = 'users' AND column_name = 'user_id'
+    ) THEN
+      UPDATE users
+         SET id = user_id::uuid
+       WHERE id IS NULL
+         AND user_id::text ~* '^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$';
+    END IF;
+
+    UPDATE users
+       SET id = gen_random_uuid()
+     WHERE id IS NULL;
+
+    CREATE UNIQUE INDEX IF NOT EXISTS users_id_unique_idx ON users(id);
+  END IF;
+END $$;
+
 CREATE TABLE IF NOT EXISTS auth_sessions (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
