@@ -74,13 +74,13 @@
 | PAGE-062 | Legal UGC | Agent-062 | YES | YES | YES | PASS | PASS | PASS | PASS | NONE | NONE | PASS | PASS | PASS | N/A | 9fd42cd | VERIFIED FOR RELEASE |
 | PAGE-063 | Legal affiliate | Agent-063 | YES | YES | YES | PASS | PASS | PASS | PASS | NONE | NONE | PASS | PASS | PASS | N/A | 9fd42cd | VERIFIED FOR RELEASE |
 | PAGE-064 | Legal DMCA | Agent-064 | YES | YES | YES | PASS | PASS | PASS | PASS | NONE | NONE | PASS | PASS | PASS | N/A | 9fd42cd | VERIFIED FOR RELEASE |
-| PAGE-065 | Legal safety | Agent-065 | YES | YES | YES | PASS | PASS | PASS | PASS | NONE | NONE | PASS | PASS | PASS | N/A | 9fd42cd | VERIFIED FOR RELEASE |
-| PAGE-066 | Legal supplier | Agent-066 | YES | YES | YES | PASS | PASS | PASS | PASS | NONE | NONE | PASS | PASS | PASS | N/A | 9fd42cd | VERIFIED FOR RELEASE |
-| PAGE-067 | Guidelines | Agent-067 | YES | YES | YES | PASS | PASS | PASS | PASS | NONE | NONE | PASS | PASS | PASS | N/A | 9fd42cd | VERIFIED FOR RELEASE |
-| PAGE-068 | How it works | Agent-068 | YES | YES | YES | PASS | PASS | PASS | PASS | NONE | NONE | PASS | PASS | PASS | N/A | 9fd42cd | VERIFIED FOR RELEASE |
-| PAGE-069 | Support | Agent-069 | YES | YES | YES | PASS | PASS | PASS | PASS | NONE | NONE | PASS | PASS | PASS | N/A | 9fd42cd | VERIFIED FOR RELEASE |
-| PAGE-070 | Admin dashboard | Agent-070 | YES | YES | YES | PASS | PASS | PASS | PASS | NONE | NONE | PASS | PASS | PASS | N/A | 9fd42cd | VERIFIED FOR RELEASE |
-| PAGE-071 | Admin users | Agent-071 | YES | YES | YES | PASS | PASS | PASS | PASS | NONE | NONE | PASS | PASS | PASS | N/A | 9fd42cd | VERIFIED FOR RELEASE |
+| PAGE-065 | Legal safety | Agent-09 | YES | YES | YES | PASS | PASS | PASS | PASS | NONE | NONE | PASS | PASS | PASS | UNVERIFIED | 44c6eed | CODE VERIFIED — device deferred |
+| PAGE-066 | Legal supplier | Agent-09 | YES | YES | YES | PASS | PASS | PASS | PASS | NONE | NONE | PASS | PASS | PASS | UNVERIFIED | 44c6eed | CODE VERIFIED — device deferred |
+| PAGE-067 | Guidelines | Agent-09 | YES | YES | YES | PASS | PASS | PASS | PASS | NONE | NONE | PASS | PASS | PASS | UNVERIFIED | 44c6eed | CODE VERIFIED — device deferred |
+| PAGE-068 | How it works | Agent-09 | YES | YES | YES | PASS | PASS | PASS | PASS | NONE | NONE | PASS | PASS | PASS | UNVERIFIED | 44c6eed | CODE VERIFIED — device deferred |
+| PAGE-069 | Support | Agent-09 | YES | YES | YES | PASS | PASS | PASS | PASS | NONE | NONE | PASS | PASS | PASS | UNVERIFIED | 44c6eed | CODE VERIFIED — device deferred |
+| PAGE-070 | Admin dashboard | Agent-09 | YES | YES | YES | PASS | PASS | PASS | PASS | NONE | NONE | PASS | PASS | BLOCKED | UNVERIFIED | 44c6eed | CODE VERIFIED — device/HTTP IT deferred |
+| PAGE-071 | Admin users | Agent-09 | YES | YES | YES | PASS | PASS | PASS | PASS | NONE | NONE | PASS | PASS | BLOCKED | UNVERIFIED | 44c6eed | CODE VERIFIED — device/HTTP IT deferred |
 | PAGE-072 | Admin reports | Agent-072 | YES | YES | YES | PASS | PASS | PASS | PASS | NONE | NONE | PASS | PASS | PASS | N/A | 9fd42cd | VERIFIED FOR RELEASE |
 | PAGE-073 | Admin economy | Agent-073 | YES | YES | YES | PASS | PASS | PASS | PASS | NONE | NONE | PASS | PASS | PASS | N/A | 9fd42cd | VERIFIED FOR RELEASE |
 | PAGE-074 | Admin monetisation | Agent-074 | YES | YES | YES | PASS | PASS | PASS | PASS | NONE | NONE | PASS | PASS | PASS | N/A | 9fd42cd | VERIFIED FOR RELEASE |
