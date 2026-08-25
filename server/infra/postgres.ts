@@ -64,19 +64,10 @@ export async function withTransaction<T>(fn: (client: pg.PoolClient) => Promise<
   }
 }
 
-async function isLegacyProductionShape(client: pg.PoolClient): Promise<boolean> {
-  const { rows } = await client.query<{ name: string }>(
-    `SELECT table_name AS name
-       FROM information_schema.tables
-      WHERE table_schema = 'public'
-        AND table_name IN ('elix_auth_users', 'profiles', 'elix_wallet_balances', 'live_streams')`,
-  );
-  const names = new Set(rows.map((row) => row.name));
-  return names.has("elix_auth_users") || (names.has("profiles") && names.has("live_streams"));
-}
-
-async function usersTableMissingIdColumn(client: pg.PoolClient): Promise<boolean> {
-  const { rows } = await client.query<{ has_id: boolean; has_users: boolean }>(
+async function usersTableState(
+  client: pg.PoolClient,
+): Promise<{ hasUsers: boolean; hasId: boolean; hasUserId: boolean }> {
+  const { rows } = await client.query<{ has_users: boolean; has_id: boolean; has_user_id: boolean }>(
     `SELECT
        EXISTS (
          SELECT 1 FROM information_schema.tables
@@ -85,10 +76,38 @@ async function usersTableMissingIdColumn(client: pg.PoolClient): Promise<boolean
        EXISTS (
          SELECT 1 FROM information_schema.columns
          WHERE table_schema = 'public' AND table_name = 'users' AND column_name = 'id'
-       ) AS has_id`,
+       ) AS has_id,
+       EXISTS (
+         SELECT 1 FROM information_schema.columns
+         WHERE table_schema = 'public' AND table_name = 'users' AND column_name = 'user_id'
+       ) AS has_user_id`,
   );
   const row = rows[0];
-  return Boolean(row?.has_users) && !Boolean(row?.has_id);
+  return {
+    hasUsers: Boolean(row?.has_users),
+    hasId: Boolean(row?.has_id),
+    hasUserId: Boolean(row?.has_user_id),
+  };
+}
+
+async function ensureUsersIdColumn(client: pg.PoolClient): Promise<void> {
+  const state = await usersTableState(client);
+  if (!state.hasUsers || state.hasId) return;
+
+  await client.query(`CREATE EXTENSION IF NOT EXISTS pgcrypto`);
+  await client.query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS id UUID`);
+
+  if (state.hasUserId) {
+    await client.query(`
+      UPDATE users
+         SET id = user_id::uuid
+       WHERE id IS NULL
+         AND user_id::text ~* '^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$'
+    `);
+  }
+
+  await client.query(`UPDATE users SET id = gen_random_uuid() WHERE id IS NULL`);
+  await client.query(`CREATE UNIQUE INDEX IF NOT EXISTS users_id_unique_idx ON users(id)`);
 }
 
 export async function applyPendingMigrations(databaseUrl = env().DATABASE_URL): Promise<string[]> {
@@ -116,21 +135,19 @@ export async function applyPendingMigrations(databaseUrl = env().DATABASE_URL): 
     );
     const already = new Set(rows.map((r) => r.filename));
     const filenames = listMigrationFilenames();
+    const baseline = "20260819100000_baseline.sql";
 
-    if (!already.has("20260819100000_baseline.sql")) {
-      const legacyShape = await isLegacyProductionShape(client);
-      const legacyUsersMissingId = await usersTableMissingIdColumn(client);
-      if (legacyShape || legacyUsersMissingId) {
-        logger.info(
-          { migration: "20260819100000_baseline.sql" },
-          "marking baseline as applied on legacy production schema",
-        );
-        await client.query("INSERT INTO elix_schema_migrations (filename) VALUES ($1)", [
-          "20260819100000_baseline.sql",
-        ]);
-        already.add("20260819100000_baseline.sql");
-      }
+    const usersState = await usersTableState(client);
+    if (already.has(baseline) && (!usersState.hasUsers || !usersState.hasId)) {
+      logger.warn(
+        { migration: baseline },
+        "baseline was marked applied but users schema is incomplete; unmarking baseline for safe replay",
+      );
+      await client.query("DELETE FROM elix_schema_migrations WHERE filename = $1", [baseline]);
+      already.delete(baseline);
     }
+
+    await ensureUsersIdColumn(client);
 
     for (const name of filenames) {
       if (already.has(name)) continue;
