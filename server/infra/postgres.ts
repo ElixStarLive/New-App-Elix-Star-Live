@@ -75,6 +75,22 @@ async function isLegacyProductionShape(client: pg.PoolClient): Promise<boolean> 
   return names.has("elix_auth_users") || (names.has("profiles") && names.has("live_streams"));
 }
 
+async function usersTableMissingIdColumn(client: pg.PoolClient): Promise<boolean> {
+  const { rows } = await client.query<{ has_id: boolean; has_users: boolean }>(
+    `SELECT
+       EXISTS (
+         SELECT 1 FROM information_schema.tables
+         WHERE table_schema = 'public' AND table_name = 'users'
+       ) AS has_users,
+       EXISTS (
+         SELECT 1 FROM information_schema.columns
+         WHERE table_schema = 'public' AND table_name = 'users' AND column_name = 'id'
+       ) AS has_id`,
+  );
+  const row = rows[0];
+  return Boolean(row?.has_users) && !Boolean(row?.has_id);
+}
+
 export async function applyPendingMigrations(databaseUrl = env().DATABASE_URL): Promise<string[]> {
   const url = directDatabaseUrl(databaseUrl);
   const needsSsl = url.includes("neon.tech") || url.includes("sslmode=require");
@@ -101,9 +117,10 @@ export async function applyPendingMigrations(databaseUrl = env().DATABASE_URL): 
     const already = new Set(rows.map((r) => r.filename));
     const filenames = listMigrationFilenames();
 
-    if (!already.has("20260819100000_baseline.sql") && rows.length === 0) {
+    if (!already.has("20260819100000_baseline.sql")) {
       const legacyShape = await isLegacyProductionShape(client);
-      if (legacyShape) {
+      const legacyUsersMissingId = await usersTableMissingIdColumn(client);
+      if (legacyShape || legacyUsersMissingId) {
         logger.info(
           { migration: "20260819100000_baseline.sql" },
           "marking baseline as applied on legacy production schema",
