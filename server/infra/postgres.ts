@@ -202,6 +202,131 @@ async function seedCanonicalUsersFromLegacy(client: pg.PoolClient): Promise<void
   `);
 }
 
+type TableWithUuidId = "users" | "videos" | "live_streams" | "battle_results" | "chat_threads" | "shop_items";
+
+async function tableExists(client: pg.PoolClient, table: string): Promise<boolean> {
+  const { rows } = await client.query<{ exists: boolean }>(
+    `SELECT EXISTS (
+       SELECT 1 FROM information_schema.tables
+       WHERE table_schema = 'public'
+         AND table_name = $1
+         AND table_type = 'BASE TABLE'
+     ) AS exists`,
+    [table],
+  );
+  return Boolean(rows[0]?.exists);
+}
+
+async function hasColumn(client: pg.PoolClient, table: string, column: string): Promise<boolean> {
+  const { rows } = await client.query<{ exists: boolean }>(
+    `SELECT EXISTS (
+       SELECT 1 FROM information_schema.columns
+       WHERE table_schema = 'public' AND table_name = $1 AND column_name = $2
+     ) AS exists`,
+    [table, column],
+  );
+  return Boolean(rows[0]?.exists);
+}
+
+async function ensureUuidIdColumn(
+  client: pg.PoolClient,
+  table: TableWithUuidId,
+  sourceColumns: string[] = [],
+): Promise<void> {
+  if (!(await tableExists(client, table))) return;
+  if (!(await hasColumn(client, table, "id"))) {
+    await client.query(`ALTER TABLE ${table} ADD COLUMN IF NOT EXISTS id UUID`);
+
+    for (const source of sourceColumns) {
+      if (!(await hasColumn(client, table, source))) continue;
+      await client.query(`
+        UPDATE ${table}
+           SET id = ${source}::uuid
+         WHERE id IS NULL
+           AND ${source}::text ~* '^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$'
+      `);
+    }
+
+    await client.query(`UPDATE ${table} SET id = gen_random_uuid() WHERE id IS NULL`);
+  }
+
+  await client.query(`
+    WITH ranked AS (
+      SELECT ctid,
+             ROW_NUMBER() OVER (PARTITION BY id ORDER BY ctid) AS rn
+      FROM ${table}
+      WHERE id IS NOT NULL
+    )
+    UPDATE ${table} t
+       SET id = gen_random_uuid()
+      FROM ranked r
+     WHERE t.ctid = r.ctid
+       AND r.rn > 1
+  `);
+
+  await client.query(`UPDATE ${table} SET id = gen_random_uuid() WHERE id IS NULL`);
+  await client.query(`ALTER TABLE ${table} ALTER COLUMN id SET NOT NULL`);
+  await client.query(`CREATE UNIQUE INDEX IF NOT EXISTS ${table}_id_unique_idx ON ${table}(id)`);
+}
+
+async function ensureGiftsIdColumn(client: pg.PoolClient): Promise<void> {
+  if (!(await tableExists(client, "gifts"))) return;
+
+  await client.query(`ALTER TABLE gifts ADD COLUMN IF NOT EXISTS id TEXT`);
+
+  if (await hasColumn(client, "gifts", "gift_id")) {
+    await client.query(`UPDATE gifts SET id = gift_id::text WHERE id IS NULL AND gift_id IS NOT NULL`);
+  }
+  if (await hasColumn(client, "gifts", "name")) {
+    await client.query(`UPDATE gifts SET id = name::text WHERE id IS NULL AND name IS NOT NULL`);
+  }
+
+  await client.query(`
+    WITH ranked AS (
+      SELECT ctid,
+             ROW_NUMBER() OVER (PARTITION BY id ORDER BY ctid) AS rn
+      FROM gifts
+      WHERE id IS NOT NULL
+    )
+    UPDATE gifts g
+       SET id = id || '_dup_' || replace(g.ctid::text, ':', '_')
+      FROM ranked r
+     WHERE g.ctid = r.ctid
+       AND r.rn > 1
+  `);
+
+  const nullIds = await client.query<{ n: string }>(`SELECT COUNT(*)::text AS n FROM gifts WHERE id IS NULL`);
+  if (Number(nullIds.rows[0]?.n ?? "0") > 0) {
+    throw new Error("canonical prerequisite failed: gifts.id is missing and cannot be derived safely");
+  }
+
+  await client.query(`ALTER TABLE gifts ALTER COLUMN id SET NOT NULL`);
+  await client.query(`CREATE UNIQUE INDEX IF NOT EXISTS gifts_id_unique_idx ON gifts(id)`);
+}
+
+async function validateFkTargets(client: pg.PoolClient): Promise<void> {
+  const checks: Array<{ table: string; column: string }> = [
+    { table: "users", column: "id" },
+    { table: "videos", column: "id" },
+    { table: "live_streams", column: "id" },
+    { table: "battle_results", column: "id" },
+    { table: "gifts", column: "id" },
+    { table: "chat_threads", column: "id" },
+    { table: "shop_items", column: "id" },
+  ];
+
+  for (const check of checks) {
+    const exists = await tableExists(client, check.table);
+    if (!exists) continue;
+    const col = await hasColumn(client, check.table, check.column);
+    if (!col) {
+      throw new Error(
+        `canonical prerequisite failed: ${check.table}.${check.column} is missing before baseline FK execution`,
+      );
+    }
+  }
+}
+
 async function ensureCanonicalUsersPrereq(client: pg.PoolClient): Promise<void> {
   await client.query(`CREATE EXTENSION IF NOT EXISTS pgcrypto`);
   const state = await usersRelationState(client);
@@ -209,27 +334,9 @@ async function ensureCanonicalUsersPrereq(client: pg.PoolClient): Promise<void> 
   if (state.kind === "none") {
     await createCanonicalUsersTable(client);
     await seedCanonicalUsersFromLegacy(client);
-    return;
-  }
-
-  if (state.kind === "table" || state.kind === "partitioned") {
-    if (!state.hasId) {
-      await client.query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS id UUID`);
-      if (state.hasUserId) {
-        await client.query(`
-          UPDATE users
-             SET id = user_id::uuid
-           WHERE id IS NULL
-             AND user_id::text ~* '^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$'
-        `);
-      }
-      await client.query(`UPDATE users SET id = gen_random_uuid() WHERE id IS NULL`);
-      await client.query(`CREATE UNIQUE INDEX IF NOT EXISTS users_id_unique_idx ON users(id)`);
-    }
-    return;
-  }
-
-  if (state.kind === "view" || state.kind === "matview") {
+  } else if (state.kind === "table" || state.kind === "partitioned") {
+    await ensureUuidIdColumn(client, "users", state.hasUserId ? ["user_id"] : []);
+  } else if (state.kind === "view" || state.kind === "matview") {
     logger.warn({ kind: state.kind }, "legacy users relation is a view; converting to canonical table");
     if (state.kind === "view") {
       await client.query(`ALTER VIEW users RENAME TO users_legacy_view`);
@@ -238,10 +345,20 @@ async function ensureCanonicalUsersPrereq(client: pg.PoolClient): Promise<void> 
     }
     await createCanonicalUsersTable(client);
     await seedCanonicalUsersFromLegacy(client);
-    return;
+  } else {
+    throw new Error("Unsupported public.users relation type for canonical migration");
   }
 
-  throw new Error("Unsupported public.users relation type for canonical migration");
+  // Baseline CREATE ... REFERENCES parent(id) fails on legacy Neon tables that
+  // only have user_id / video_id / stream_id / gift_id / etc. Make every FK
+  // parent uniquely addressable by id before any migration SQL runs.
+  await ensureUuidIdColumn(client, "videos", ["video_id"]);
+  await ensureUuidIdColumn(client, "live_streams", ["stream_id"]);
+  await ensureUuidIdColumn(client, "battle_results", ["battle_id"]);
+  await ensureUuidIdColumn(client, "chat_threads", ["thread_id"]);
+  await ensureUuidIdColumn(client, "shop_items", ["item_id"]);
+  await ensureGiftsIdColumn(client);
+  await validateFkTargets(client);
 }
 
 export async function applyPendingMigrations(databaseUrl = env().DATABASE_URL): Promise<string[]> {
