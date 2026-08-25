@@ -26,14 +26,14 @@
 | PAGE-014 | Video view | Agent-014 | YES | YES | YES | PASS | PASS | PASS | PASS | NONE | NONE | PASS | PASS | PASS | N/A | 9fd42cd | VERIFIED FOR RELEASE |
 | PAGE-015 | Saved videos | Agent-015 | YES | YES | YES | PASS | PASS | PASS | PASS | NONE | NONE | PASS | PASS | PASS | N/A | 9fd42cd | VERIFIED FOR RELEASE |
 | PAGE-016 | Music | Agent-016 | YES | YES | YES | PASS | PASS | PASS | PASS | NONE | NONE | PASS | PASS | PASS | N/A | 9fd42cd | VERIFIED FOR RELEASE |
-| PAGE-017 | Live discover | Agent-017 | YES | YES | YES | PASS | PASS | PASS | PASS | NONE | NONE | PASS | PASS | PASS | N/A | 9fd42cd | VERIFIED FOR RELEASE |
-| PAGE-018 | Live Host | Agent-018 | YES | YES | YES | PASS | PASS | PASS | PASS | NONE | NONE | PASS | PASS | PASS | N/A | 9fd42cd | VERIFIED FOR RELEASE |
-| PAGE-019 | Live Spectator | Agent-019 | YES | YES | YES | PASS | PASS | PASS | PASS | NONE | NONE | PASS | PASS | PASS | N/A | 9fd42cd | VERIFIED FOR RELEASE |
-| PAGE-020 | Live profile overlay | Agent-020 | YES | YES | YES | PASS | PASS | PASS | PASS | NONE | NONE | PASS | PASS | PASS | N/A | 9fd42cd | VERIFIED FOR RELEASE |
-| PAGE-021 | Create camera | Agent-021 | YES | YES | YES | PASS | PASS | PASS | PASS | NONE | NONE | PASS | PASS | PASS | N/A | 9fd42cd | VERIFIED FOR RELEASE |
-| PAGE-022 | Upload | Agent-022 | YES | YES | YES | PASS | PASS | PASS | PASS | NONE | NONE | PASS | PASS | PASS | N/A | 9fd42cd | VERIFIED FOR RELEASE |
-| PAGE-023 | AI Studio | Agent-023 | YES | YES | YES | PASS | PASS | PASS | PASS | NONE | NONE | PASS | PASS | PASS | N/A | 9fd42cd | VERIFIED FOR RELEASE |
-| PAGE-024 | Own profile | Agent-024 | YES | YES | YES | PASS | PASS | PASS | PASS | NONE | NONE | PASS | PASS | PASS | N/A | 9fd42cd | VERIFIED FOR RELEASE |
+| PAGE-017 | Live discover | Agent-03 | YES | YES | YES | PASS | PASS | PASS | PASS | NONE | NONE | PASS | PASS | BLOCKED | UNVERIFIED | 8903d92 | CODE VERIFIED — LiveKit device / HTTP IT deferred |
+| PAGE-018 | Live Host | Agent-03 | YES | YES | YES | PASS | PASS | PASS | PASS | NONE | NONE | PASS | PASS | BLOCKED | UNVERIFIED | 8903d92 | CODE VERIFIED — LiveKit publish device / HTTP IT deferred |
+| PAGE-019 | Live Spectator | Agent-03 | YES | YES | YES | PASS | PASS | PASS | PASS | NONE | NONE | PASS | PASS | BLOCKED | UNVERIFIED | 8903d92 | CODE VERIFIED — subscribe-only token; device watch deferred |
+| PAGE-020 | Live profile overlay | Agent-03 | YES | YES | YES | PASS | PASS | PASS | PASS | NONE | NONE | PASS | PASS | BLOCKED | UNVERIFIED | 8903d92 | CODE VERIFIED — overlay over PAGE-019; device deferred |
+| PAGE-021 | Create camera | Agent-03 | YES | YES | YES | PASS | PASS | PASS | PASS | NONE | NONE | PASS | PASS | PASS | UNVERIFIED | 8903d92 | CODE VERIFIED — physical camera not run this pass |
+| PAGE-022 | Upload | Agent-03 | YES | YES | YES | PASS | PASS | PASS | PASS | NONE | NONE | PASS | PASS | BLOCKED | UNVERIFIED | 8903d92 | CODE VERIFIED — HTTP IT publish deferred (Win PG admin) |
+| PAGE-023 | AI Studio | Agent-03 | YES | YES | YES | PASS | PASS | PASS | PASS | NONE | NONE | PASS | PASS | PASS | N/A | 8903d92 | CODE VERIFIED — no generation API; UI-only owner |
+| PAGE-024 | Own profile | Agent-03 | YES | YES | YES | PASS | PASS | PASS | PASS | NONE | NONE | PASS | PASS | BLOCKED | UNVERIFIED | 8903d92 | CODE VERIFIED — HTTP IT /api/profiles/me deferred |
 | PAGE-025 | Public profile | Agent-025 | YES | YES | YES | PASS | PASS | PASS | PASS | NONE | NONE | PASS | PASS | PASS | N/A | 9fd42cd | VERIFIED FOR RELEASE |
 | PAGE-026 | Edit profile | Agent-026 | YES | YES | YES | PASS | PASS | PASS | PASS | NONE | NONE | PASS | PASS | PASS | N/A | 9fd42cd | VERIFIED FOR RELEASE |
 | PAGE-027 | Followers | Agent-027 | YES | YES | YES | PASS | PASS | PASS | PASS | NONE | NONE | PASS | PASS | PASS | N/A | 9fd42cd | VERIFIED FOR RELEASE |
