@@ -29,6 +29,7 @@ export async function publicProfile(userId: string, viewerId?: string) {
     is_following: boolean;
     likes: string;
     views: string;
+    fan_level: string;
     banned_until: Date | null;
   }>(
     `SELECT u.id, u.username, u.display_name, u.avatar_url, u.bio, u.is_verified,
@@ -43,8 +44,10 @@ export async function publicProfile(userId: string, viewerId?: string) {
               JOIN videos v ON v.id = vl.video_id
               WHERE v.user_id = u.id AND v.deleted_at IS NULL) AS likes,
             (SELECT COUNT(*)::text FROM profile_unique_views pv
-              WHERE pv.profile_owner_user_id = u.id) AS views
+              WHERE pv.profile_owner_user_id = u.id) AS views,
+            COALESCE(ue.fan_level, 0)::text AS fan_level
      FROM users u
+     LEFT JOIN user_engagement ue ON ue.user_id = u.id
      WHERE u.id = $1 AND u.deleted_at IS NULL`,
     [userId, viewerId ?? null],
   );
@@ -76,6 +79,7 @@ export async function publicProfile(userId: string, viewerId?: string) {
     viewCount: Number(row.views),
     isLive: row.is_live,
     isFollowing: row.is_following,
+    level: Number(row.fan_level),
   });
 }
 

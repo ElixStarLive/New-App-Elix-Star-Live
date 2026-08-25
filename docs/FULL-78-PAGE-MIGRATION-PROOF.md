@@ -31,16 +31,16 @@ All 78 rows below are **NOT VERIFIED** until a page completes the full gate with
 | PAGE-014 | NOT VERIFIED | NOT VERIFIED | NOT VERIFIED | NOT VERIFIED | NOT VERIFIED | NOT VERIFIED | — |
 | PAGE-015 | NOT VERIFIED | NOT VERIFIED | NOT VERIFIED | NOT VERIFIED | NOT VERIFIED | NOT VERIFIED | — |
 | PAGE-016 | NOT VERIFIED | NOT VERIFIED | NOT VERIFIED | NOT VERIFIED | NOT VERIFIED | NOT VERIFIED | — |
-| PAGE-017 | NOT VERIFIED | NOT VERIFIED | NOT VERIFIED | NOT VERIFIED | NOT VERIFIED | NOT VERIFIED | — |
-| PAGE-018 | NOT VERIFIED | NOT VERIFIED | NOT VERIFIED | NOT VERIFIED | NOT VERIFIED | NOT VERIFIED | — |
-| PAGE-019 | NOT VERIFIED | NOT VERIFIED | NOT VERIFIED | NOT VERIFIED | NOT VERIFIED | NOT VERIFIED | — |
-| PAGE-020 | NOT VERIFIED | NOT VERIFIED | NOT VERIFIED | NOT VERIFIED | NOT VERIFIED | NOT VERIFIED | — |
-| PAGE-021 | NOT VERIFIED | NOT VERIFIED | NOT VERIFIED | NOT VERIFIED | NOT VERIFIED | NOT VERIFIED | — |
-| PAGE-022 | NOT VERIFIED | NOT VERIFIED | NOT VERIFIED | NOT VERIFIED | NOT VERIFIED | NOT VERIFIED | — |
-| PAGE-023 | NOT VERIFIED | NOT VERIFIED | NOT VERIFIED | NOT VERIFIED | NOT VERIFIED | NOT VERIFIED | — |
-| PAGE-024 | NOT VERIFIED | NOT VERIFIED | NOT VERIFIED | NOT VERIFIED | NOT VERIFIED | NOT VERIFIED | — |
-| PAGE-025 | NOT VERIFIED | NOT VERIFIED | NOT VERIFIED | NOT VERIFIED | NOT VERIFIED | NOT VERIFIED | — |
-| PAGE-026 | NOT VERIFIED | NOT VERIFIED | NOT VERIFIED | NOT VERIFIED | NOT VERIFIED | NOT VERIFIED | — |
+| PAGE-017 | YES | YES | YES | PASS | PASS | PASS | `PAGE-017-024` |
+| PAGE-018 | YES | YES | YES | PASS | PASS | PASS | `PAGE-017-024` |
+| PAGE-019 | YES | YES | YES | PASS | PASS | PASS | `PAGE-017-024` |
+| PAGE-020 | YES | YES | YES | PASS | PASS | PASS | `PAGE-017-024` |
+| PAGE-021 | YES | YES | YES | PASS | PASS | PASS | `PAGE-017-024` |
+| PAGE-022 | YES | YES | YES | PASS | PASS | PASS | `PAGE-017-024` |
+| PAGE-023 | YES | YES | YES | PASS | PASS | PASS | `PAGE-017-024` |
+| PAGE-024 | YES | YES | YES | PASS | PASS | PASS | `PAGE-017-024` |
+| PAGE-025 | YES | YES | YES | PASS | PASS | PASS | `b853bec` |
+| PAGE-026 | YES | YES | YES | PASS | PASS | PASS | `b853bec` |
 | PAGE-027 | YES | YES | YES | PASS | PASS | PASS | `e56fcf7` |
 | PAGE-028 | YES | YES | YES | PASS | PASS | PASS | `fae3406` |
 | PAGE-029 | YES | YES | YES | PASS | PASS | PASS | `64a2aa5` |
@@ -158,6 +158,30 @@ All 78 rows below are **NOT VERIFIED** until a page completes the full gate with
 - **Lint:** eslint VideoFeed + useForYouFeed (+ tests) → clean
 - **Runtime GET /api/feed/foryou + live cards:** **BLOCKED** — local API / LiveKit device not re-checked this page (PAGE-018 return gate still open)
 - **Commit:** `eb8e7e8`
+
+## PAGE-017–024 Live discover · Host · Spectator · Profile overlay · Create · Upload · AI Studio · Own profile
+
+- **Fixed (prior):** `8903d92` — roomId-only live identity; removed dual `hostId||roomId` / `streamId||roomId` bridges; spectator token loads by `WHERE s.room_id = $1` only; subscribe-only `canPublish=false`; host end only on explicit `endBroadcast` or publish rollback (not unmount/cancelled).
+- **Fixed (this pass):** HTTP IT harness blanks `VALKEY_URL`/`REDIS_URL` before `createApp` so `.env` Valkey cannot leak into integration tests.
+- **Tests:** ownership + unit suite → **63 passed / 0 failed** (`page017`–`page024` ownership, `useLiveDiscover`, `livePresence`, `token.test`, `query.test`, `presenceFanout`, camera/upload/AI contracts, `useLiveHostSession`, `useSpectatorSession`, `AIStudio.test.tsx`)
+- **Typecheck / lint / build:** `check:all` PASS · eslint PASS · `vite build` PASS
+- **HTTP IT PAGE-017/018/019/020/021/022/024:** **BLOCKED** — embedded postgres bootstrap failed (Windows admin permissions)
+- **Device LiveKit publish/watch + physical camera:** **UNVERIFIED** — not run this pass
+- **Commit:** `PAGE-017-024`
+
+## PAGE-025 Public profile
+
+- **Fixed:** unauthenticated Follow no longer toasts "Cannot follow yourself" — guest gets `Log in to follow` + `/login` (matches PAGE-027/028). Public profile DTO now includes `level` from `user_engagement.fan_level`; `Profile.tsx` renders `profile.level ?? 1` instead of hardcoded 1.
+- **Tests:** `npx vitest run src/pages/Profile.test.tsx src/features/profile/publicProfileSession.test.ts src/features/profile/publicProfileApi.test.ts src/features/profile/page025Ownership.test.ts` → **16 passed / 0 failed**
+- **Runtime GET /api/profiles/:id + follow/view:** **BLOCKED** — embedded postgres bootstrap failed (Windows admin permissions)
+- **Commit:** `b853bec`
+
+## PAGE-026 Edit profile
+
+- **Fixed:** none required — session clears on load/dispose; PATCH `/me` field whitelist already owned.
+- **Tests:** `npx vitest run src/pages/EditProfile.test.tsx src/features/profile/editProfileSession.test.ts src/features/profile/editProfileApi.test.ts src/features/profile/page026Ownership.test.ts` → **10 passed / 0 failed**
+- **Runtime PATCH /api/profiles/me:** **BLOCKED** — embedded postgres bootstrap failed
+- **Commit:** `b853bec`
 
 ## PAGE-027 Followers
 

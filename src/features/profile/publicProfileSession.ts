@@ -236,7 +236,8 @@ export function createPublicProfileSession() {
     },
     async toggleFollow(): Promise<{ ok: true } | { ok: false; error: string }> {
       if (followBusy || !profile) return { ok: false, error: "busy" };
-      if (!viewerId || viewerId === profile.id) return { ok: false, error: "Cannot follow yourself" };
+      if (!viewerId) return { ok: false, error: "Log in to follow" };
+      if (viewerId === profile.id) return { ok: false, error: "Cannot follow yourself" };
       const targetId = profile.id;
       const wasFollowing = Boolean(profile.isFollowing);
       followBusy = true;

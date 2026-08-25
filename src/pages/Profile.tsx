@@ -165,7 +165,7 @@ export default function Profile() {
                   </button>
                 </div>
                 <div className="mt-1 flex items-center gap-2">
-                  <LevelBadge level={1} hideCircle />
+                  <LevelBadge level={profile.level ?? 1} hideCircle />
                 </div>
               </div>
 
@@ -197,8 +197,13 @@ export default function Profile() {
                   type="button"
                   disabled={snap.followBusy}
                   onClick={() => {
+                    if (!me?.id) {
+                      showToast("Log in to follow");
+                      navigate("/login");
+                      return;
+                    }
                     void session.toggleFollow().then((r) => {
-                      if (!r.ok) showToast(r.error);
+                      if (!r.ok && r.error !== "busy") showToast(r.error);
                     });
                   }}
                   className={`flex-1 max-w-[120px] py-2.5 rounded-md text-sm font-bold transition disabled:opacity-50 ${

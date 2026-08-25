@@ -101,8 +101,14 @@ export function createCreatorLoginSession(storage: CreatorAccountStorage = brows
       submitGen += 1;
       accounts = readCreatorSavedAccounts(storage);
       savePref = readCreatorSavePref(storage);
-      if (!email) email = accounts[0]?.identifier || viewerEmail || "";
-      if (!username) username = accounts[0]?.username || (email ? localPart(email) : "");
+      if (viewerEmail) {
+        email = viewerEmail;
+        username =
+          accounts.find((row) => row.identifier === viewerEmail)?.username || localPart(viewerEmail);
+      } else {
+        email = accounts[0]?.identifier || "";
+        username = accounts[0]?.username || (email ? localPart(email) : "");
+      }
       password = "";
       error = null;
       info = null;

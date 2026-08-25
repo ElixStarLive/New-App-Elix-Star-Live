@@ -142,4 +142,21 @@ describe("PAGE-029 creator login session", () => {
     expect(session.getSnapshot().error).toBeNull();
     expect(session.getSnapshot().submitting).toBe(false);
   });
+
+  it("resyncs the email field when the signed-in viewer changes", () => {
+    const storage = memoryStorage({
+      [CREATOR_SAVED_ACCOUNTS_KEY]: JSON.stringify([
+        { identifier: "a@example.com", username: "a" },
+        { identifier: "b@example.com", username: "b" },
+      ]),
+    });
+    const session = createCreatorLoginSession(storage);
+    session.hydrate("a@example.com");
+    expect(session.getSnapshot().email).toBe("a@example.com");
+    session.hydrate("b@example.com");
+    expect(session.getSnapshot().email).toBe("b@example.com");
+    expect(session.getSnapshot().username).toBe("b");
+    session.hydrate();
+    expect(session.getSnapshot().email).toBe("a@example.com");
+  });
 });

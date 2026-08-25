@@ -193,4 +193,13 @@ describe("PAGE-025 public profile session", () => {
     expect(session.getSnapshot().items).toEqual([]);
     expect(session.getSnapshot().errorStatus).toBe(403);
   });
+
+  it("requires login before follow instead of treating a guest as self", async () => {
+    api.apiFetchPublicProfile.mockResolvedValue({ profile: target, error: null });
+    const session = createPublicProfileSession();
+    await session.load(target.id, null);
+    const res = await session.toggleFollow();
+    expect(res).toEqual({ ok: false, error: "Log in to follow" });
+    expect(api.apiFollowPublicUser).not.toHaveBeenCalled();
+  });
 });

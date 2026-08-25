@@ -38,6 +38,8 @@ export const userPublicSchema = z.object({
   viewCount: z.number().int().nonnegative().optional(),
   isLive: z.boolean().optional(),
   isFollowing: z.boolean().optional(),
+  /** Fan/creator level from user_engagement.fan_level; LevelBadge floors 0 → 1. */
+  level: z.number().int().nonnegative().optional(),
 });
 
 export type UserPublic = z.infer<typeof userPublicSchema>;

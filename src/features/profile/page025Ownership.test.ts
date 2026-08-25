@@ -38,5 +38,6 @@ describe("PAGE-025 public-profile ownership", () => {
     expect(page).toMatch(/\/watch\/\$\{profile\.id\}/);
     expect(page).not.toMatch(/streamId \|\|/);
     expect(page).not.toMatch(/hostId/);
+    expect(page).toMatch(/profile\.level/);
   });
 });
