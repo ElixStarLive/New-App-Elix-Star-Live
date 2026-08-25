@@ -30,12 +30,20 @@ export function requireValkey(): Redis {
 }
 
 export function valkeyPub(): Redis {
-  if (!pub) pub = connect(env().valkeyUrl ?? "");
+  requireValkey();
+  if (!pub) {
+    pub = connect(env().valkeyUrl as string);
+    pub.on("error", (error) => logger.error({ err: error }, "valkey pub error"));
+  }
   return pub;
 }
 
 export function valkeySub(): Redis {
-  if (!sub) sub = connect(env().valkeyUrl ?? "");
+  requireValkey();
+  if (!sub) {
+    sub = connect(env().valkeyUrl as string);
+    sub.on("error", (error) => logger.error({ err: error }, "valkey sub error"));
+  }
   return sub;
 }
 
