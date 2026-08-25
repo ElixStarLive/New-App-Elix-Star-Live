@@ -3,9 +3,9 @@ import { wsClient } from "@/lib/wsClient";
 import { useAuthStore } from "@/store/useAuthStore";
 import { isRecord } from "@/lib/isRecord";
 
-export const ELIX_GIFT_PILL_EVENT = "elix-gift-pill";
+export const GIFT_PILL_EVENT = "gift-pill";
 
-export type ElixGiftPillDetail = {
+export type GiftPillDetail = {
   username?: string;
   giftName?: string;
   giftIcon?: string;
@@ -16,9 +16,9 @@ export type ElixGiftPillDetail = {
   userId?: string;
 };
 
-export function pushLocalGiftPill(detail: ElixGiftPillDetail) {
+export function pushLocalGiftPill(detail: GiftPillDetail) {
   if (typeof window === "undefined") return;
-  window.dispatchEvent(new CustomEvent(ELIX_GIFT_PILL_EVENT, { detail }));
+  window.dispatchEvent(new CustomEvent(GIFT_PILL_EVENT, { detail }));
 }
 
 type GiftAnimation = {
@@ -34,7 +34,7 @@ type GiftAnimation = {
 const MERGE_WINDOW_MS = 2000;
 const DISPLAY_DURATION_MS = 4000;
 
-function readGiftDetail(data: unknown): ElixGiftPillDetail | null {
+function readGiftDetail(data: unknown): GiftPillDetail | null {
   if (!isRecord(data)) return null;
   return {
     username: typeof data.username === "string" ? data.username : undefined,
@@ -81,12 +81,12 @@ export default function GiftAnimationOverlay({ streamId }: { streamId: string; i
 
   useEffect(() => {
     const onWs = (data: unknown) => ingest(data);
-    const onLocal = (ev: Event) => ingest((ev as CustomEvent<ElixGiftPillDetail>).detail);
+    const onLocal = (ev: Event) => ingest((ev as CustomEvent<GiftPillDetail>).detail);
     wsClient.on("gift_sent", onWs);
-    window.addEventListener(ELIX_GIFT_PILL_EVENT, onLocal);
+    window.addEventListener(GIFT_PILL_EVENT, onLocal);
     return () => {
       wsClient.off("gift_sent", onWs);
-      window.removeEventListener(ELIX_GIFT_PILL_EVENT, onLocal);
+      window.removeEventListener(GIFT_PILL_EVENT, onLocal);
     };
   }, []);
 

@@ -3,7 +3,7 @@ import { wsClient } from "@/lib/wsClient";
 import { LIVE_BATTLE_STAGE_BOTTOM, LIVE_SOLO_CHAT_TOP_FROM_BOTTOM } from "@/lib/profileFrame";
 import { useAuthStore } from "@/store/useAuthStore";
 import { isRecord } from "@/lib/isRecord";
-import { ELIX_GIFT_PILL_EVENT, type ElixGiftPillDetail } from "./GiftAnimationOverlay";
+import { GIFT_PILL_EVENT, type GiftPillDetail } from "./GiftAnimationOverlay";
 import { AvatarRing } from "./AvatarRing";
 
 type FeedCard = {
@@ -52,16 +52,16 @@ export function LiveGiftFeedStack({
         return [{ id: `${now}`, username, giftIcon, giftName, quantity, avatar, timestamp: now }, ...prev].slice(0, MAX_CARDS);
       });
     };
-    const onLocal = (ev: Event) => ingest((ev as CustomEvent<ElixGiftPillDetail>).detail);
+    const onLocal = (ev: Event) => ingest((ev as CustomEvent<GiftPillDetail>).detail);
     wsClient.on("gift_sent", ingest);
-    window.addEventListener(ELIX_GIFT_PILL_EVENT, onLocal);
+    window.addEventListener(GIFT_PILL_EVENT, onLocal);
     const clear = window.setInterval(() => {
       const cutoff = Date.now() - CLEAR_MS;
       setStack((prev) => prev.filter((c) => c.timestamp > cutoff));
     }, 1000);
     return () => {
       wsClient.off("gift_sent", ingest);
-      window.removeEventListener(ELIX_GIFT_PILL_EVENT, onLocal);
+      window.removeEventListener(GIFT_PILL_EVENT, onLocal);
       window.clearInterval(clear);
     };
   }, [streamId]);
