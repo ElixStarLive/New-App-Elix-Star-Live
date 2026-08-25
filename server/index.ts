@@ -9,7 +9,7 @@ import compression from "compression";
 import { loadEnv, env } from "./infra/env.js";
 import { logger } from "./infra/logger.js";
 import { applyPendingMigrations, assertMigrationsApplied, closePool, getPool } from "./infra/postgres.js";
-import { closeValkey } from "./infra/valkey.js";
+import { closeValkey, requireValkey } from "./infra/valkey.js";
 import { attachSession, requireAuth, type AuthedRequest } from "./middleware/auth.js";
 import { rateLimit } from "./middleware/rateLimit.js";
 import { errorHandler } from "./middleware/errorHandler.js";
@@ -108,21 +108,37 @@ export async function createApp() {
     void rateLimit(req, res, next).catch(next);
   });
 
-  app.get("/health", async (_req, res) => {
+  async function healthPayload(): Promise<{
+    ok: boolean;
+    service: string;
+    db: boolean;
+    valkey: boolean;
+  }> {
+    let db = false;
+    let valkey = false;
     try {
       await getPool().query("SELECT 1");
-      res.json({ ok: true, service: "elix-star-live", db: true });
+      db = true;
     } catch {
-      res.status(503).json({ ok: false, service: "elix-star-live", db: false });
+      db = false;
     }
+    try {
+      const pong = await requireValkey().ping();
+      valkey = pong === "PONG";
+    } catch {
+      valkey = false;
+    }
+    const ok = db && (env().isProduction ? valkey : true);
+    return { ok, service: "elix-star-live", db, valkey };
+  }
+
+  app.get("/health", async (_req, res) => {
+    const body = await healthPayload();
+    res.status(body.ok ? 200 : 503).json(body);
   });
   app.get("/api/health", async (_req, res) => {
-    try {
-      await getPool().query("SELECT 1");
-      res.json({ ok: true, service: "elix-star-live", db: true });
-    } catch {
-      res.status(503).json({ ok: false, service: "elix-star-live", db: false });
-    }
+    const body = await healthPayload();
+    res.status(body.ok ? 200 : 503).json(body);
   });
 
   app.use("/api/auth", authRouter);
