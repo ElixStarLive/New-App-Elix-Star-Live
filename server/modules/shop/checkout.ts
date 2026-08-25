@@ -163,7 +163,7 @@ export async function getShopCheckoutSession(req: AuthedRequest, res: Response):
   res.json({
     sessionId: session.id,
     status: session.status,
-    payment_status: session.payment_status,
+    paymentStatus: session.payment_status,
     paid: recordedPaid || session.payment_status === "paid",
   });
 }

@@ -6,6 +6,9 @@ import { env } from "./env.js";
 import { logger } from "./logger.js";
 
 const ADVISORY_KEY = 87236401;
+const BASELINE_MIGRATION = "20260819100000_baseline.sql";
+const MIGRATIONS_TABLE = "schema_migrations";
+const LEGACY_MIGRATIONS_TABLE = "elix_schema_migrations";
 
 function migrationsDir(): string {
   return path.resolve(path.dirname(fileURLToPath(import.meta.url)), "../migrations");
@@ -64,147 +67,7 @@ export async function withTransaction<T>(fn: (client: pg.PoolClient) => Promise<
   }
 }
 
-type UsersRelationState = {
-  kind: "none" | "table" | "partitioned" | "view" | "matview" | "foreign" | "other";
-  hasId: boolean;
-  hasUserId: boolean;
-};
-
-async function usersRelationState(client: pg.PoolClient): Promise<UsersRelationState> {
-  const rel = await client.query<{ relkind: string }>(
-    `SELECT c.relkind
-       FROM pg_class c
-       JOIN pg_namespace n ON n.oid = c.relnamespace
-      WHERE n.nspname = 'public' AND c.relname = 'users'
-      LIMIT 1`,
-  );
-  const relkind = rel.rows[0]?.relkind;
-
-  const cols = await client.query<{ has_id: boolean; has_user_id: boolean }>(
-    `SELECT
-       EXISTS (
-         SELECT 1 FROM information_schema.columns
-          WHERE table_schema = 'public' AND table_name = 'users' AND column_name = 'id'
-       ) AS has_id,
-       EXISTS (
-         SELECT 1 FROM information_schema.columns
-          WHERE table_schema = 'public' AND table_name = 'users' AND column_name = 'user_id'
-       ) AS has_user_id`,
-  );
-
-  const mapKind = (kind: string | undefined): UsersRelationState["kind"] => {
-    if (!kind) return "none";
-    if (kind === "r") return "table";
-    if (kind === "p") return "partitioned";
-    if (kind === "v") return "view";
-    if (kind === "m") return "matview";
-    if (kind === "f") return "foreign";
-    return "other";
-  };
-
-  return {
-    kind: mapKind(relkind),
-    hasId: Boolean(cols.rows[0]?.has_id),
-    hasUserId: Boolean(cols.rows[0]?.has_user_id),
-  };
-}
-
-async function createCanonicalUsersTable(client: pg.PoolClient): Promise<void> {
-  await client.query(`
-    CREATE TABLE IF NOT EXISTS users (
-      id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-      email TEXT NOT NULL,
-      email_normalized TEXT NOT NULL,
-      username TEXT NOT NULL,
-      username_normalized TEXT NOT NULL,
-      password_hash TEXT,
-      display_name TEXT NOT NULL DEFAULT '',
-      bio TEXT NOT NULL DEFAULT '',
-      avatar_url TEXT,
-      apple_sub TEXT,
-      email_confirmed_at TIMESTAMPTZ,
-      is_admin BOOLEAN NOT NULL DEFAULT FALSE,
-      is_verified BOOLEAN NOT NULL DEFAULT FALSE,
-      banned_until TIMESTAMPTZ,
-      deleted_at TIMESTAMPTZ,
-      created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-      updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-      CONSTRAINT users_email_normalized_unique UNIQUE (email_normalized),
-      CONSTRAINT users_username_normalized_unique UNIQUE (username_normalized),
-      CONSTRAINT users_apple_sub_unique UNIQUE (apple_sub)
-    )
-  `);
-}
-
-async function seedCanonicalUsersFromLegacy(client: pg.PoolClient): Promise<void> {
-  const hasLegacy = await client.query<{ exists: boolean }>(
-    `SELECT EXISTS (
-       SELECT 1 FROM information_schema.tables
-       WHERE table_schema = 'public' AND table_name = 'elix_auth_users'
-     ) AS exists`,
-  );
-  if (!hasLegacy.rows[0]?.exists) return;
-
-  await client.query(`
-    INSERT INTO users (
-      id,
-      email,
-      email_normalized,
-      username,
-      username_normalized,
-      password_hash,
-      display_name,
-      bio,
-      avatar_url,
-      apple_sub,
-      email_confirmed_at,
-      is_admin,
-      is_verified,
-      banned_until,
-      created_at,
-      updated_at
-    )
-    SELECT
-      u.id::uuid,
-      COALESCE(NULLIF(u.email, ''), CONCAT('user-', u.id::text, '@invalid.local')),
-      COALESCE(NULLIF(LOWER(u.email), ''), CONCAT('user-', u.id::text, '@invalid.local')),
-      COALESCE(NULLIF(u.username, ''), CONCAT('user_', REPLACE(u.id::text, '-', ''))),
-      COALESCE(NULLIF(LOWER(u.username), ''), CONCAT('user_', REPLACE(u.id::text, '-', ''))),
-      u.password_hash,
-      COALESCE(NULLIF(p.display_name, ''), NULLIF(u.display_name, ''), COALESCE(NULLIF(u.username, ''), 'user')),
-      COALESCE(p.bio, ''),
-      COALESCE(NULLIF(p.avatar_url, ''), NULLIF(u.avatar_url, '')),
-      u.apple_sub,
-      u.email_confirmed_at,
-      COALESCE(p.is_admin, FALSE),
-      COALESCE(p.is_verified, FALSE),
-      p.banned_until,
-      COALESCE(u.created_at, NOW()),
-      NOW()
-    FROM elix_auth_users u
-    LEFT JOIN profiles p ON p.user_id = u.id
-    WHERE u.id::text ~* '^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$'
-    ON CONFLICT (id) DO UPDATE SET
-      email = EXCLUDED.email,
-      email_normalized = EXCLUDED.email_normalized,
-      username = EXCLUDED.username,
-      username_normalized = EXCLUDED.username_normalized,
-      password_hash = COALESCE(EXCLUDED.password_hash, users.password_hash),
-      display_name = EXCLUDED.display_name,
-      bio = EXCLUDED.bio,
-      avatar_url = EXCLUDED.avatar_url,
-      apple_sub = COALESCE(EXCLUDED.apple_sub, users.apple_sub),
-      email_confirmed_at = COALESCE(users.email_confirmed_at, EXCLUDED.email_confirmed_at),
-      is_admin = EXCLUDED.is_admin,
-      is_verified = EXCLUDED.is_verified,
-      banned_until = EXCLUDED.banned_until,
-      updated_at = NOW()
-  `);
-}
-
-type TableWithUuidId = "users" | "videos" | "live_streams" | "battle_results" | "chat_threads" | "shop_items";
-
-async function tableExists(client: pg.PoolClient, table: string): Promise<boolean> {
+async function baseTableExists(client: pg.PoolClient, table: string): Promise<boolean> {
   const { rows } = await client.query<{ exists: boolean }>(
     `SELECT EXISTS (
        SELECT 1 FROM information_schema.tables
@@ -217,148 +80,56 @@ async function tableExists(client: pg.PoolClient, table: string): Promise<boolea
   return Boolean(rows[0]?.exists);
 }
 
-async function hasColumn(client: pg.PoolClient, table: string, column: string): Promise<boolean> {
-  const { rows } = await client.query<{ exists: boolean }>(
-    `SELECT EXISTS (
-       SELECT 1 FROM information_schema.columns
-       WHERE table_schema = 'public' AND table_name = $1 AND column_name = $2
-     ) AS exists`,
-    [table, column],
-  );
-  return Boolean(rows[0]?.exists);
-}
-
-async function ensureUuidIdColumn(
+/**
+ * NEW app must use a NEW Neon database created from scratch.
+ * OLD production Neon is reference/rollback only — never migrate against it.
+ */
+async function assertNewAppDatabaseTarget(
   client: pg.PoolClient,
-  table: TableWithUuidId,
-  sourceColumns: string[] = [],
+  alreadyApplied: Set<string>,
 ): Promise<void> {
-  if (!(await tableExists(client, table))) return;
-  if (!(await hasColumn(client, table, "id"))) {
-    await client.query(`ALTER TABLE ${table} ADD COLUMN IF NOT EXISTS id UUID`);
+  if (alreadyApplied.has(BASELINE_MIGRATION)) return;
 
-    for (const source of sourceColumns) {
-      if (!(await hasColumn(client, table, source))) continue;
-      await client.query(`
-        UPDATE ${table}
-           SET id = ${source}::uuid
-         WHERE id IS NULL
-           AND ${source}::text ~* '^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$'
-      `);
-    }
-
-    await client.query(`UPDATE ${table} SET id = gen_random_uuid() WHERE id IS NULL`);
+  const oldMarkers: string[] = [];
+  for (const table of [
+    "elix_auth_users",
+    "elix_wallet_balances",
+    "elix_blocked_users",
+    "profiles",
+  ] as const) {
+    if (await baseTableExists(client, table)) oldMarkers.push(table);
   }
 
+  if (oldMarkers.length === 0) return;
+
+  throw new Error(
+    [
+      "NEW app refused to migrate: DATABASE_URL points at the OLD production Neon schema.",
+      `OLD markers found: ${oldMarkers.join(", ")}`,
+      "",
+      "Required architecture:",
+      "- OLD app → OLD Neon (untouched reference / rollback)",
+      "- NEW staging/app → NEW empty Neon (clean NEW migrations only)",
+      "",
+      "Do not run NEW migrations against OLD. Do not ALTER OLD tables at boot.",
+    ].join("\n"),
+  );
+}
+
+/** Prefer NEW schema_migrations; rename tracker once if an earlier NEW boot used elix_schema_migrations. */
+async function ensureMigrationsTable(client: pg.PoolClient): Promise<void> {
+  const hasNew = await baseTableExists(client, MIGRATIONS_TABLE);
+  const hasLegacyName = await baseTableExists(client, LEGACY_MIGRATIONS_TABLE);
+  if (!hasNew && hasLegacyName) {
+    await client.query(`ALTER TABLE ${LEGACY_MIGRATIONS_TABLE} RENAME TO ${MIGRATIONS_TABLE}`);
+  }
   await client.query(`
-    WITH ranked AS (
-      SELECT ctid,
-             ROW_NUMBER() OVER (PARTITION BY id ORDER BY ctid) AS rn
-      FROM ${table}
-      WHERE id IS NOT NULL
+    CREATE TABLE IF NOT EXISTS ${MIGRATIONS_TABLE} (
+      id SERIAL PRIMARY KEY,
+      filename TEXT NOT NULL UNIQUE,
+      applied_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
     )
-    UPDATE ${table} t
-       SET id = gen_random_uuid()
-      FROM ranked r
-     WHERE t.ctid = r.ctid
-       AND r.rn > 1
   `);
-
-  await client.query(`UPDATE ${table} SET id = gen_random_uuid() WHERE id IS NULL`);
-  await client.query(`ALTER TABLE ${table} ALTER COLUMN id SET NOT NULL`);
-  await client.query(`CREATE UNIQUE INDEX IF NOT EXISTS ${table}_id_unique_idx ON ${table}(id)`);
-}
-
-async function ensureGiftsIdColumn(client: pg.PoolClient): Promise<void> {
-  if (!(await tableExists(client, "gifts"))) return;
-
-  await client.query(`ALTER TABLE gifts ADD COLUMN IF NOT EXISTS id TEXT`);
-
-  if (await hasColumn(client, "gifts", "gift_id")) {
-    await client.query(`UPDATE gifts SET id = gift_id::text WHERE id IS NULL AND gift_id IS NOT NULL`);
-  }
-  if (await hasColumn(client, "gifts", "name")) {
-    await client.query(`UPDATE gifts SET id = name::text WHERE id IS NULL AND name IS NOT NULL`);
-  }
-
-  await client.query(`
-    WITH ranked AS (
-      SELECT ctid,
-             ROW_NUMBER() OVER (PARTITION BY id ORDER BY ctid) AS rn
-      FROM gifts
-      WHERE id IS NOT NULL
-    )
-    UPDATE gifts g
-       SET id = id || '_dup_' || replace(g.ctid::text, ':', '_')
-      FROM ranked r
-     WHERE g.ctid = r.ctid
-       AND r.rn > 1
-  `);
-
-  const nullIds = await client.query<{ n: string }>(`SELECT COUNT(*)::text AS n FROM gifts WHERE id IS NULL`);
-  if (Number(nullIds.rows[0]?.n ?? "0") > 0) {
-    throw new Error("canonical prerequisite failed: gifts.id is missing and cannot be derived safely");
-  }
-
-  await client.query(`ALTER TABLE gifts ALTER COLUMN id SET NOT NULL`);
-  await client.query(`CREATE UNIQUE INDEX IF NOT EXISTS gifts_id_unique_idx ON gifts(id)`);
-}
-
-async function validateFkTargets(client: pg.PoolClient): Promise<void> {
-  const checks: Array<{ table: string; column: string }> = [
-    { table: "users", column: "id" },
-    { table: "videos", column: "id" },
-    { table: "live_streams", column: "id" },
-    { table: "battle_results", column: "id" },
-    { table: "gifts", column: "id" },
-    { table: "chat_threads", column: "id" },
-    { table: "shop_items", column: "id" },
-  ];
-
-  for (const check of checks) {
-    const exists = await tableExists(client, check.table);
-    if (!exists) continue;
-    const col = await hasColumn(client, check.table, check.column);
-    if (!col) {
-      throw new Error(
-        `canonical prerequisite failed: ${check.table}.${check.column} is missing before baseline FK execution`,
-      );
-    }
-  }
-}
-
-async function ensureCanonicalUsersPrereq(client: pg.PoolClient): Promise<void> {
-  await client.query(`CREATE EXTENSION IF NOT EXISTS pgcrypto`);
-  const state = await usersRelationState(client);
-
-  if (state.kind === "none") {
-    await createCanonicalUsersTable(client);
-    await seedCanonicalUsersFromLegacy(client);
-  } else if (state.kind === "table" || state.kind === "partitioned") {
-    await ensureUuidIdColumn(client, "users", state.hasUserId ? ["user_id"] : []);
-  } else if (state.kind === "view" || state.kind === "matview") {
-    logger.warn({ kind: state.kind }, "legacy users relation is a view; converting to canonical table");
-    if (state.kind === "view") {
-      await client.query(`ALTER VIEW users RENAME TO users_legacy_view`);
-    } else {
-      await client.query(`ALTER MATERIALIZED VIEW users RENAME TO users_legacy_matview`);
-    }
-    await createCanonicalUsersTable(client);
-    await seedCanonicalUsersFromLegacy(client);
-  } else {
-    throw new Error("Unsupported public.users relation type for canonical migration");
-  }
-
-  // Baseline CREATE ... REFERENCES parent(id) fails on legacy Neon tables that
-  // only have user_id / video_id / stream_id / gift_id / etc. Make every FK
-  // parent uniquely addressable by id before any migration SQL runs.
-  await ensureUuidIdColumn(client, "videos", ["video_id"]);
-  await ensureUuidIdColumn(client, "live_streams", ["stream_id"]);
-  await ensureUuidIdColumn(client, "battle_results", ["battle_id"]);
-  await ensureUuidIdColumn(client, "chat_threads", ["thread_id"]);
-  await ensureUuidIdColumn(client, "shop_items", ["item_id"]);
-  await ensureGiftsIdColumn(client);
-  await validateFkTargets(client);
 }
 
 export async function applyPendingMigrations(databaseUrl = env().DATABASE_URL): Promise<string[]> {
@@ -374,29 +145,23 @@ export async function applyPendingMigrations(databaseUrl = env().DATABASE_URL): 
   try {
     await client.query("SELECT pg_advisory_lock($1)", [ADVISORY_KEY]);
     await client.query("SET search_path TO public");
-    await client.query(`
-      CREATE TABLE IF NOT EXISTS elix_schema_migrations (
-        id SERIAL PRIMARY KEY,
-        filename TEXT NOT NULL UNIQUE,
-        applied_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
-      )
-    `);
+    await client.query(`CREATE EXTENSION IF NOT EXISTS pgcrypto`);
+    await ensureMigrationsTable(client);
+
     const { rows } = await client.query<{ filename: string }>(
-      "SELECT filename FROM elix_schema_migrations ORDER BY id",
+      `SELECT filename FROM ${MIGRATIONS_TABLE} ORDER BY id`,
     );
     const already = new Set(rows.map((r) => r.filename));
-    const filenames = listMigrationFilenames();
+    await assertNewAppDatabaseTarget(client, already);
 
-    await ensureCanonicalUsersPrereq(client);
-
-    for (const name of filenames) {
+    for (const name of listMigrationFilenames()) {
       if (already.has(name)) continue;
       logger.info({ migration: name }, "applying migration");
       await client.query("BEGIN");
       try {
         await client.query("SET LOCAL search_path TO public");
         await client.query(readMigrationSql(name));
-        await client.query("INSERT INTO elix_schema_migrations (filename) VALUES ($1)", [name]);
+        await client.query(`INSERT INTO ${MIGRATIONS_TABLE} (filename) VALUES ($1)`, [name]);
         await client.query("COMMIT");
         applied.push(name);
       } catch (error) {
@@ -414,7 +179,7 @@ export async function applyPendingMigrations(databaseUrl = env().DATABASE_URL): 
 
 export async function assertMigrationsApplied(): Promise<void> {
   const { rows } = await getPool().query<{ filename: string }>(
-    "SELECT filename FROM elix_schema_migrations",
+    `SELECT filename FROM ${MIGRATIONS_TABLE}`,
   );
   const applied = new Set(rows.map((r) => r.filename));
   const missing = listMigrationFilenames().filter((name) => !applied.has(name));

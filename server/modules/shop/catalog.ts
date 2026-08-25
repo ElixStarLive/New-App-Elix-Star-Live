@@ -19,11 +19,11 @@ function param(req: { params: Record<string, string | string[] | undefined> }, n
   return Array.isArray(value) ? (value[0] ?? "") : (value ?? "");
 }
 
+/** NEW-only shop item shape. No user_id / image_url dual-emit. */
 export function mapShopItem(row: ShopItemRow) {
   return {
     id: row.id,
     sellerId: row.seller_id,
-    user_id: row.seller_id,
     name: row.title,
     title: row.title,
     description: row.description,
@@ -31,7 +31,6 @@ export function mapShopItem(row: ShopItemRow) {
     price: row.price_pence / 100,
     priceLabel: `£${(row.price_pence / 100).toFixed(2)}`,
     imageUrl: row.image_url,
-    image_url: row.image_url,
     category: row.category,
   };
 }
@@ -63,29 +62,20 @@ function parseWriteBody(body: unknown, requirePrice: boolean): {
     throw new AppError("validation_error", "Invalid price", 400);
   }
   const imageUrl =
-    raw.image_url === null || raw.imageUrl === null
+    raw.imageUrl === null
       ? null
       : typeof raw.imageUrl === "string"
         ? raw.imageUrl
-        : typeof raw.image_url === "string"
-          ? raw.image_url
-          : undefined;
+        : undefined;
   const categoryRaw = typeof raw.category === "string" ? raw.category : "other";
   const category = shopCategorySchema.safeParse(categoryRaw).success ? categoryRaw : "other";
   return { title, description, pricePence, imageUrl, category };
 }
 
 export async function listShopItems(req: AuthedRequest, res: Response): Promise<void> {
-  const seller =
-    typeof req.query.userId === "string"
-      ? req.query.userId
-      : typeof req.query.user_id === "string"
-        ? req.query.user_id
-        : "";
+  const seller = typeof req.query.sellerId === "string" ? req.query.sellerId : "";
   const category = typeof req.query.category === "string" ? req.query.category : "";
   const values: unknown[] = [];
-
-  
 
   let where = "WHERE deleted_at IS NULL AND is_active = TRUE";
   if (seller) {

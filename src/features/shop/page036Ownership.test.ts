@@ -29,6 +29,12 @@ describe("PAGE-036 Shop ownership", () => {
     expect(checkout).toMatch(/Checkout URLs are server-owned/);
     expect(checkout).toMatch(/unit_amount: item\.price_pence/);
     expect(catalog).toMatch(/seller_id = \$2/);
+    expect(catalog).toMatch(/sellerId: row\.seller_id/);
+    expect(catalog).not.toMatch(/user_id: row\.seller_id/);
+    expect(catalog).not.toMatch(/image_url: row\.image_url/);
+    expect(catalog).not.toMatch(/req\.query\.user_id/);
+    expect(checkout).toMatch(/paymentStatus: session\.payment_status/);
+    expect(checkout).not.toMatch(/payment_status: session\.payment_status/);
     expect(webhook).toMatch(/fulfillShopCheckoutSession/);
     expect(index).toMatch(/app\.use\("\/api\/shop", shopRouter\)/);
     expect(index).not.toMatch(/shopCheckout/);

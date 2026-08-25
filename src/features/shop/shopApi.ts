@@ -56,8 +56,8 @@ export function selectShopItemByCanonicalId(
   return items.find((item) => item.id === itemId) ?? null;
 }
 
-export async function apiListShopItems(userId?: string): Promise<{ items: ShopItem[]; error: string | null }> {
-  const qs = userId ? `?userId=${encodeURIComponent(userId)}` : "";
+export async function apiListShopItems(sellerId?: string): Promise<{ items: ShopItem[]; error: string | null }> {
+  const qs = sellerId ? `?sellerId=${encodeURIComponent(sellerId)}` : "";
   const { data, error } = await apiRequest<unknown>(`/api/shop/items${qs}`);
   if (error) return { items: [], error: error.message };
   if (!isRecord(data) || !Array.isArray(data.items)) return { items: [], error: "Invalid shop catalog" };
@@ -152,7 +152,7 @@ export async function apiShopCheckoutSessionStatus(sessionId: string): Promise<{
   if (!isRecord(data)) return { paid: false, paymentStatus: null, error: "Could not confirm payment status" };
   return {
     paid: data.paid === true,
-    paymentStatus: typeof data.payment_status === "string" ? data.payment_status : null,
+    paymentStatus: typeof data.paymentStatus === "string" ? data.paymentStatus : null,
     error: null,
   };
 }

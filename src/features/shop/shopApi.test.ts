@@ -1,3 +1,5 @@
+import { readFileSync } from "node:fs";
+import { resolve } from "node:path";
 import { describe, expect, it } from "vitest";
 import { canonicalShopRouteItemId, parseShopItem, selectShopItemByCanonicalId, type ShopItem } from "./shopApi";
 
@@ -50,6 +52,14 @@ describe("PAGE-036 shop item parse", () => {
         image_url: "https://cdn.example/hat.png",
       }),
     ).toBeNull();
+  });
+
+  it("uses NEW-only sellerId query and paymentStatus reader", () => {
+    const src = readFileSync(resolve(process.cwd(), "src/features/shop/shopApi.ts"), "utf8");
+    expect(src).toMatch(/paymentStatus: typeof data\.paymentStatus === "string"/);
+    expect(src).not.toMatch(/payment_status/);
+    expect(src).toMatch(/\?sellerId=/);
+    expect(src).not.toMatch(/\?userId=/);
   });
 });
 
