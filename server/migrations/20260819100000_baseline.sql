@@ -81,7 +81,15 @@ CREATE TABLE IF NOT EXISTS follows (
   PRIMARY KEY (follower_id, followee_id),
   CONSTRAINT follows_no_self CHECK (follower_id <> followee_id)
 );
-CREATE INDEX IF NOT EXISTS follows_followee_idx ON follows(followee_id);
+DO $$
+BEGIN
+  IF EXISTS (
+    SELECT 1 FROM information_schema.columns
+    WHERE table_schema = 'public' AND table_name = 'follows' AND column_name = 'followee_id'
+  ) THEN
+    CREATE INDEX IF NOT EXISTS follows_followee_idx ON follows(followee_id);
+  END IF;
+END $$;
 
 CREATE TABLE IF NOT EXISTS blocks (
   blocker_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
@@ -118,8 +126,28 @@ CREATE TABLE IF NOT EXISTS videos (
   deleted_at TIMESTAMPTZ,
   created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
-CREATE INDEX IF NOT EXISTS videos_user_created_idx ON videos(user_id, created_at DESC);
-CREATE INDEX IF NOT EXISTS videos_created_idx ON videos(created_at DESC) WHERE deleted_at IS NULL;
+DO $$
+BEGIN
+  IF EXISTS (
+    SELECT 1 FROM information_schema.columns
+    WHERE table_schema = 'public' AND table_name = 'videos' AND column_name = 'user_id'
+  ) AND EXISTS (
+    SELECT 1 FROM information_schema.columns
+    WHERE table_schema = 'public' AND table_name = 'videos' AND column_name = 'created_at'
+  ) THEN
+    CREATE INDEX IF NOT EXISTS videos_user_created_idx ON videos(user_id, created_at DESC);
+  END IF;
+
+  IF EXISTS (
+    SELECT 1 FROM information_schema.columns
+    WHERE table_schema = 'public' AND table_name = 'videos' AND column_name = 'created_at'
+  ) AND EXISTS (
+    SELECT 1 FROM information_schema.columns
+    WHERE table_schema = 'public' AND table_name = 'videos' AND column_name = 'deleted_at'
+  ) THEN
+    CREATE INDEX IF NOT EXISTS videos_created_idx ON videos(created_at DESC) WHERE deleted_at IS NULL;
+  END IF;
+END $$;
 
 CREATE TABLE IF NOT EXISTS video_likes (
   user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
@@ -170,8 +198,25 @@ CREATE TABLE IF NOT EXISTS live_streams (
   ended_at TIMESTAMPTZ,
   CONSTRAINT live_streams_status_chk CHECK (status IN ('live', 'ended'))
 );
-CREATE INDEX IF NOT EXISTS live_streams_host_idx ON live_streams(host_id, started_at DESC);
-CREATE INDEX IF NOT EXISTS live_streams_live_idx ON live_streams(status) WHERE status = 'live';
+DO $$
+BEGIN
+  IF EXISTS (
+    SELECT 1 FROM information_schema.columns
+    WHERE table_schema = 'public' AND table_name = 'live_streams' AND column_name = 'host_id'
+  ) AND EXISTS (
+    SELECT 1 FROM information_schema.columns
+    WHERE table_schema = 'public' AND table_name = 'live_streams' AND column_name = 'started_at'
+  ) THEN
+    CREATE INDEX IF NOT EXISTS live_streams_host_idx ON live_streams(host_id, started_at DESC);
+  END IF;
+
+  IF EXISTS (
+    SELECT 1 FROM information_schema.columns
+    WHERE table_schema = 'public' AND table_name = 'live_streams' AND column_name = 'status'
+  ) THEN
+    CREATE INDEX IF NOT EXISTS live_streams_live_idx ON live_streams(status) WHERE status = 'live';
+  END IF;
+END $$;
 
 CREATE TABLE IF NOT EXISTS live_stream_moderators (
   stream_id UUID NOT NULL REFERENCES live_streams(id) ON DELETE CASCADE,
