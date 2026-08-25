@@ -147,8 +147,9 @@ describe("http integration", () => {
     process.env.BUNNY_STORAGE_ZONE = "integration-zone";
     process.env.BUNNY_STORAGE_API_KEY = "integration-key";
     process.env.BUNNY_CDN_HOSTNAME = "cdn.test";
-    delete process.env.VALKEY_URL;
-    delete process.env.REDIS_URL;
+    // Blank (do not delete) so dotenv/config in server/index.ts cannot reload .env Valkey.
+    process.env.VALKEY_URL = "";
+    process.env.REDIS_URL = "";
     delete process.env.SMTP_URL;
     delete process.env.LIVEKIT_URL;
     delete process.env.LIVEKIT_API_KEY;
@@ -157,9 +158,12 @@ describe("http integration", () => {
     await resetIntegrationDatabase(db.url);
     await applyPendingMigrations(db.url);
     const { createApp } = await import("./index.js");
+    process.env.VALKEY_URL = "";
+    process.env.REDIS_URL = "";
     delete process.env.LIVEKIT_URL;
     delete process.env.LIVEKIT_API_KEY;
     delete process.env.LIVEKIT_API_SECRET;
+    await closeValkey().catch(() => undefined);
     resetEnvCache();
     if (!originalFetch) {
       originalFetch = globalThis.fetch;
@@ -7354,9 +7358,9 @@ describe("http integration", () => {
     const userRow = pending.find((row) => row.id === reportId);
     expect(userRow).toMatchObject({
       id: reportId,
-      reporter_id: reporter.id,
-      target_type: "user",
-      target_id: target.id,
+      reporterId: reporter.id,
+      targetType: "user",
+      targetId: target.id,
       reason: "spam",
       details: "too many links",
       status: "open",
@@ -7371,11 +7375,11 @@ describe("http integration", () => {
 
     const warned = await authJson(`/api/admin/reports/${reportId}`, admin.token, {
       method: "PATCH",
-      body: JSON.stringify({ status: "actioned", action: "warned", admin_note: "Outcome: warned" }),
+      body: JSON.stringify({ status: "actioned", action: "warned", adminNote: "Outcome: warned" }),
     });
     expect(warned.status).toBe(200);
     expect(warned.body).toMatchObject({
-      report: { id: reportId, status: "actioned", target_type: "user", target_id: target.id },
+      report: { id: reportId, status: "actioned", targetType: "user", targetId: target.id },
     });
     const storedWarn = await getPool().query<{ status: string; reviewed_by: string | null }>(
       `SELECT status, reviewed_by::text AS reviewed_by FROM reports WHERE id = $1`,
@@ -7959,18 +7963,18 @@ describe("http integration", () => {
       const appleRow = iapRows.find((row) => row.id === appleId);
       const googleRow = iapRows.find((row) => row.id === googleId);
       expect(appleRow).toMatchObject({
-        user_id: buyer.id,
+        userId: buyer.id,
         provider: "apple",
-        product_id: "coins100",
-        transaction_id: appleTxn,
+        productId: "coins100",
+        transactionId: appleTxn,
         coins: 100,
         status: "credited",
       });
       expect(googleRow).toMatchObject({
-        user_id: buyer.id,
+        userId: buyer.id,
         provider: "google",
-        product_id: "coins500",
-        transaction_id: googleTxn,
+        productId: "coins500",
+        transactionId: googleTxn,
         coins: 500,
         status: "reversed",
       });
@@ -7984,11 +7988,11 @@ describe("http integration", () => {
       expect(shopList.body.source).toBe("shop");
       const shopRows = shopList.body.data as Array<Record<string, unknown>>;
       expect(shopRows.find((row) => row.id === shopId)).toMatchObject({
-        user_id: buyer.id,
-        stripe_session_id: sessionId,
-        item_id: itemId,
+        userId: buyer.id,
+        stripeSessionId: sessionId,
+        itemId: itemId,
         quantity: 1,
-        amount_pence: 1999,
+        amountPence: 1999,
         status: "paid",
       });
       expect(JSON.stringify(shopList.body)).not.toMatch(/STRIPE_SECRET|client_secret|payment_intent/);
@@ -8156,7 +8160,7 @@ describe("http integration", () => {
       assertNoWithdrawals(loggedOutReview.body);
       const loggedOutChargeback = await authJson("/api/admin/chargeback", null, {
         method: "POST",
-        body: JSON.stringify({ earning_id: earningId }),
+        body: JSON.stringify({ earningId: earningId }),
       });
       expect(loggedOutChargeback.status).toBe(401);
       const loggedOutUnfreeze = await authJson(`/api/admin/unfreeze/${unfreezeCreator.id}`, null, { method: "POST" });
@@ -8175,7 +8179,7 @@ describe("http integration", () => {
       assertNoWithdrawals(attackerApprove.body);
       const attackerChargeback = await authJson("/api/admin/chargeback", attacker.token, {
         method: "POST",
-        body: JSON.stringify({ earning_id: earningId }),
+        body: JSON.stringify({ earningId: earningId }),
       });
       expect(attackerChargeback.status).toBe(403);
       const attackerUnfreeze = await authJson(`/api/admin/unfreeze/${unfreezeCreator.id}`, attacker.token, {
@@ -8194,8 +8198,8 @@ describe("http integration", () => {
       expect(Array.isArray(listedRows)).toBe(true);
       const reviewRow = listedRows.find((row) => row.id === reviewFixture.withdrawalId);
       expect(reviewRow).toMatchObject({
-        user_id: reviewFixture.creator.id,
-        amount_pence: 5000,
+        userId: reviewFixture.creator.id,
+        amountPence: 5000,
         currency: "GBP",
         status: "pending",
       });
@@ -8208,11 +8212,11 @@ describe("http integration", () => {
 
       const reviewed = await authJson(`/api/admin/withdrawals/${reviewFixture.withdrawalId}/review`, admin.token, {
         method: "POST",
-        body: JSON.stringify({ admin_note: "checking", reviewedBy: attacker.id, status: "paid_manually", amount_pence: 999999 }),
+        body: JSON.stringify({ adminNote: "checking", reviewedBy: attacker.id, status: "paid_manually", amountPence: 999999 }),
       });
       expect(reviewed.status).toBe(200);
-      expect((reviewed.body.withdrawal as { status?: string; processed_by?: string }).status).toBe("under_review");
-      expect((reviewed.body.withdrawal as { processed_by?: string }).processed_by).toBe(admin.id);
+      expect((reviewed.body.withdrawal as { status?: string; processedBy?: string }).status).toBe("under_review");
+      expect((reviewed.body.withdrawal as { processedBy?: string }).processedBy).toBe(admin.id);
       expect(await walletOf(reviewFixture.creator.id)).toMatchObject({ available: 0, held: 5000, withdrawn: 0 });
       const reviewedAgain = await authJson(`/api/admin/withdrawals/${reviewFixture.withdrawalId}/review`, admin.token, {
         method: "POST",
@@ -8237,22 +8241,22 @@ describe("http integration", () => {
 
       const rejectAfterApprove = await authJson(`/api/admin/withdrawals/${reviewFixture.withdrawalId}/reject`, admin.token, {
         method: "POST",
-        body: JSON.stringify({ admin_note: "too late" }),
+        body: JSON.stringify({ adminNote: "too late" }),
       });
       expect(rejectAfterApprove.status).toBe(400);
       expect(await walletOf(reviewFixture.creator.id)).toMatchObject({ available: 0, held: 0, withdrawn: 5000 });
 
       const paid = await authJson(`/api/admin/withdrawals/${reviewFixture.withdrawalId}/mark-paid`, admin.token, {
         method: "POST",
-        body: JSON.stringify({ admin_note: "bank ref 076" }),
+        body: JSON.stringify({ adminNote: "bank ref 076" }),
       });
       expect(paid.status).toBe(200);
-      expect((paid.body.withdrawal as { status?: string; admin_note?: string }).status).toBe("paid_manually");
-      expect((paid.body.withdrawal as { admin_note?: string }).admin_note).toBe("bank ref 076");
+      expect((paid.body.withdrawal as { status?: string; adminNote?: string }).status).toBe("paid_manually");
+      expect((paid.body.withdrawal as { adminNote?: string }).adminNote).toBe("bank ref 076");
       expect(await walletOf(reviewFixture.creator.id)).toMatchObject({ available: 0, held: 0, withdrawn: 5000 });
       const paidAgain = await authJson(`/api/admin/withdrawals/${reviewFixture.withdrawalId}/mark-paid`, admin.token, {
         method: "POST",
-        body: JSON.stringify({ admin_note: "bank ref 076 again" }),
+        body: JSON.stringify({ adminNote: "bank ref 076 again" }),
       });
       expect(paidAgain.status).toBe(400);
       expect(await walletOf(reviewFixture.creator.id)).toMatchObject({ available: 0, held: 0, withdrawn: 5000 });
@@ -8264,14 +8268,14 @@ describe("http integration", () => {
 
       const rejected = await authJson(`/api/admin/withdrawals/${rejectFixture.withdrawalId}/reject`, admin.token, {
         method: "POST",
-        body: JSON.stringify({ admin_note: "not eligible" }),
+        body: JSON.stringify({ adminNote: "not eligible" }),
       });
       expect(rejected.status).toBe(200);
       expect((rejected.body.withdrawal as { status?: string }).status).toBe("rejected");
       expect(await walletOf(rejectFixture.creator.id)).toMatchObject({ available: 2500, held: 0, withdrawn: 0 });
       const rejectedAgain = await authJson(`/api/admin/withdrawals/${rejectFixture.withdrawalId}/reject`, admin.token, {
         method: "POST",
-        body: JSON.stringify({ admin_note: "not eligible" }),
+        body: JSON.stringify({ adminNote: "not eligible" }),
       });
       expect(rejectedAgain.status).toBe(400);
       expect(await walletOf(rejectFixture.creator.id)).toMatchObject({ available: 2500, held: 0, withdrawn: 0 });
@@ -8283,14 +8287,14 @@ describe("http integration", () => {
       expect(missingNote.status).toBe(400);
       const cancelled = await authJson(`/api/admin/withdrawals/${cancelFixture.withdrawalId}/cancel`, admin.token, {
         method: "POST",
-        body: JSON.stringify({ admin_note: "creator asked to stop" }),
+        body: JSON.stringify({ adminNote: "creator asked to stop" }),
       });
       expect(cancelled.status).toBe(200);
       expect((cancelled.body.withdrawal as { status?: string }).status).toBe("cancelled");
       expect(await walletOf(cancelFixture.creator.id)).toMatchObject({ available: 1500, held: 0, withdrawn: 0 });
       const cancelledAgain = await authJson(`/api/admin/withdrawals/${cancelFixture.withdrawalId}/cancel`, admin.token, {
         method: "POST",
-        body: JSON.stringify({ admin_note: "creator asked to stop" }),
+        body: JSON.stringify({ adminNote: "creator asked to stop" }),
       });
       expect(cancelledAgain.status).toBe(400);
       expect(await walletOf(cancelFixture.creator.id)).toMatchObject({ available: 1500, held: 0, withdrawn: 0 });
@@ -8321,22 +8325,22 @@ describe("http integration", () => {
       expect(unknownAction.status).toBe(404);
       const cancelPaid = await authJson(`/api/admin/withdrawals/${reviewFixture.withdrawalId}/cancel`, admin.token, {
         method: "POST",
-        body: JSON.stringify({ admin_note: "cannot cancel paid" }),
+        body: JSON.stringify({ adminNote: "cannot cancel paid" }),
       });
       expect(cancelPaid.status).toBe(400);
 
       const charged = await authJson("/api/admin/chargeback", admin.token, {
         method: "POST",
-        body: JSON.stringify({ earning_id: earningId, gift_tx_id: earningId }),
+        body: JSON.stringify({ earningId: earningId, giftTxId: earningId }),
       });
       expect(charged.status).toBe(200);
       expect(charged.body).toMatchObject({
-        reversed: { id: earningId, creator_id: chargebackCreator.id, amount_pence: 600, status: "reversed" },
+        reversed: { id: earningId, creatorId: chargebackCreator.id, amountPence: 600, status: "reversed" },
       });
       expect(await walletOf(chargebackCreator.id)).toMatchObject({ available: 0, pending: 0 });
       const chargedAgain = await authJson("/api/admin/chargeback", admin.token, {
         method: "POST",
-        body: JSON.stringify({ earning_id: earningId }),
+        body: JSON.stringify({ earningId: earningId }),
       });
       expect(chargedAgain.status).toBe(400);
       expect(await walletOf(chargebackCreator.id)).toMatchObject({ available: 0, pending: 0 });
@@ -8345,11 +8349,11 @@ describe("http integration", () => {
 
       const unfrozen = await authJson(`/api/admin/unfreeze/${unfreezeCreator.id}`, admin.token, { method: "POST" });
       expect(unfrozen.status).toBe(200);
-      expect(unfrozen.body).toMatchObject({ ok: true, userId: unfreezeCreator.id, released: 900, still_reserved: 0 });
+      expect(unfrozen.body).toMatchObject({ ok: true, userId: unfreezeCreator.id, released: 900, stillReserved: 0 });
       expect(await walletOf(unfreezeCreator.id)).toMatchObject({ available: 900, held: 0 });
       const unfrozenAgain = await authJson(`/api/admin/unfreeze/${unfreezeCreator.id}`, admin.token, { method: "POST" });
       expect(unfrozenAgain.status).toBe(200);
-      expect(unfrozenAgain.body).toMatchObject({ released: 0, still_reserved: 0 });
+      expect(unfrozenAgain.body).toMatchObject({ released: 0, stillReserved: 0 });
       expect(await walletOf(unfreezeCreator.id)).toMatchObject({ available: 900, held: 0 });
 
       const monetisationStill = await authJson("/api/admin/monetisation", admin.token);
@@ -8464,8 +8468,8 @@ describe("http integration", () => {
         body: JSON.stringify({
           slug,
           title: "P077 Season",
-          starts_at: starts,
-          ends_at: ends,
+          startsAt: starts,
+          endsAt: ends,
           status: "draft",
         }),
       });
@@ -8482,8 +8486,8 @@ describe("http integration", () => {
         body: JSON.stringify({
           slug,
           title: "P077 Season",
-          starts_at: starts,
-          ends_at: ends,
+          startsAt: starts,
+          endsAt: ends,
           status: "draft",
         }),
       });
@@ -8506,8 +8510,8 @@ describe("http integration", () => {
         body: JSON.stringify({
           slug: `${slug}-bad`,
           title: "Bad",
-          starts_at: starts,
-          ends_at: ends,
+          startsAt: starts,
+          endsAt: ends,
           status: "whatever",
         }),
       });
@@ -8518,8 +8522,8 @@ describe("http integration", () => {
         body: JSON.stringify({
           slug: `${slug}-dates`,
           title: "Bad dates",
-          starts_at: ends,
-          ends_at: starts,
+          startsAt: ends,
+          endsAt: starts,
           status: "draft",
         }),
       });
@@ -8531,8 +8535,8 @@ describe("http integration", () => {
           slug,
           title: "P077 Season",
           description: "isolated draft",
-          starts_at: starts,
-          ends_at: ends,
+          startsAt: starts,
+          endsAt: ends,
           status: "draft",
         }),
       });
@@ -8545,8 +8549,8 @@ describe("http integration", () => {
         body: JSON.stringify({
           slug,
           title: "P077 Season",
-          starts_at: starts,
-          ends_at: ends,
+          startsAt: starts,
+          endsAt: ends,
           status: "draft",
         }),
       });
@@ -8554,7 +8558,7 @@ describe("http integration", () => {
 
       const category = await authJson("/api/admin/rising-stars/categories", admin.token, {
         method: "POST",
-        body: JSON.stringify({ season_id: seasonId, slug: "music", title: "Music" }),
+        body: JSON.stringify({ seasonId, slug: "music", title: "Music" }),
       });
       expect(category.status).toBe(201);
       const categoryId = String((category.body.category as { id?: string } | undefined)?.id ?? "");
@@ -8562,10 +8566,10 @@ describe("http integration", () => {
       const region = await authJson("/api/admin/rising-stars/regions", admin.token, {
         method: "POST",
         body: JSON.stringify({
-          season_id: seasonId,
+          seasonId,
           slug: "uk",
           title: "United Kingdom",
-          country_codes: ["GB"],
+          countryCodes: ["GB"],
         }),
       });
       expect(region.status).toBe(201);
@@ -8574,14 +8578,14 @@ describe("http integration", () => {
       const challenge = await authJson("/api/admin/rising-stars/challenges", admin.token, {
         method: "POST",
         body: JSON.stringify({
-          season_id: seasonId,
-          category_id: categoryId,
-          region_id: regionId,
-          week_index: 1,
+          seasonId,
+          categoryId,
+          regionId,
+          weekIndex: 1,
           title: "P077 Challenge",
-          sound_track_id: "epidemic-p077",
-          opens_at: starts,
-          closes_at: ends,
+          soundTrackId: "epidemic-p077",
+          opensAt: starts,
+          closesAt: ends,
           status: "scheduled",
         }),
       });
@@ -8644,14 +8648,14 @@ describe("http integration", () => {
         body: JSON.stringify({ frozen: true }),
       });
       expect(freezeAgain.status).toBe(200);
-      expect((freezeAgain.body.challenge as { leaderboard_frozen?: boolean }).leaderboard_frozen).toBe(true);
+      expect((freezeAgain.body.challenge as { leaderboardFrozen?: boolean }).leaderboardFrozen).toBe(true);
 
       const unfreeze = await authJson(`/api/admin/rising-stars/challenges/${challengeId}/freeze`, admin.token, {
         method: "POST",
         body: JSON.stringify({ frozen: false }),
       });
       expect(unfreeze.status).toBe(200);
-      expect((unfreeze.body.challenge as { leaderboard_frozen?: boolean }).leaderboard_frozen).toBe(false);
+      expect((unfreeze.body.challenge as { leaderboardFrozen?: boolean }).leaderboardFrozen).toBe(false);
 
       const snapshot = await authJson(`/api/admin/rising-stars/challenges/${challengeId}/snapshot`, admin.token, {
         method: "POST",
@@ -8660,8 +8664,8 @@ describe("http integration", () => {
       expect(snapshot.status).toBe(200);
       expect(snapshot.body.ok).toBe(true);
       expect(snapshot.body.results).toBe(2);
-      expect((snapshot.body.challenge as { status?: string; leaderboard_frozen?: boolean }).status).toBe("qualified");
-      expect((snapshot.body.challenge as { leaderboard_frozen?: boolean }).leaderboard_frozen).toBe(true);
+      expect((snapshot.body.challenge as { status?: string; leaderboardFrozen?: boolean }).status).toBe("qualified");
+      expect((snapshot.body.challenge as { leaderboardFrozen?: boolean }).leaderboardFrozen).toBe(true);
       const snapshotAgain = await authJson(`/api/admin/rising-stars/challenges/${challengeId}/snapshot`, admin.token, {
         method: "POST",
         body: JSON.stringify({ phase: "qualifier", advanceTopN: 1 }),
@@ -8709,7 +8713,7 @@ describe("http integration", () => {
       const badge = await authJson("/api/admin/rising-stars/badges", admin.token, {
         method: "POST",
         body: JSON.stringify({
-          season_id: seasonId,
+          seasonId,
           code: "winner",
           title: "Winner",
           kind: "winner",
@@ -8747,10 +8751,10 @@ describe("http integration", () => {
       const reward = await authJson("/api/admin/rising-stars/rewards/definitions", admin.token, {
         method: "POST",
         body: JSON.stringify({
-          season_id: seasonId,
-          place_from: 1,
-          place_to: 1,
-          reward_kind: "creator_credit_manual",
+          seasonId,
+          placeFrom: 1,
+          placeTo: 1,
+          rewardKind: "creator_credit_manual",
           payload: { note: "off-platform" },
         }),
       });
@@ -8800,9 +8804,9 @@ describe("http integration", () => {
 
       const audit = await authJson("/api/admin/rising-stars/audit?limit=50", admin.token);
       expect(audit.status).toBe(200);
-      const auditRows = (audit.body.audit as Array<{ action: string; entity_id: string | null }>) ?? [];
-      expect(auditRows.some((row) => row.action === "create_season" && row.entity_id === seasonId)).toBe(true);
-      expect(auditRows.some((row) => row.action === "snapshot_phase" && row.entity_id === challengeId)).toBe(true);
+      const auditRows = (audit.body.audit as Array<{ action: string; entityId: string | null }>) ?? [];
+      expect(auditRows.some((row) => row.action === "create_season" && row.entityId === seasonId)).toBe(true);
+      expect(auditRows.some((row) => row.action === "snapshot_phase" && row.entityId === challengeId)).toBe(true);
       expect(auditRows.every((row) => !("details" in row))).toBe(true);
       const freezeAudits = await getPool().query<{ n: string }>(
         `SELECT COUNT(*)::text AS n FROM rs_admin_audit WHERE action = 'freeze_leaderboard' AND entity_id = $1`,
@@ -8908,10 +8912,10 @@ describe("http integration", () => {
     const loggedOutXp = await authJson("/api/admin/progression/xp-adjustments", null, {
       method: "POST",
       body: JSON.stringify({
-        user_id: target.id,
-        amount_delta: 5,
+        userId: target.id,
+        amountDelta: 5,
         reason: "logged out",
-        idempotency_key: "logged-out-key",
+        idempotencyKey: "logged-out-key",
       }),
     });
     expect(loggedOutXp.status).toBe(401);
@@ -8922,20 +8926,20 @@ describe("http integration", () => {
     const attackerXp = await authJson("/api/admin/progression/xp-adjustments", attacker.token, {
       method: "POST",
       body: JSON.stringify({
-        user_id: target.id,
-        amount_delta: 50,
+        userId: target.id,
+        amountDelta: 50,
         reason: "non-admin attack",
-        idempotency_key: "attacker-xp-key",
+        idempotencyKey: "attacker-xp-key",
       }),
     });
     expect(attackerXp.status).toBe(403);
     const attackerStarter = await authJson("/api/admin/progression/starter-adjustments", attacker.token, {
       method: "POST",
       body: JSON.stringify({
-        user_id: target.id,
-        amount_delta: 10,
+        userId: target.id,
+        amountDelta: 10,
         reason: "non-admin attack",
-        idempotency_key: "attacker-st-key",
+        idempotencyKey: "attacker-st-key",
       }),
     });
     expect(attackerStarter.status).toBe(403);
@@ -8963,13 +8967,13 @@ describe("http integration", () => {
 
     const unknownField = await authJson("/api/admin/progression/config", admin.token, {
       method: "PATCH",
-      body: JSON.stringify({ source: "daily_activity", xp_amount: 10, enabled: true, extra: true }),
+      body: JSON.stringify({ source: "daily_activity", xpAmount: 10, enabled: true, extra: true }),
     });
     expect(unknownField.status).toBe(400);
 
     const invalidLevel = await authJson("/api/admin/progression/levels", admin.token, {
       method: "PUT",
-      body: JSON.stringify({ level: 2, total_xp_required: -1, title: "bad" }),
+      body: JSON.stringify({ level: 2, totalXpRequired: -1, title: "bad" }),
     });
     expect(invalidLevel.status).toBe(400);
 
@@ -8980,7 +8984,7 @@ describe("http integration", () => {
       method: "PUT",
       body: JSON.stringify({
         level: 299,
-        total_xp_required: Number(
+        totalXpRequired: Number(
           (
             await getPool().query<{ n: string }>(
               `SELECT total_xp_required::text AS n FROM xp_level_requirements WHERE level = 299`,
@@ -8988,7 +8992,7 @@ describe("http integration", () => {
           ).rows[0]?.n,
         ),
         title: "qa-page078-temp",
-        badge_code: originalLevel.rows[0]?.badge_code ?? null,
+        badgeCode: originalLevel.rows[0]?.badge_code ?? null,
       }),
     });
     expect(patchedLevel.status).toBe(200);
@@ -8996,7 +9000,7 @@ describe("http integration", () => {
       method: "PUT",
       body: JSON.stringify({
         level: 299,
-        total_xp_required: Number(
+        totalXpRequired: Number(
           (
             await getPool().query<{ n: string }>(
               `SELECT total_xp_required::text AS n FROM xp_level_requirements WHERE level = 299`,
@@ -9004,7 +9008,7 @@ describe("http integration", () => {
           ).rows[0]?.n,
         ),
         title: originalLevel.rows[0]?.title ?? null,
-        badge_code: originalLevel.rows[0]?.badge_code ?? null,
+        badgeCode: originalLevel.rows[0]?.badge_code ?? null,
       }),
     });
     expect(restoredLevel.status).toBe(200);
@@ -9015,20 +9019,20 @@ describe("http integration", () => {
     const dailySaved = await authJson("/api/admin/progression/daily-rewards", admin.token, {
       method: "PUT",
       body: JSON.stringify({
-        streak_day: 3,
-        reward_xp: 0,
-        reward_promo_coins: 0,
-        reward_label: "qa-page078-temp",
+        streakDay: 3,
+        rewardXp: 0,
+        rewardPromoCoins: 0,
+        rewardLabel: "qa-page078-temp",
       }),
     });
     expect(dailySaved.status).toBe(200);
     const dailyRestored = await authJson("/api/admin/progression/daily-rewards", admin.token, {
       method: "PUT",
       body: JSON.stringify({
-        streak_day: 3,
-        reward_xp: 0,
-        reward_promo_coins: 0,
-        reward_label: originalDaily.rows[0]?.reward_label || "Gift coupon",
+        streakDay: 3,
+        rewardXp: 0,
+        rewardPromoCoins: 0,
+        rewardLabel: originalDaily.rows[0]?.reward_label || "Gift coupon",
       }),
     });
     expect(dailyRestored.status).toBe(200);
@@ -9069,20 +9073,20 @@ describe("http integration", () => {
     const xpFirst = await authJson("/api/admin/progression/xp-adjustments", admin.token, {
       method: "POST",
       body: JSON.stringify({
-        user_id: target.id,
-        amount_delta: 50,
+        userId: target.id,
+        amountDelta: 50,
         reason: "page078 qa xp",
-        idempotency_key: xpKey,
+        idempotencyKey: xpKey,
       }),
     });
     expect(xpFirst.status).toBe(200);
     const xpAgain = await authJson("/api/admin/progression/xp-adjustments", admin.token, {
       method: "POST",
       body: JSON.stringify({
-        user_id: target.id,
-        amount_delta: 50,
+        userId: target.id,
+        amountDelta: 50,
         reason: "page078 qa xp",
-        idempotency_key: xpKey,
+        idempotencyKey: xpKey,
       }),
     });
     expect(xpAgain.status).toBe(200);
@@ -9094,10 +9098,10 @@ describe("http integration", () => {
     const xpUndo = await authJson("/api/admin/progression/xp-adjustments", admin.token, {
       method: "POST",
       body: JSON.stringify({
-        user_id: target.id,
-        amount_delta: -50,
+        userId: target.id,
+        amountDelta: -50,
         reason: "page078 qa xp restore",
-        idempotency_key: "page078-xp-restore",
+        idempotencyKey: "page078-xp-restore",
       }),
     });
     expect(xpUndo.status).toBe(200);
@@ -9106,20 +9110,20 @@ describe("http integration", () => {
     const starterFirst = await authJson("/api/admin/progression/starter-adjustments", admin.token, {
       method: "POST",
       body: JSON.stringify({
-        user_id: target.id,
-        amount_delta: 7,
+        userId: target.id,
+        amountDelta: 7,
         reason: "page078 qa starter",
-        idempotency_key: starterKey,
+        idempotencyKey: starterKey,
       }),
     });
     expect(starterFirst.status).toBe(200);
     const starterAgain = await authJson("/api/admin/progression/starter-adjustments", admin.token, {
       method: "POST",
       body: JSON.stringify({
-        user_id: target.id,
-        amount_delta: 7,
+        userId: target.id,
+        amountDelta: 7,
         reason: "page078 qa starter",
-        idempotency_key: starterKey,
+        idempotencyKey: starterKey,
       }),
     });
     expect(starterAgain.status).toBe(200);
@@ -9136,10 +9140,10 @@ describe("http integration", () => {
     const starterUndo = await authJson("/api/admin/progression/starter-adjustments", admin.token, {
       method: "POST",
       body: JSON.stringify({
-        user_id: target.id,
-        amount_delta: -7,
+        userId: target.id,
+        amountDelta: -7,
         reason: "page078 qa starter restore",
-        idempotency_key: "page078-starter-restore",
+        idempotencyKey: "page078-starter-restore",
       }),
     });
     expect(starterUndo.status).toBe(200);
@@ -9186,10 +9190,10 @@ describe("http integration", () => {
     const revokedXp = await authJson("/api/admin/progression/xp-adjustments", admin.token, {
       method: "POST",
       body: JSON.stringify({
-        user_id: target.id,
-        amount_delta: 9,
+        userId: target.id,
+        amountDelta: 9,
         reason: "revoked",
-        idempotency_key: "revoked-xp",
+        idempotencyKey: "revoked-xp",
       }),
     });
     expect(revokedXp.status).toBe(403);
