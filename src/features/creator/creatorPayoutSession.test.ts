@@ -164,6 +164,19 @@ describe("PAGE-045 creator payout session", () => {
     expect(deps.toast).toHaveBeenCalledWith("GBP withdrawal requested");
   });
 
+  it("does not let a stale balance GET overwrite a post-withdraw snapshot", async () => {
+    const deps = createDeps();
+    const stale = deferred<ReturnType<typeof snapshot>>();
+    deps.loadSnapshot.mockReturnValueOnce(stale.promise);
+    const loadPending = deps.session.load(userA);
+    deps.loadSnapshot.mockResolvedValueOnce(snapshot(2500));
+    await deps.session.reloadSilent();
+    expect(deps.session.getSnapshot().balance?.gbp.available_pence).toBe(2500);
+    stale.resolve(snapshot(9900));
+    await loadPending;
+    expect(deps.session.getSnapshot().balance?.gbp.available_pence).toBe(2500);
+  });
+
   it("does not mark Connect ready from a return refresh", async () => {
     const deps = createDeps();
     deps.loadSnapshot.mockResolvedValueOnce(snapshot(0, false));

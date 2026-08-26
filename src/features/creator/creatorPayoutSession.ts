@@ -161,8 +161,10 @@ export function createCreatorPayoutSession(deps: CreatorPayoutDeps) {
 
   const reloadSilent = async () => {
     const expectedAccountId = accountId;
-    const gen = generation;
     if (!expectedAccountId) return;
+    // Bump generation so an older in-flight load/snapshot cannot overwrite
+    // a newer post-withdraw / post-onboard authoritative balance.
+    const gen = ++generation;
     const result = await deps.loadSnapshot();
     if (gen !== generation || deps.getAccountId() !== expectedAccountId) return;
     if (result.ok) {
