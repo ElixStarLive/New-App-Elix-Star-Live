@@ -11,6 +11,11 @@ export default function FriendsFeed() {
   return (
     <RelationSnapFeed
       {...feed}
+      onFollowSettled={(_userId, _isFollowing) => {
+        // Friends = follow ∪ follower (not mutual-only). Re-query so one-way
+        // unfollow drops only when the creator no longer qualifies.
+        void feed.reload();
+      }}
       renderOverlay={(pageRef, onStoryOpenChange) => (
         <FollowingFeedOverlay
           pageRef={pageRef}

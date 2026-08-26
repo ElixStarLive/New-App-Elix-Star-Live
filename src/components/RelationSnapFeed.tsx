@@ -16,6 +16,7 @@ export function RelationSnapFeed({
   loadMore,
   updateVideo,
   removeCreator,
+  onFollowSettled,
 }: {
   renderOverlay: (
     pageRef: RefObject<HTMLDivElement | null>,
@@ -33,6 +34,8 @@ export function RelationSnapFeed({
   loadMore: () => Promise<void> | void;
   updateVideo: (videoId: string, patch: Partial<FeedVideo>) => void;
   removeCreator: (userId: string) => void;
+  /** Friends must re-query union membership; Following may drop the creator immediately. */
+  onFollowSettled?: (userId: string, isFollowing: boolean) => void;
 }) {
   const pageRef = useRef<HTMLDivElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
@@ -116,6 +119,10 @@ export function RelationSnapFeed({
                       creatorLive={false}
                       onPatch={(patch) => updateVideo(item.id, patch)}
                       onFollowSettled={(userId, isFollowing) => {
+                        if (onFollowSettled) {
+                          onFollowSettled(userId, isFollowing);
+                          return;
+                        }
                         if (!isFollowing) removeCreator(userId);
                       }}
                     />

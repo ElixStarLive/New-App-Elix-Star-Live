@@ -236,8 +236,10 @@ describe("PAGE-010 Friends", () => {
     expect(like?.textContent).toContain("2");
   });
 
-  it("removes that creator after a successful unfollow", async () => {
-    feedApi.apiFetchFriendsFeed.mockResolvedValue({ feed: { videos: [friendItem] }, error: null });
+  it("reloads Friends membership after unfollow instead of keeping a stale slide", async () => {
+    feedApi.apiFetchFriendsFeed
+      .mockResolvedValueOnce({ feed: { videos: [friendItem] }, error: null })
+      .mockResolvedValueOnce({ feed: { videos: [] }, error: null });
     const mounted = renderFriends();
     root = mounted.root;
     container = mounted.container;
@@ -251,8 +253,10 @@ describe("PAGE-010 Friends", () => {
       unfollow?.dispatchEvent(new MouseEvent("click", { bubbles: true }));
       await Promise.resolve();
       await Promise.resolve();
+      await Promise.resolve();
     });
     expect(feedApi.apiUnfollow).toHaveBeenCalledWith(friendItem.user.id);
+    expect(feedApi.apiFetchFriendsFeed.mock.calls.length).toBeGreaterThanOrEqual(2);
     expect(container.textContent).toContain("No friend videos yet");
   });
 });
