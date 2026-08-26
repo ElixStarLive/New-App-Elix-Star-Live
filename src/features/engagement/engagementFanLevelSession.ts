@@ -58,6 +58,7 @@ export function createEngagementFanLevelSession(deps: FanLevelDeps) {
         return;
       }
       accountId = expectedAccountId;
+      // Bump so an older in-flight fan-level GET cannot overwrite newer XP/level.
       const gen = ++generation;
       view = { kind: "loading", fanLevel: null, error: null };
       emit();

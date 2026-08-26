@@ -37,6 +37,7 @@ describe("PAGE-049 Fan Level ownership", () => {
     expect(progression).toMatch(/xp_level_requirements/);
     expect(progression).toMatch(/deriveFanLevel|levelForTotalXp/);
     expect(progression).not.toMatch(/paid_coins|withdraw-gbp|test_coins|localStorage/);
+    expect(session).toMatch(/const gen = \+\+generation/);
     expect(session).not.toMatch(/localStorage|sessionStorage|setTimeout\(|location\.reload|level \+=|xp \+=/);
     expect(wallet).toMatch(/Test coins are not wallet money/);
     expect(payout).not.toMatch(/getFanLevelForUser|grantEngagementXp/);

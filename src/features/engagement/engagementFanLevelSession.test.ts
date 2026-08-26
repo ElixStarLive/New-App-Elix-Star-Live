@@ -108,4 +108,22 @@ describe("PAGE-049 fan level session", () => {
       tier: "Bronze Fan",
     });
   });
+
+  it("does not let a stale fan-level GET overwrite a newer same-account load", async () => {
+    const deps = createDeps();
+    deps.loadFanLevel.mockResolvedValueOnce({ ok: true, fanLevel: fan({ total_xp: 900, level: 1 }) });
+    await deps.session.load(userA);
+    const stale = deferred<{ ok: true; fanLevel: EngagementFanLevel }>();
+    deps.loadFanLevel.mockReturnValueOnce(stale.promise);
+    const pending = deps.session.load(userA);
+    deps.loadFanLevel.mockResolvedValueOnce({
+      ok: true,
+      fanLevel: fan({ total_xp: 1100, level: 2, tier: "Bronze Fan" }),
+    });
+    await deps.session.load(userA);
+    expect(deps.session.getSnapshot().fanLevel).toMatchObject({ total_xp: 1100, level: 2 });
+    stale.resolve({ ok: true, fanLevel: fan({ total_xp: 900, level: 1 }) });
+    await pending;
+    expect(deps.session.getSnapshot().fanLevel).toMatchObject({ total_xp: 1100, level: 2 });
+  });
 });
