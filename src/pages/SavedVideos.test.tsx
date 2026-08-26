@@ -151,4 +151,28 @@ describe("PAGE-015 Saved Videos", () => {
     await flush();
     expect(feedApi.apiFetchSavedVideos).toHaveBeenLastCalledWith(50, 50);
   });
+
+  it("removes a card immediately when another surface unsaves", async () => {
+    const { publishVideoCollection } = await import("@/lib/videoCollectionEvents");
+    feedApi.apiFetchSavedVideos.mockResolvedValue({ videos: [hit], hasMore: false, error: null });
+    const mounted = renderSaved();
+    root = mounted.root;
+    container = mounted.container;
+    await flush();
+    expect(container.textContent).toContain("1.5K");
+    await act(async () => {
+      publishVideoCollection({ type: "saved", videoId: hit.id, saved: false });
+    });
+    await flush();
+    expect(container.textContent).toContain("No saved videos yet. Tap the bookmark icon on any video to save it.");
+  });
+
+  it("does not use glass chrome", async () => {
+    feedApi.apiFetchSavedVideos.mockResolvedValue({ videos: [], hasMore: false, error: null });
+    const mounted = renderSaved();
+    root = mounted.root;
+    container = mounted.container;
+    await flush();
+    expect(container.querySelector(".elix-page-glass")).toBeNull();
+  });
 });

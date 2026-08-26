@@ -5,6 +5,7 @@ import { RoyceBackIcon } from "@/components/royce";
 import { apiFetchSavedVideos, type SavedVideoHit } from "@/features/feed/feedApi";
 import { SETTINGS_HOME, SAVED_HOME, containerReturnState, exitToFromLocationState } from "@/lib/settingsNav";
 import { showToast } from "@/lib/toast";
+import { subscribeVideoCollection } from "@/lib/videoCollectionEvents";
 import { useAuthStore } from "@/store/useAuthStore";
 
 function formatSavedViews(n: number): string {
@@ -70,13 +71,30 @@ export default function SavedVideos() {
     };
   }, [load, viewerId]);
 
+  useEffect(() => {
+    return subscribeVideoCollection((ev) => {
+      if (ev.type === "refresh" && (ev.collection === "all" || ev.collection === "saved")) {
+        void load(0, false);
+        return;
+      }
+      if (ev.type !== "saved") return;
+      if (!ev.saved) {
+        const next = videosRef.current.filter((v) => v.id !== ev.videoId);
+        videosRef.current = next;
+        setVideos(next);
+        return;
+      }
+      void load(0, false);
+    });
+  }, [load]);
+
   const loadMore = useCallback(() => {
     void load(videos.length, true);
   }, [load, videos.length]);
 
   return (
     <div className="h-full min-h-0 w-full bg-transparent text-white flex justify-center px-2">
-      <div className="w-full max-w-[480px] h-full min-h-0 flex flex-col overflow-y-auto elix-page-glass bg-transparent">
+      <div className="w-full max-w-[480px] h-full min-h-0 flex flex-col overflow-y-auto bg-transparent">
         <div className="p-4 flex items-center gap-4">
           <button type="button" onClick={goBack} className="p-1" aria-label="Back">
             <RoyceBackIcon />
