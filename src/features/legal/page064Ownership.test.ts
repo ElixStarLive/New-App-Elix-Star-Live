@@ -28,6 +28,7 @@ describe("PAGE-064 Legal DMCA ownership", () => {
   it("has one public /legal/dmca owner and the frozen in-app document", () => {
     expect(app.match(/path="\/legal\/dmca"/g)?.length).toBe(1);
     expect(app).toMatch(/<Route path="\/legal\/dmca" element=\{<LegalDMCA \/>\} \/>/);
+    expect(app.indexOf('path="/legal/dmca"')).toBeLessThan(app.indexOf("<Route element={<RequireAuth"));
     expect(app).not.toMatch(/path="\/dmca"|path="\/copyright\/dmca"|path="\/legal\/copyright\/dmca"/);
     expect(shell).toMatch(/pathname\.startsWith\("\/legal\/"\)/);
     expect(LEGAL_DMCA_TITLE).toBe("DMCA / Copyright Policy");
