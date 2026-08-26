@@ -21,6 +21,8 @@ const ws = readFileSync(resolve(process.cwd(), "src/lib/wsClient.ts"), "utf8");
 describe("PAGE-062 Legal UGC ownership", () => {
   it("has one public /legal/ugc owner and the frozen title", () => {
     expect(app.match(/path="\/legal\/ugc"/g)?.length).toBe(1);
+    expect(app).toMatch(/<Route path="\/legal\/ugc" element=\{<LegalUGC \/>\} \/>/);
+    expect(app.indexOf('path="/legal/ugc"')).toBeLessThan(app.indexOf("<Route element={<RequireAuth"));
     expect(app).not.toMatch(/path="\/ugc"|path="\/legal\/user-content"|path="\/user-generated-content"/);
     expect(shell).toMatch(/pathname\.startsWith\("\/legal\/"\)/);
     expect(LEGAL_UGC_TITLE).toBe("User-Generated Content Policy");
