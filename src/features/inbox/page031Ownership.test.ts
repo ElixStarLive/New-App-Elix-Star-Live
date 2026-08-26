@@ -27,6 +27,10 @@ describe("PAGE-031 Inbox Activity overlay ownership", () => {
     expect(session).toMatch(/apiListInboxActivity/);
     expect(api).toMatch(/\/api\/activity/);
     expect(query).toMatch(/listInboxActivity/);
+    expect(query).toMatch(/parent_id IS NULL/);
+    expect(query).toMatch(/NOT EXISTS \(\s*SELECT 1 FROM blocks/);
+    expect(query).toMatch(/u\.deleted_at IS NULL/);
+    expect(overlay).toMatch(/app:back-button/);
   });
 
   it("does not add a second activity fetch or a second WebSocket", () => {

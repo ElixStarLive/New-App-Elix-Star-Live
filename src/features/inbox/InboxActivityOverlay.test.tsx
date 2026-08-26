@@ -114,4 +114,14 @@ describe("PAGE-031 Inbox Activity overlay", () => {
     expect(view.onClose).toHaveBeenCalledTimes(1);
     expect(view.onOpenVideo).not.toHaveBeenCalled();
   });
+
+  it("consumes hardware back while open and closes the overlay", () => {
+    const view = renderOverlay({ items: [like] });
+    root = view.root;
+    container = view.container;
+    const event = new CustomEvent("app:back-button", { cancelable: true });
+    const handled = !document.dispatchEvent(event);
+    expect(handled).toBe(true);
+    expect(view.onClose).toHaveBeenCalledTimes(1);
+  });
 });

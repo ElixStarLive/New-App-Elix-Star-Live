@@ -1,4 +1,4 @@
-import type { ReactNode } from "react";
+import { useEffect, type ReactNode } from "react";
 import { createPortal } from "react-dom";
 import { AvatarRing } from "@/components/AvatarRing";
 import { RoyceBackIcon } from "@/components/royce";
@@ -20,6 +20,18 @@ export function InboxActivityOverlay({
   onClose: () => void;
   onOpenVideo: (videoId: string) => void;
 }) {
+  useEffect(() => {
+    if (!open) return;
+    const onHardwareBack = (event: Event) => {
+      event.preventDefault();
+      onClose();
+    };
+    document.addEventListener("app:back-button", onHardwareBack);
+    return () => {
+      document.removeEventListener("app:back-button", onHardwareBack);
+    };
+  }, [open, onClose]);
+
   if (!open) return null;
 
   let body: ReactNode = null;

@@ -101,6 +101,8 @@ export async function listInboxActivity(viewerId: string): Promise<{ items: Inbo
   const pattern = mentionPattern(profile.rows[0]?.username ?? "");
   const params: string[] = [viewerId];
   const mentionBodyCol = "c_m.body";
+  // Mentions: not top-level comments on the viewer's own videos (those stay as `comment`).
+  // Replies on own videos and comments on others' videos that @mention the viewer are included.
   const mentionUnion = pattern
     ? `
          UNION ALL
@@ -113,9 +115,9 @@ export async function listInboxActivity(viewerId: string): Promise<{ items: Inbo
          FROM comments c_m
          INNER JOIN videos v_m ON v_m.id = c_m.video_id
          WHERE c_m.user_id <> $1
-           ${"AND c_m.deleted_at IS NULL"}
-           ${"AND v_m.deleted_at IS NULL"}
-           AND v_m.user_id <> $1
+           AND c_m.deleted_at IS NULL
+           AND v_m.deleted_at IS NULL
+           AND NOT (v_m.user_id = $1 AND c_m.parent_id IS NULL)
            AND ${mentionBodyCol} ~* $2`
     : "";
   if (pattern) params.push(pattern);
@@ -148,7 +150,11 @@ export async function listInboxActivity(viewerId: string): Promise<{ items: Inbo
                 LEFT(c.body, 140), c.id::text
          FROM comments c
          INNER JOIN videos v ON v.id = c.video_id
-         WHERE v.user_id = $1 AND c.user_id <> $1 AND c.deleted_at IS NULL AND v.deleted_at IS NULL
+         WHERE v.user_id = $1
+           AND c.user_id <> $1
+           AND c.parent_id IS NULL
+           AND c.deleted_at IS NULL
+           AND v.deleted_at IS NULL
          UNION ALL
          SELECT 'save', s.video_id::text, s.user_id::text, s.created_at, NULL::text,
                 (s.user_id::text || ':' || s.video_id::text)
@@ -157,7 +163,14 @@ export async function listInboxActivity(viewerId: string): Promise<{ items: Inbo
          WHERE v.user_id = $1 AND s.user_id <> $1 AND v.deleted_at IS NULL
          ${mentionUnion}
      ) sub
-     LEFT JOIN users u ON u.id = sub.actor_user_id::uuid
+     INNER JOIN users u ON u.id = sub.actor_user_id::uuid
+       AND u.deleted_at IS NULL
+       AND (u.banned_until IS NULL OR u.banned_until <= NOW())
+     WHERE NOT EXISTS (
+       SELECT 1 FROM blocks b
+       WHERE (b.blocker_id = $1 AND b.blocked_id = u.id)
+          OR (b.blocker_id = u.id AND b.blocked_id = $1)
+     )
      ORDER BY sub.at DESC, sub.event_id DESC
      LIMIT ${ACTIVITY_LIMIT}`,
     params,
