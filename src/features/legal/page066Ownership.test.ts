@@ -28,6 +28,7 @@ describe("PAGE-066 Legal Supplier ownership", () => {
   it("has one public /legal/supplier owner and the frozen in-app document", () => {
     expect(app.match(/path="\/legal\/supplier"/g)?.length).toBe(1);
     expect(app).toMatch(/<Route path="\/legal\/supplier" element=\{<LegalSupplier \/>\} \/>/);
+    expect(app.indexOf('path="/legal/supplier"')).toBeLessThan(app.indexOf("<Route element={<RequireAuth"));
     expect(app).not.toMatch(/path="\/supplier"|path="\/supplier-terms"|path="\/legal\/vendor"/);
     expect(shell).toMatch(/pathname\.startsWith\("\/legal\/"\)/);
     expect(LEGAL_SUPPLIER_TITLE).toBe("Supplier Agreement");
