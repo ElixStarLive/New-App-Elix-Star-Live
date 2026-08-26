@@ -109,6 +109,41 @@ export async function listShopItems(req: AuthedRequest, res: Response): Promise<
   res.json({ items: rows.map(mapShopItem) });
 }
 
+const ITEM_ID_RE =
+  /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+
+/** PAGE-037 — authoritative single-item read (same visibility rules as list). */
+export async function getShopItem(req: AuthedRequest, res: Response): Promise<void> {
+  const itemId = param(req, "itemId");
+  if (!ITEM_ID_RE.test(itemId)) throw new AppError("not_found", "Item not found", 404);
+  const values: unknown[] = [itemId];
+  let where = `WHERE si.id = $1
+     AND si.deleted_at IS NULL AND si.is_active = TRUE
+     AND EXISTS (
+       SELECT 1 FROM users u
+       WHERE u.id = si.seller_id
+         AND u.deleted_at IS NULL
+         AND (u.banned_until IS NULL OR u.banned_until <= NOW())
+     )`;
+  if (req.userId) {
+    values.push(req.userId);
+    where += ` AND NOT EXISTS (
+      SELECT 1 FROM blocks b
+      WHERE (b.blocker_id = $${values.length} AND b.blocked_id = si.seller_id)
+         OR (b.blocker_id = si.seller_id AND b.blocked_id = $${values.length})
+    )`;
+  }
+  const { rows } = await getPool().query<ShopItemRow>(
+    `SELECT si.id, si.seller_id, si.title, si.description, si.price_pence, si.image_url, si.category
+     FROM shop_items si
+     ${where}
+     LIMIT 1`,
+    values,
+  );
+  if (!rows[0]) throw new AppError("not_found", "Item not found", 404);
+  res.json(mapShopItem(rows[0]));
+}
+
 export async function createShopItem(req: AuthedRequest, res: Response): Promise<void> {
   
   const parsed = parseWriteBody(req.body, true);

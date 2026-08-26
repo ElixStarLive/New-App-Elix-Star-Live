@@ -56,6 +56,18 @@ export function selectShopItemByCanonicalId(
   return items.find((item) => item.id === itemId) ?? null;
 }
 
+export async function apiGetShopItem(itemId: string): Promise<{ item: ShopItem | null; error: string | null }> {
+  const id = itemId.trim();
+  if (!id) return { item: null, error: "Item not found" };
+  const { data, error } = await apiRequest<unknown>(`/api/shop/items/${encodeURIComponent(id)}`);
+  if (error) {
+    if (error.status === 404) return { item: null, error: null };
+    return { item: null, error: error.message };
+  }
+  const item = parseShopItem(data);
+  return item ? { item, error: null } : { item: null, error: "Invalid shop item" };
+}
+
 export async function apiListShopItems(sellerId?: string): Promise<{ items: ShopItem[]; error: string | null }> {
   const qs = sellerId ? `?sellerId=${encodeURIComponent(sellerId)}` : "";
   const { data, error } = await apiRequest<unknown>(`/api/shop/items${qs}`);

@@ -8,6 +8,7 @@ import { apiLiveStreams } from "@/features/feed/feedApi";
 import {
   apiCreateShopItem,
   apiDeleteShopItem,
+  apiGetShopItem,
   apiListShopItems,
   apiShopCheckout,
   apiShopCheckoutSessionStatus,
@@ -97,7 +98,7 @@ export default function Shop() {
 
   const goBack = useCallback(() => {
     if (routeItemId) {
-      navigate(SHOP_HOME, { replace: true });
+      navigate(SHOP_HOME, { replace: true, state: location.state });
       return;
     }
     navigate(returnToFromLocationState(location.state) || SHOP_EXIT_TO, { replace: true });
@@ -133,6 +134,22 @@ export default function Shop() {
   const fetchItems = useCallback(async () => {
     const gen = ++fetchGen.current;
     setLoading(true);
+    if (routeItemId) {
+      const res = await apiGetShopItem(routeItemId);
+      if (gen !== fetchGen.current) return;
+      if (res.error) {
+        const message = !navigator.onLine ? "No internet connection" : res.error || "Failed to load shop items";
+        showToast(message);
+        setLoadError(message);
+        setCatalog([]);
+        setLoading(false);
+        return;
+      }
+      setLoadError(null);
+      setCatalog(res.item ? [res.item] : []);
+      setLoading(false);
+      return;
+    }
     const res = await apiListShopItems();
     if (gen !== fetchGen.current) return;
     if (res.error) {
@@ -145,7 +162,7 @@ export default function Shop() {
     setLoadError(null);
     setCatalog(res.items);
     setLoading(false);
-  }, []);
+  }, [routeItemId]);
 
   useEffect(() => {
     void fetchItems();
@@ -450,14 +467,18 @@ export default function Shop() {
         ) : items.length === 0 ? (
           <div className="flex-1 flex flex-col items-center justify-center py-20 gap-3">
             <Tag size={40} className="text-white/20" />
-            <p className="text-white/40 text-sm">No items for sale yet</p>
-            <button
-              type="button"
-              onClick={openCreateListing}
-              className="mt-2 px-5 py-2 rounded-xl bg-transparent border border-white/30 font-bold text-sm active:opacity-70"
-            >
-              <span className="elix-silver-red-text">Sell Something</span>
-            </button>
+            <p className="text-white/40 text-sm">
+              {routeItemId ? "Item not available" : "No items for sale yet"}
+            </p>
+            {!routeItemId ? (
+              <button
+                type="button"
+                onClick={openCreateListing}
+                className="mt-2 px-5 py-2 rounded-xl bg-transparent border border-white/30 font-bold text-sm active:opacity-70"
+              >
+                <span className="elix-silver-red-text">Sell Something</span>
+              </button>
+            ) : null}
           </div>
         ) : (
           <div className="grid grid-cols-2 gap-3 px-3 py-2 pb-6 overflow-y-auto">

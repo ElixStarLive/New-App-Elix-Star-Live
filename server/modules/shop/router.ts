@@ -1,12 +1,15 @@
 import { Router } from "express";
 import { requireAuth, type AuthedRequest } from "../../middleware/auth.js";
-import { createShopItem, deleteShopItem, listShopItems, updateShopItem } from "./catalog.js";
+import { createShopItem, deleteShopItem, getShopItem, listShopItems, updateShopItem } from "./catalog.js";
 import { createShopCheckout, getShopCheckoutSession } from "./checkout.js";
 
 export const shopRouter = Router();
 
 shopRouter.get("/items", (req, res, next) => {
   void listShopItems(req as AuthedRequest, res).catch(next);
+});
+shopRouter.get("/items/:itemId", (req, res, next) => {
+  void getShopItem(req as AuthedRequest, res).catch(next);
 });
 shopRouter.post("/items", requireAuth, (req, res, next) => {
   void createShopItem(req as AuthedRequest, res).catch(next);

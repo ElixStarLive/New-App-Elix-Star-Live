@@ -4,6 +4,7 @@ import { MemoryRouter, Route, Routes, useNavigate } from "react-router-dom";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 const list = vi.fn();
+const getItem = vi.fn();
 const live = vi.fn();
 let navigateShop: ((to: string) => void) | null = null;
 
@@ -20,6 +21,7 @@ vi.mock("@/features/shop/shopApi", async (importOriginal) => {
   return {
     ...actual,
     apiListShopItems: (...args: unknown[]) => list(...args),
+    apiGetShopItem: (...args: unknown[]) => getItem(...args),
     apiCreateShopItem: vi.fn(),
     apiUpdateShopItem: vi.fn(),
     apiDeleteShopItem: vi.fn(),
@@ -102,9 +104,11 @@ let container: HTMLDivElement | null = null;
 
 beforeEach(() => {
   list.mockReset();
+  getItem.mockReset();
   live.mockReset();
   navigateShop = null;
   list.mockResolvedValue({ items: [], error: null });
+  getItem.mockResolvedValue({ item: null, error: null });
   live.mockResolvedValue({ streams: [], error: null });
 });
 
@@ -163,40 +167,48 @@ describe("PAGE-036 Shop page", () => {
 });
 
 describe("PAGE-037 Shop item deep link", () => {
-  it("shows only the canonical item from GET /api/shop/items", async () => {
-    list.mockResolvedValue({ items: [hat, cap], error: null });
+  it("shows only the canonical item from GET /api/shop/items/:itemId", async () => {
+    getItem.mockResolvedValue({ item: hat, error: null });
     const view = renderShop(`/shop/${hat.id}`);
     root = view.root;
     container = view.container;
     await flush();
+    expect(getItem).toHaveBeenCalledWith(hat.id);
+    expect(list).not.toHaveBeenCalled();
     expect(container.textContent).toContain("Hat");
     expect(container.textContent).not.toContain("Cap");
     expect(container.querySelector('[aria-label="Add to basket"]')).toBeTruthy();
   });
 
   it("does not substitute another product for an unknown itemId", async () => {
-    list.mockResolvedValue({ items: [hat, cap], error: null });
+    getItem.mockResolvedValue({ item: null, error: null });
     const view = renderShop("/shop/not-a-real-item");
     root = view.root;
     container = view.container;
     await flush();
-    expect(container.textContent).toContain("No items for sale yet");
+    expect(container.textContent).toContain("Item not available");
+    expect(container.textContent).not.toContain("Sell Something");
     expect(container.textContent).not.toContain("Hat");
     expect(container.textContent).not.toContain("Cap");
   });
 
   it("shows catalog failure on deep link instead of empty-success chrome", async () => {
-    list.mockResolvedValue({ items: [], error: "Failed to load shop items" });
+    getItem.mockResolvedValue({ item: null, error: "Failed to load shop items" });
     const view = renderShop(`/shop/${hat.id}`);
     root = view.root;
     container = view.container;
     await flush();
     expect(container.textContent).toContain("Failed to load shop items");
+    expect(container.textContent).not.toContain("Item not available");
     expect(container.textContent).not.toContain("No items for sale yet");
   });
 
   it("keeps item B when the route changes from A to B", async () => {
-    list.mockResolvedValue({ items: [hat, cap], error: null });
+    getItem.mockImplementation(async (id: string) => {
+      if (id === hat.id) return { item: hat, error: null };
+      if (id === cap.id) return { item: cap, error: null };
+      return { item: null, error: null };
+    });
     const view = renderShop(`/shop/${hat.id}`);
     root = view.root;
     container = view.container;
@@ -207,6 +219,37 @@ describe("PAGE-037 Shop item deep link", () => {
       navigateShop?.(`/shop/${cap.id}`);
       await Promise.resolve();
     });
+    await flush();
+    expect(container.textContent).toContain("Cap");
+    expect(container.textContent).not.toContain("Hat");
+  });
+
+  it("ignores a slow itemA response after navigating to itemB", async () => {
+    let resolveHat: ((value: { item: typeof hat | null; error: string | null }) => void) | null = null;
+    getItem.mockImplementation(async (id: string) => {
+      if (id === hat.id) {
+        return new Promise((resolve) => {
+          resolveHat = resolve;
+        });
+      }
+      if (id === cap.id) return { item: cap, error: null };
+      return { item: null, error: null };
+    });
+    const view = renderShop(`/shop/${hat.id}`);
+    root = view.root;
+    container = view.container;
+    await flush();
+    await act(async () => {
+      navigateShop?.(`/shop/${cap.id}`);
+      await Promise.resolve();
+    });
+    await flush();
+    expect(container.textContent).toContain("Cap");
+    await act(async () => {
+      resolveHat?.({ item: hat, error: null });
+      await Promise.resolve();
+    });
+    await flush();
     expect(container.textContent).toContain("Cap");
     expect(container.textContent).not.toContain("Hat");
   });

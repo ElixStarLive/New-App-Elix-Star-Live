@@ -325,7 +325,7 @@ export default function Profile() {
                 ) : snap.shopItems.length > 0 ? (
                   <div className="grid grid-cols-2 gap-3 px-3 py-3">
                     {snap.shopItems.map((item) => (
-                      <button key={item.id} type="button" className="bg-white/5 rounded-2xl overflow-hidden border border-white/5 text-left" onClick={() => navigate("/shop", { state: nested() })}>
+                      <button key={item.id} type="button" className="bg-white/5 rounded-2xl overflow-hidden border border-white/5 text-left" onClick={() => navigate(`/shop/${item.id}`, { state: nested() })}>
                         {item.imageUrl ? <img src={item.imageUrl} alt="" className="w-full aspect-square object-cover" /> : <div className="aspect-square bg-white/5" />}
                         <div className="relative border-t border-white/15 px-2.5 py-2">
                           <h3 className="text-sm font-bold text-gold-metallic truncate">{item.name}</h3>
