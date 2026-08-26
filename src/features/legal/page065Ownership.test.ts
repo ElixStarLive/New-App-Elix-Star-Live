@@ -25,6 +25,7 @@ describe("PAGE-065 Legal Safety ownership", () => {
     expect(app.match(/path="\/settings\/safety"/g)?.length).toBe(1);
     expect(app).toMatch(/<Route path="\/legal\/safety" element=\{<LegalSafety \/>\} \/>/);
     expect(app).toMatch(/<Route path="\/settings\/safety" element=\{<SafetyCenter \/>\} \/>/);
+    expect(app.indexOf('path="/legal/safety"')).toBeLessThan(app.indexOf("<Route element={<RequireAuth"));
     expect(app).not.toMatch(/path="\/safety-policy"|path="\/legal\/community-safety"|path="\/legal\/trust-safety"/);
     expect(app).not.toMatch(/<Navigate to="\/settings\/safety"/);
     expect(app).not.toMatch(/<Navigate to="\/legal\/safety"/);
