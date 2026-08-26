@@ -4,6 +4,9 @@ const queryMock = vi.fn();
 const viewerCountMock = vi.fn(async (_roomId: string) => 4);
 const expireMock = vi.fn(async () => 0);
 const getHostPresenceMock = vi.fn(async (_roomId: string): Promise<"starting" | "connected" | "grace" | null> => "connected");
+const valkeyGetMock = vi.fn(async (_key: string): Promise<string | null> =>
+  JSON.stringify({ userId: "host", streamId: "stream" }),
+);
 const envMock = vi.fn((): { valkeyUrl: string | null } => ({ valkeyUrl: null }));
 
 vi.mock("../../infra/postgres.js", () => ({
@@ -17,6 +20,9 @@ vi.mock("./start.js", () => ({
 }));
 vi.mock("./hostGrace.js", () => ({
   getHostPresence: (roomId: string) => getHostPresenceMock(roomId),
+}));
+vi.mock("../../infra/valkey.js", () => ({
+  valkeyGet: (key: string) => valkeyGetMock(key),
 }));
 vi.mock("../../infra/env.js", () => ({
   env: () => envMock(),
@@ -42,6 +48,8 @@ describe("PAGE-017 live list eligibility", () => {
     expireMock.mockClear();
     getHostPresenceMock.mockReset();
     getHostPresenceMock.mockResolvedValue("connected");
+    valkeyGetMock.mockReset();
+    valkeyGetMock.mockResolvedValue(JSON.stringify({ userId: "host", streamId: "stream" }));
     envMock.mockReturnValue({ valkeyUrl: null });
     queryMock.mockResolvedValue({ rows: [row] });
   });
@@ -53,19 +61,30 @@ describe("PAGE-017 live list eligibility", () => {
     expect(streams[0]?.roomId).toBe(row.room_id);
     expect(streams[0]?.viewerCount).toBe(4);
     expect(getHostPresenceMock).not.toHaveBeenCalled();
+    expect(valkeyGetMock).not.toHaveBeenCalled();
   });
 
-  it("keeps a host listed during Valkey grace even with no LiveKit publishers", async () => {
+  it("keeps a host listed during Valkey grace when stream:{roomId} exists", async () => {
     envMock.mockReturnValue({ valkeyUrl: "redis://127.0.0.1:6379" });
     getHostPresenceMock.mockResolvedValue("grace");
     const streams = await queryLiveStreams(null);
     expect(streams).toHaveLength(1);
     expect(getHostPresenceMock).toHaveBeenCalledWith(row.room_id);
+    expect(valkeyGetMock).toHaveBeenCalledWith(`stream:${row.room_id}`);
   });
 
   it("hides a Neon live row after Valkey host presence is gone", async () => {
     envMock.mockReturnValue({ valkeyUrl: "redis://127.0.0.1:6379" });
     getHostPresenceMock.mockResolvedValue(null);
+    const streams = await queryLiveStreams(null);
+    expect(streams).toEqual([]);
+    expect(valkeyGetMock).not.toHaveBeenCalled();
+  });
+
+  it("hides a Neon live row when host presence exists but stream:{roomId} is missing", async () => {
+    envMock.mockReturnValue({ valkeyUrl: "redis://127.0.0.1:6379" });
+    getHostPresenceMock.mockResolvedValue("connected");
+    valkeyGetMock.mockResolvedValue(null);
     const streams = await queryLiveStreams(null);
     expect(streams).toEqual([]);
   });

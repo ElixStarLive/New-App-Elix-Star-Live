@@ -72,6 +72,13 @@ describe("PAGE-017 Live Discover", () => {
   let container: HTMLDivElement | null = null;
 
   beforeEach(() => {
+    class MockIntersectionObserver {
+      observe() {}
+      unobserve() {}
+      disconnect() {}
+    }
+    vi.stubGlobal("IntersectionObserver", MockIntersectionObserver);
+
     feedApi.apiLiveStreams.mockReset();
     ws.on.mockReset();
     ws.off.mockReset();
@@ -86,6 +93,7 @@ describe("PAGE-017 Live Discover", () => {
   });
 
   afterEach(() => {
+    vi.unstubAllGlobals();
     act(() => root?.unmount());
     container?.remove();
     root = null;
@@ -98,11 +106,30 @@ describe("PAGE-017 Live Discover", () => {
     container = mounted.container;
     await flush();
     expect(container.querySelector(".app-live-column")).toBeTruthy();
+    expect(container.className).not.toContain("elix-page-glass");
+    expect(container.innerHTML).not.toContain("elix-page-glass");
     expect(container.textContent).toContain("Live");
     expect(container.textContent).toContain("No one is live right now");
     expect(container.textContent).toContain("Check back later to watch creators streaming live");
     expect(container.querySelector('button[title="Back"]')).toBeTruthy();
     expect(container.querySelector('button[aria-label="Refresh"]')).toBeTruthy();
+  });
+
+  it("activates only the first card by default for LiveKit preview", async () => {
+    const streams = [1, 2].map((n) => ({
+      ...card,
+      streamId: `44444444-4444-4444-8444-44444444444${n}`,
+      roomId: `33333333-3333-4333-8333-33333333333${n}`,
+      displayName: `Host ${n}`,
+    }));
+    feedApi.apiLiveStreams.mockResolvedValue({ streams, error: null });
+    const mounted = renderLive();
+    root = mounted.root;
+    container = mounted.container;
+    await flush();
+    const cells = [...container.querySelectorAll(".grid.grid-cols-2 > div")];
+    expect(cells).toHaveLength(2);
+    expect(cells[0]?.getAttribute("data-stream-id")).toBe(streams[0].roomId);
   });
 
   it("renders a 2-column lobby and hands watch the room id", async () => {

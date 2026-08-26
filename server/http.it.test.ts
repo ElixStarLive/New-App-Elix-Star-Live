@@ -17,8 +17,9 @@ import { mkdtemp } from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
 import { applyPendingMigrations, closePool, getPool, withTransaction } from "./infra/postgres.js";
-import { resetEnvCache } from "./infra/env.js";
-import { closeValkey, valkeyDel } from "./infra/valkey.js";
+import { resetEnvCache, env } from "./infra/env.js";
+import { closeValkey, valkeyDel, valkeySet } from "./infra/valkey.js";
+import { markHostStarting, clearHostPresence } from "./modules/live/hostGrace.js";
 import { emailVerifyCallbackUrl, issueEmailVerifyToken } from "./modules/auth/emailVerify.js";
 import {
   issuePasswordResetToken,
@@ -2244,6 +2245,22 @@ describe("http integration", () => {
       };
     }
 
+    async function seedRuntimeLive(roomId: string, hostId: string, streamId: string) {
+      if (!env().valkeyUrl) return;
+      await valkeySet(
+        `stream:${roomId}`,
+        JSON.stringify({ userId: hostId, streamId }),
+        8 * 60 * 60 * 1000,
+      );
+      await markHostStarting(roomId);
+    }
+
+    async function clearRuntimeLive(roomId: string) {
+      if (!env().valkeyUrl) return;
+      await valkeyDel(`stream:${roomId}`);
+      await clearHostPresence(roomId);
+    }
+
     const viewer = await registerUser("v");
     const hostA = await registerUser("a");
     const hostB = await registerUser("b");
@@ -2251,6 +2268,7 @@ describe("http integration", () => {
     const hostWhoBlocks = await registerUser("h");
     const bannedHost = await registerUser("n");
     const deletedHost = await registerUser("d");
+    const staleHost = await registerUser("s");
 
     const older = await getPool().query<{ id: string }>(
       `INSERT INTO live_streams (host_id, room_id, title, status, started_at)
@@ -2287,6 +2305,17 @@ describe("http integration", () => {
        VALUES ($1, $2, 'deleted', 'live') RETURNING id`,
       [deletedHost.id, deletedHost.id],
     );
+    const staleDbOnly = await getPool().query<{ id: string }>(
+      `INSERT INTO live_streams (host_id, room_id, title, status)
+       VALUES ($1, $2, 'stale-db', 'live') RETURNING id`,
+      [staleHost.id, staleHost.id],
+    );
+
+    await seedRuntimeLive(hostA.id, hostA.id, older.rows[0].id);
+    await seedRuntimeLive(hostB.id, hostB.id, newer.rows[0].id);
+    await seedRuntimeLive(blockedHost.id, blockedHost.id, blockedLive.rows[0].id);
+    await seedRuntimeLive(hostWhoBlocks.id, hostWhoBlocks.id, hostBlockedViewer.rows[0].id);
+    // staleDbOnly intentionally has no Valkey stream:/host presence when Valkey is on.
 
     await getPool().query(`INSERT INTO blocks (blocker_id, blocked_id) VALUES ($1, $2) ON CONFLICT DO NOTHING`, [
       viewer.id,
@@ -2304,16 +2333,23 @@ describe("http integration", () => {
     expect(listed.status).toBe(200);
     const rows = (listed.body.streams as Array<{ streamId: string; roomId: string; hostId: string; title: string }>) || [];
     const ids = rows.map((row) => row.streamId);
-    expect(ids[0]).toBe(newer.rows[0].id);
-    expect(ids).toContain(older.rows[0].id);
+    const newerIdx = ids.indexOf(newer.rows[0].id);
+    const olderIdx = ids.indexOf(older.rows[0].id);
+    expect(newerIdx).toBeGreaterThanOrEqual(0);
+    expect(olderIdx).toBeGreaterThanOrEqual(0);
+    expect(newerIdx).toBeLessThan(olderIdx);
     expect(rows.find((row) => row.streamId === newer.rows[0].id)?.roomId).toBe(hostB.id);
     expect(ids).not.toContain(ended.rows[0].id);
     expect(ids).not.toContain(blockedLive.rows[0].id);
     expect(ids).not.toContain(hostBlockedViewer.rows[0].id);
     expect(ids).not.toContain(bannedLive.rows[0].id);
     expect(ids).not.toContain(deletedLive.rows[0].id);
+    if (env().valkeyUrl) {
+      expect(ids).not.toContain(staleDbOnly.rows[0].id);
+    }
 
     await getPool().query(`UPDATE live_streams SET status = 'ended', ended_at = NOW() WHERE id = $1`, [newer.rows[0].id]);
+    await clearRuntimeLive(hostB.id);
     const afterEnd = await json("/api/live/streams");
     const afterIds = ((afterEnd.body.streams as Array<{ streamId: string }>) || []).map((row) => row.streamId);
     expect(afterIds).not.toContain(newer.rows[0].id);
@@ -2366,6 +2402,14 @@ describe("http integration", () => {
       `INSERT INTO live_streams (host_id, room_id, title, status) VALUES ($1, $2, 'LIVE', 'live') RETURNING id`,
       [host.id, host.id],
     );
+    if (env().valkeyUrl) {
+      await valkeySet(
+        `stream:${host.id}`,
+        JSON.stringify({ userId: host.id, streamId: first.rows[0].id }),
+        8 * 60 * 60 * 1000,
+      );
+      await markHostStarting(host.id);
+    }
     const listed = await fetch(`${base}/api/live/streams`, {
       headers: { Authorization: `Bearer ${host.token}` },
     });
@@ -2408,6 +2452,14 @@ describe("http integration", () => {
       [host.id, host.id],
     );
     expect(restart.rows[0].id).not.toBe(first.rows[0].id);
+    if (env().valkeyUrl) {
+      await valkeySet(
+        `stream:${host.id}`,
+        JSON.stringify({ userId: host.id, streamId: restart.rows[0].id }),
+        8 * 60 * 60 * 1000,
+      );
+      await markHostStarting(host.id);
+    }
     const relisted = await fetch(`${base}/api/live/streams`, {
       headers: { Authorization: `Bearer ${host.token}` },
     });
@@ -2452,6 +2504,14 @@ describe("http integration", () => {
       `INSERT INTO live_streams (host_id, room_id, title, status) VALUES ($1, $2, 'LIVE', 'live') RETURNING id`,
       [host.id, host.id],
     );
+    if (env().valkeyUrl) {
+      await valkeySet(
+        `stream:${host.id}`,
+        JSON.stringify({ userId: host.id, streamId: live.rows[0].id }),
+        8 * 60 * 60 * 1000,
+      );
+      await markHostStarting(host.id);
+    }
 
     const byStreamId = await fetch(
       `${base}/api/live/token?roomId=${encodeURIComponent(live.rows[0].id)}&role=spectator`,

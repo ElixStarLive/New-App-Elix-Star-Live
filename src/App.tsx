@@ -333,10 +333,10 @@ function App() {
                 <Route path="/report" element={<Report />} />
                 <Route path="/video/:videoId" element={<VideoView />} />
                 <Route path="/live" element={<LiveDiscover />} />
-                <Route path="/live/:streamId" element={<LiveStreamGuard />} />
                 <Route path="/live/start" element={<Navigate to="/live" replace />} />
                 <Route path="/live/broadcast" element={<LiveStreamKeyed />} />
                 <Route path="/live/watch/:streamId" element={<LiveWatchRedirect />} />
+                <Route path="/live/:streamId" element={<LiveStreamGuard />} />
                 <Route path="/watch/:streamId" element={<SpectatorLiveShell />}>
                   <Route path="profile/:userId" element={<ProfileLiveOverlay />} />
                 </Route>

@@ -16,6 +16,7 @@ import { useAuthStore } from "@/store/useAuthStore";
 type TrackedLive = LiveStreamCard & { discoveredAt: number };
 
 export function useLiveDiscover() {
+  const viewerId = useAuthStore((state) => state.user?.id) ?? null;
   const [streams, setStreams] = useState<TrackedLive[]>([]);
   const [loading, setLoading] = useState(true);
   const snapshotGate = useRef(createLiveSnapshotGate());
@@ -52,8 +53,14 @@ export function useLiveDiscover() {
   }, []);
 
   useEffect(() => {
+    setStreams([]);
+    endedAtRef.current.clear();
+    setLoading(true);
     void loadSnapshot();
-  }, [loadSnapshot]);
+    return () => {
+      snapshotGate.current.begin();
+    };
+  }, [loadSnapshot, viewerId]);
 
   useEffect(() => {
     const onStarted = (data: unknown) => {
@@ -63,9 +70,7 @@ export function useLiveDiscover() {
         void loadSnapshot({ silent: true });
         return;
       }
-      for (const key of [liveKey(card)]) {
-        endedAtRef.current.delete(key);
-      }
+      endedAtRef.current.delete(liveKey(card));
       setStreams((prev) => {
         if (prev.some((row) => liveKey(row) === liveKey(card))) {
           return prev.map((row) =>

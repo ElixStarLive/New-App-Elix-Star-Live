@@ -1,5 +1,6 @@
 import { getPool } from "../../infra/postgres.js";
 import { env } from "../../infra/env.js";
+import { valkeyGet } from "../../infra/valkey.js";
 import { viewerCount } from "../../websocket/presence.js";
 import { expireAbandonedLives } from "./start.js";
 import { getHostPresence } from "./hostGrace.js";
@@ -27,6 +28,23 @@ type DbLiveRow = {
   started_at: Date;
 };
 
+function streamStateKey(roomId: string): string {
+  return `stream:${roomId}`;
+}
+
+/** Neon live row + Valkey host presence + stream:{roomId} — fail-closed when Valkey is on. */
+async function isRuntimeLive(roomId: string): Promise<boolean> {
+  if (!env().valkeyUrl) return true;
+  const presence = await getHostPresence(roomId);
+  if (!presence) return false;
+  try {
+    const raw = await valkeyGet(streamStateKey(roomId));
+    return Boolean(raw);
+  } catch {
+    return false;
+  }
+}
+
 export async function queryLiveStreams(viewerId: string | null): Promise<LiveStreamListRow[]> {
   await expireAbandonedLives();
   const { rows } = await getPool().query<DbLiveRow>(
@@ -45,10 +63,7 @@ export async function queryLiveStreams(viewerId: string | null): Promise<LiveStr
 
   const eligible: DbLiveRow[] = [];
   for (const row of rows) {
-    if (env().valkeyUrl) {
-      const presence = await getHostPresence(row.room_id);
-      if (!presence) continue;
-    }
+    if (!(await isRuntimeLive(row.room_id))) continue;
     eligible.push(row);
   }
 

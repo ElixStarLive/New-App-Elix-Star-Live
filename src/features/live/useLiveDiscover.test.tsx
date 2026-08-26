@@ -12,13 +12,21 @@ const ws = vi.hoisted(() => ({
   off: vi.fn(),
 }));
 
+const auth = vi.hoisted(() => ({
+  userId: "11111111-1111-1111-1111-111111111111" as string | null,
+  checkUser: vi.fn(),
+}));
+
 vi.mock("@/features/feed/feedApi", () => feedApi);
 vi.mock("@/lib/wsClient", () => ({ wsClient: ws }));
 vi.mock("@/lib/toast", () => ({ showToast: vi.fn() }));
 vi.mock("@/store/useAuthStore", () => ({
   useAuthStore: Object.assign(
-    () => ({ user: { id: "11111111-1111-1111-1111-111111111111" } }),
-    { getState: () => ({ checkUser: vi.fn() }) },
+    (selector?: (state: { user: { id: string } | null }) => unknown) => {
+      const state = { user: auth.userId ? { id: auth.userId } : null };
+      return selector ? selector(state) : state;
+    },
+    { getState: () => ({ checkUser: auth.checkUser }) },
   ),
 }));
 
@@ -59,6 +67,7 @@ describe("PAGE-017 useLiveDiscover", () => {
   });
 
   beforeEach(() => {
+    auth.userId = "11111111-1111-1111-1111-111111111111";
     feedApi.apiLiveStreams.mockReset();
     ws.on.mockReset();
     ws.off.mockReset();
@@ -129,6 +138,26 @@ describe("PAGE-017 useLiveDiscover", () => {
       await Promise.resolve();
     });
     expect(latest()?.streams).toEqual([]);
+    root.unmount();
+  });
+
+  it("clears and reloads on account switch", async () => {
+    feedApi.apiLiveStreams.mockResolvedValue({ streams: [card], error: null });
+    const { root, latest } = await mountHook();
+    expect(latest()?.streams).toHaveLength(1);
+    expect(feedApi.apiLiveStreams).toHaveBeenCalledTimes(1);
+
+    auth.userId = "22222222-2222-4222-8222-222222222222";
+    feedApi.apiLiveStreams.mockResolvedValue({ streams: [], error: null });
+    let switched: ReturnType<typeof useLiveDiscover> | undefined;
+    await act(async () => {
+      root.render(<HookProbe onValue={(value) => { switched = value; }} />);
+      await Promise.resolve();
+      await Promise.resolve();
+      await Promise.resolve();
+    });
+    expect(feedApi.apiLiveStreams.mock.calls.length).toBeGreaterThanOrEqual(2);
+    expect(switched?.streams).toEqual([]);
     root.unmount();
   });
 });

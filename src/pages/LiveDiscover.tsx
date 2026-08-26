@@ -1,4 +1,5 @@
 import { Radio, RefreshCw } from "lucide-react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import { RoyceBackIcon } from "@/components/royce";
 import { ForYouLiveCard } from "@/components/ForYouLiveCard";
@@ -10,9 +11,66 @@ export default function LiveDiscover() {
   const navigate = useNavigate();
   const location = useLocation();
   const { streams, loading, reload } = useLiveDiscover();
+  const [activeIds, setActiveIds] = useState<Set<string>>(() => new Set());
+  const cardRefs = useRef<Map<string, HTMLElement>>(new Map());
+  const observerRef = useRef<IntersectionObserver | null>(null);
+  const visibleIdsRef = useRef<Set<string>>(new Set());
+
+  // First visible card should preview immediately (same as For You active slide).
+  useEffect(() => {
+    if (streams.length === 0) return;
+    setActiveIds((prev) => (prev.size > 0 ? prev : new Set([liveKey(streams[0])])));
+  }, [streams]);
+
+  // Activate live preview only for cards on screen — one LiveKit room at a time (Android OOM).
+  const streamIdsKey = streams.map((s) => liveKey(s)).join(",");
+  useEffect(() => {
+    if (typeof IntersectionObserver === "undefined") return;
+    observerRef.current?.disconnect();
+    visibleIdsRef.current = new Set();
+    observerRef.current = new IntersectionObserver(
+      (entries) => {
+        let changed = false;
+        for (const entry of entries) {
+          const id = (entry.target as HTMLElement).dataset.streamId;
+          if (!id) continue;
+          const on = entry.isIntersecting && entry.intersectionRatio >= 0.35;
+          if (on) {
+            if (!visibleIdsRef.current.has(id)) {
+              visibleIdsRef.current.add(id);
+              changed = true;
+            }
+          } else if (visibleIdsRef.current.delete(id)) {
+            changed = true;
+          }
+        }
+        if (changed) {
+          const first = visibleIdsRef.current.values().next().value as string | undefined;
+          setActiveIds(first ? new Set([first]) : new Set());
+        }
+      },
+      { threshold: [0, 0.35, 0.6], rootMargin: "40px 0px" },
+    );
+    for (const el of cardRefs.current.values()) {
+      observerRef.current.observe(el);
+    }
+    return () => observerRef.current?.disconnect();
+  }, [streamIdsKey]);
+
+  const setCardRef = useCallback((id: string, el: HTMLDivElement | null) => {
+    const prev = cardRefs.current.get(id);
+    if (prev && observerRef.current) observerRef.current.unobserve(prev);
+    if (el) {
+      el.dataset.streamId = id;
+      cardRefs.current.set(id, el);
+      observerRef.current?.observe(el);
+    } else {
+      cardRefs.current.delete(id);
+    }
+  }, []);
 
   return (
-    <div className="app-live-column elix-page-glass bg-transparent">
+    <div className="app-live-column bg-transparent">
       <div
         className="flex-shrink-0 w-full px-3 flex items-center justify-between z-20"
         style={{
@@ -56,16 +114,20 @@ export default function LiveDiscover() {
             </div>
           ) : streams.length > 0 ? (
             <div className="grid grid-cols-2 gap-1 px-1 pb-[env(safe-area-inset-bottom,20px)]">
-              {streams.map((stream, i) => (
-                <div
-                  key={liveKey(stream)}
-                  className={`relative overflow-hidden bg-transparent ${
-                    i === 0 && streams.length > 2 ? "col-span-2 aspect-[2/1.2]" : "aspect-[3/4]"
-                  }`}
-                >
-                  <ForYouLiveCard stream={stream} isActive={i === 0} />
-                </div>
-              ))}
+              {streams.map((stream, i) => {
+                const key = liveKey(stream);
+                return (
+                  <div
+                    key={key}
+                    ref={(el) => setCardRef(key, el)}
+                    className={`relative overflow-hidden bg-transparent ${
+                      i === 0 && streams.length > 2 ? "col-span-2 aspect-[2/1.2]" : "aspect-[3/4]"
+                    }`}
+                  >
+                    <ForYouLiveCard stream={stream} isActive={activeIds.has(key)} />
+                  </div>
+                );
+              })}
             </div>
           ) : (
             <div className="flex flex-col items-center justify-center py-32 px-8 text-center">

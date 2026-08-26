@@ -1,56 +1,20 @@
 import { Router } from "express";
-import { getPool } from "../../infra/postgres.js";
 import { requireAuth, type AuthedRequest } from "../../middleware/auth.js";
 import { AppError } from "../../middleware/errors.js";
 import { liveStartBodySchema, liveTokenQuerySchema } from "../../../shared/contracts/live.js";
-import { viewerCount } from "../../websocket/presence.js";
 import { queryLiveStatus } from "./status.js";
 import { addLiveModerator, listLiveModerators, removeLiveModerator } from "./moderators.js";
 import { endLive, startLive } from "./start.js";
 import { issueLiveToken } from "./token.js";
+import { runLiveModerationCheck } from "./moderation.js";
+import { queryLiveStreams } from "./query.js";
 
 const router = Router();
 
 router.get("/streams", async (req: AuthedRequest, res) => {
   const viewerId = req.userId ?? null;
-  const { rows } = await getPool().query<{
-    id: string;
-    room_id: string;
-    host_id: string;
-    display_name: string;
-    username: string;
-    avatar_url: string | null;
-    title: string;
-    started_at: Date;
-  }>(
-    `SELECT s.id, s.room_id, s.host_id, u.display_name, u.username, u.avatar_url, s.title, s.started_at
-     FROM live_streams s
-     JOIN users u ON u.id = s.host_id
-     WHERE s.status = 'live' AND u.deleted_at IS NULL
-       AND (u.banned_until IS NULL OR u.banned_until < NOW())
-       AND ($1::uuid IS NULL OR (
-         s.host_id NOT IN (SELECT blocked_id FROM blocks WHERE blocker_id = $1)
-         AND s.host_id NOT IN (SELECT blocker_id FROM blocks WHERE blocked_id = $1)
-       ))
-     ORDER BY s.started_at DESC`,
-    [viewerId],
-  );
-
-  res.json({
-    streams: await Promise.all(
-      rows.map(async (row) => ({
-        streamId: row.id,
-        roomId: row.room_id,
-        hostId: row.host_id,
-        displayName: row.display_name,
-        username: row.username,
-        avatarUrl: row.avatar_url,
-        title: row.title,
-        viewerCount: await viewerCount(row.room_id),
-        startedAt: row.started_at.toISOString(),
-      })),
-    ),
-  });
+  const streams = await queryLiveStreams(viewerId);
+  res.json({ streams });
 });
 
 /** Authoritative live status for For You inline preview (must be before /:streamId). */
@@ -85,6 +49,11 @@ router.get("/token", requireAuth, async (req: AuthedRequest, res) => {
   const query = liveTokenQuerySchema.parse(req.query);
   const token = await issueLiveToken(req.userId as string, query.roomId, query.role);
   res.json(token);
+});
+
+router.post("/moderation/check", requireAuth, async (req: AuthedRequest, res) => {
+  res.setHeader("Cache-Control", "private, no-store");
+  res.json(await runLiveModerationCheck(req.userId as string, req.body));
 });
 
 router.get("/:streamId/moderators", requireAuth, async (req: AuthedRequest, res) => {
