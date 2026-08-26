@@ -10,7 +10,15 @@ import { wsEnvelopeSchema, chatMessageDataSchema, heartSentDataSchema } from "..
 import { assignSeat, releaseSeat, requireCohostTarget, setBigScreen, markSeatLive } from "../modules/cohost/state.js";
 import { loadCohost, saveCohost, withCohostLock } from "../modules/cohost/runtime.js";
 import { canStart, emptyBattle, startBattle } from "../modules/battle/state.js";
-import { loadBattle, persistEndedBattle, publishRoom, saveBattle, tickAndStoreBattle } from "../modules/battle/runtime.js";
+import {
+  applyBattleSpectatorTap,
+  isBattleSeat,
+  loadBattle,
+  persistEndedBattle,
+  publishRoom,
+  saveBattle,
+  tickAndStoreBattle,
+} from "../modules/battle/runtime.js";
 import { addViewer, removeViewer, viewerCount } from "./presence.js";
 import { addPresenceSocket, initLivePresenceFanout, removePresenceSocket } from "../modules/live/presenceFanout.js";
 import { addHostConnection, markHostConnected, removeHostConnection } from "../modules/live/hostGrace.js";
@@ -299,7 +307,7 @@ async function handleEvent(
     return;
   }
   if (event.startsWith("battle_")) {
-    await handleBattle(userId, roomId, event, data);
+    await handleBattle(userId, roomId, event, data, ws);
     return;
   }
   if (event === "call_invite" || event === "call_accepted" || event === "call_rejected" || event === "call_ended") {
@@ -424,11 +432,30 @@ async function handleCohost(
   });
 }
 
-async function handleBattle(userId: string, roomId: string, event: string, data: unknown): Promise<void> {
+async function handleBattle(
+  userId: string,
+  roomId: string,
+  event: string,
+  data: unknown,
+  ws: WebSocket,
+): Promise<void> {
   const hostId = await liveHostId(roomId);
   if (!hostId) return;
   const body = typeof data === "object" && data ? (data as Record<string, unknown>) : {};
   const type = body.type === "2x2" ? "2x2" : "1x1";
+  if (event === "battle_spectator_vote") {
+    const target = typeof body.target === "string" ? body.target : "";
+    if (!isBattleSeat(target)) return;
+    const tap = await applyBattleSpectatorTap(roomId, userId, target);
+    send(ws, "battle_vote_ack", {
+      target,
+      points: tap.ok ? tap.points : 0,
+      status: tap.ok ? "ok" : tap.reason,
+      origin: "battle_tap",
+      financialValueGbp: 0,
+    });
+    return;
+  }
   let state = await loadBattle(roomId);
   if (event === "battle_create" && userId === hostId) {
     if (state?.status === "WAITING" && canStart(state)) {

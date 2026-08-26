@@ -110,7 +110,9 @@ export async function startLive(
   let reconnect = false;
   try {
     await client.query("BEGIN");
-    
+    // Serialize concurrent go-live (React Strict Mode double-mount / double tap).
+    await client.query(`SELECT pg_advisory_xact_lock(hashtext($1))`, [hostId]);
+
     const existing = await client.query<{
           id: string;
           room_id: string;
@@ -119,7 +121,7 @@ export async function startLive(
         }>(
           `SELECT id, room_id, title, started_at
        FROM live_streams
-       WHERE host_id = $1 AND status = 'live'
+       WHERE (host_id = $1::uuid OR room_id = $1::text) AND status = 'live'
        FOR UPDATE`,
           [hostId],
         );
@@ -132,23 +134,51 @@ export async function startLive(
         avatar_url: host.avatar_url,
       };
     } else {
-      const inserted = await client.query<{
-        id: string;
-        room_id: string;
-        title: string;
-        started_at: Date;
-      }>(
-        `INSERT INTO live_streams (host_id, room_id, title, status)
-         VALUES ($1, $2, $3, 'live')
-         RETURNING id, room_id, title, started_at`,
-        [hostId, roomId, title],
-      );
-      row = {
-        ...inserted.rows[0],
-        display_name: host.display_name,
-        username: host.username,
-        avatar_url: host.avatar_url,
-      };
+      try {
+        const inserted = await client.query<{
+          id: string;
+          room_id: string;
+          title: string;
+          started_at: Date;
+        }>(
+          `INSERT INTO live_streams (host_id, room_id, title, status)
+           VALUES ($1, $2, $3, 'live')
+           RETURNING id, room_id, title, started_at`,
+          [hostId, roomId, title],
+        );
+        row = {
+          ...inserted.rows[0],
+          display_name: host.display_name,
+          username: host.username,
+          avatar_url: host.avatar_url,
+        };
+      } catch (insertError) {
+        const code =
+          insertError && typeof insertError === "object" && "code" in insertError
+            ? String((insertError as { code?: unknown }).code)
+            : "";
+        if (code !== "23505") throw insertError;
+        const raced = await client.query<{
+          id: string;
+          room_id: string;
+          title: string;
+          started_at: Date;
+        }>(
+          `SELECT id, room_id, title, started_at
+           FROM live_streams
+           WHERE (host_id = $1::uuid OR room_id = $1::text) AND status = 'live'
+           FOR UPDATE`,
+          [hostId],
+        );
+        if (!raced.rows[0]) throw insertError;
+        reconnect = true;
+        row = {
+          ...raced.rows[0],
+          display_name: host.display_name,
+          username: host.username,
+          avatar_url: host.avatar_url,
+        };
+      }
     }
     await client.query("COMMIT");
   } catch (error) {

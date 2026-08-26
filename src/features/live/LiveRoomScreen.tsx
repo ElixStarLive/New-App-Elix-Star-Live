@@ -440,6 +440,20 @@ export function LiveRoomScreen({
     return ["host", "opponent"] as const;
   }, [battle.type]);
 
+  const isBattleParticipant = useMemo(() => {
+    if (!user?.id) return false;
+    return Object.values(battle.seats).includes(user.id);
+  }, [battle.seats, user?.id]);
+
+  const sendBattleTap = useCallback(
+    (seat: (typeof battleTiles)[number]) => {
+      if (battle.status !== "ACTIVE" || remaining <= 0) return;
+      if (isBattleParticipant) return;
+      wsClient.send("battle_spectator_vote", { roomId, target: seat });
+    },
+    [battle.status, isBattleParticipant, remaining, roomId],
+  );
+
   if (bootError) {
     const ended = role === "spectator" && spectatorSession.phase === "ended";
     return (
@@ -598,7 +612,13 @@ export function LiveRoomScreen({
               {battleTiles.map((seat) => {
                 const uid = battle.seats[seat];
                 return (
-                  <div key={seat} className="elix-battle-slot relative">
+                  <div
+                    key={seat}
+                    className="elix-battle-slot relative"
+                    onClick={() => {
+                      if (uid) sendBattleTap(seat);
+                    }}
+                  >
                     {uid ? (
                       <VideoTile
                         attach={uid === user?.id ? attachLocal : attachRemote(uid)}

@@ -2,8 +2,9 @@ import { getPool } from "../../infra/postgres.js";
 import { env } from "../../infra/env.js";
 import { requireValkey, valkeyPub } from "../../infra/valkey.js";
 import { AppError } from "../../middleware/errors.js";
-import { applyScore, tick } from "./state.js";
+import { applyScore, BATTLE_DURATION_MS, tick } from "./state.js";
 import type { BattleSeat, BattleState } from "../../../shared/contracts/realtime.js";
+import { valkeyDel, valkeyTrySetNx } from "../../infra/valkey.js";
 
 function requireRealtime(): void {
   if (!env().valkeyUrl) {
@@ -79,6 +80,52 @@ export async function tickAndStoreBattle(roomId: string): Promise<BattleState | 
   }
   await saveBattle(next);
   return next;
+}
+
+const BATTLE_VOTE_TTL_MS = BATTLE_DURATION_MS + 60_000;
+
+function battleVoteOnceKey(roomId: string, userId: string): string {
+  return `battle_vote_once:${roomId}:${userId}`;
+}
+
+const BATTLE_SEATS: BattleSeat[] = ["host", "opponent", "player3", "player4"];
+
+export type BattleSpectatorTapResult =
+  | { ok: true; points: number; state: BattleState }
+  | {
+      ok: false;
+      reason: "no_battle" | "not_active" | "participant" | "invalid_seat" | "already_awarded" | "unavailable";
+    };
+
+/** +5 battle points once per unique viewer per battle. £0 — source `tap`. */
+export async function applyBattleSpectatorTap(
+  roomId: string,
+  userId: string,
+  seat: BattleSeat,
+): Promise<BattleSpectatorTapResult> {
+  requireRealtime();
+  const current = await tickAndStoreBattle(roomId);
+  if (!current) return { ok: false, reason: "no_battle" };
+  if (current.status !== "ACTIVE") return { ok: false, reason: "not_active" };
+  if (Object.values(current.seats).includes(userId)) return { ok: false, reason: "participant" };
+  if (!current.seats[seat]) return { ok: false, reason: "invalid_seat" };
+
+  const claimed = await valkeyTrySetNx(battleVoteOnceKey(roomId, userId), seat, BATTLE_VOTE_TTL_MS);
+  if (!claimed) return { ok: false, reason: "already_awarded" };
+
+  try {
+    const next = applyScore(current, seat, 5);
+    await saveBattle(next);
+    await publishRoom(roomId, "battle_state_sync", next);
+    return { ok: true, points: 5, state: next };
+  } catch {
+    await valkeyDel(battleVoteOnceKey(roomId, userId));
+    return { ok: false, reason: "unavailable" };
+  }
+}
+
+export function isBattleSeat(value: string): value is BattleSeat {
+  return BATTLE_SEATS.includes(value as BattleSeat);
 }
 
 export async function applyGiftToBattle(roomId: string, recipientId: string, points: number): Promise<void> {

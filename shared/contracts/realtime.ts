@@ -35,6 +35,8 @@ export const wsEventNameSchema = z.enum([
   "battle_join",
   "battle_end",
   "battle_get_state",
+  "battle_spectator_vote",
+  "battle_vote_ack",
   "battle_invite",
   "battle_state_sync",
   "battle_tick",

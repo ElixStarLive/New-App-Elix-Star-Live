@@ -40,8 +40,14 @@ export async function runLiveHostStart(args: {
   }
   const livekit = args.createSession ? args.createSession() : new LiveKitSession();
   try {
-    await livekit.connect(parsed.data.livekitUrl, parsed.data.livekitToken);
-    await livekit.publishCamera({ audio: true, video: true });
+    await withTimeout(
+      (async () => {
+        await livekit.connect(parsed.data.livekitUrl, parsed.data.livekitToken);
+        await livekit.publishCamera({ audio: true, video: true });
+      })(),
+      25_000,
+      "Camera/mic timed out. Allow browser access and try again.",
+    );
     if (args.localVideo) livekit.attachLocalVideo(args.localVideo);
     connectWs(parsed.data.roomId, args.token, { persistent: true, ownerId: HOST_WS_OWNER });
     return { ok: true, session: parsed.data, livekit };
@@ -50,6 +56,22 @@ export async function runLiveHostStart(args: {
     await livekit.disconnect().catch(() => undefined);
     return { ok: false, error: err instanceof Error ? err.message : "Live video could not start" };
   }
+}
+
+function withTimeout<T>(promise: Promise<T>, ms: number, message: string): Promise<T> {
+  return new Promise<T>((resolve, reject) => {
+    const timer = setTimeout(() => reject(new Error(message)), ms);
+    promise.then(
+      (value) => {
+        clearTimeout(timer);
+        resolve(value);
+      },
+      (error) => {
+        clearTimeout(timer);
+        reject(error);
+      },
+    );
+  });
 }
 
 export function useLiveHostSession(enabled: boolean, title: string) {
@@ -74,45 +96,48 @@ export function useLiveHostSession(enabled: boolean, title: string) {
       setConnecting(false);
       return;
     }
-    if (startLock.current) return;
-    startLock.current = true;
     let cancelled = false;
-
-    void (async () => {
-      setConnecting(true);
-      setError(null);
-      const result = await runLiveHostStart({
-        title: titleRef.current,
-        token: getSessionToken(),
-        localVideo: localVideoRef.current,
-      });
-      if (cancelled) {
-        if (result.ok) {
-          await result.livekit.disconnect();
-          wsClient.disconnect(HOST_WS_OWNER);
+    // Defer start so React Strict Mode remount cancels the first timer (avoids dual go-live).
+    const timer = window.setTimeout(() => {
+      if (cancelled || startLock.current) return;
+      startLock.current = true;
+      void (async () => {
+        setConnecting(true);
+        setError(null);
+        const result = await runLiveHostStart({
+          title: titleRef.current,
+          token: getSessionToken(),
+          localVideo: localVideoRef.current,
+        });
+        if (cancelled) {
+          if (result.ok) {
+            await result.livekit.disconnect();
+            wsClient.disconnect(HOST_WS_OWNER);
+          }
+          startLock.current = false;
+          return;
         }
-        startLock.current = false;
-        return;
-      }
-      if (!result.ok) {
-        setError(result.error);
+        if (!result.ok) {
+          setError(result.error);
+          setConnecting(false);
+          startLock.current = false;
+          return;
+        }
+        streamIdRef.current = result.session.streamId;
+        sessionRef.current = result.livekit;
+        setStreamId(result.session.streamId);
+        setRoomId(result.session.roomId);
         setConnecting(false);
         startLock.current = false;
-        return;
-      }
-      streamIdRef.current = result.session.streamId;
-      sessionRef.current = result.livekit;
-      setStreamId(result.session.streamId);
-      setRoomId(result.session.roomId);
-      setConnecting(false);
-    })();
+      })();
+    }, 50);
 
     return () => {
       cancelled = true;
+      window.clearTimeout(timer);
       void sessionRef.current?.disconnect();
       sessionRef.current = null;
       wsClient.disconnect(HOST_WS_OWNER);
-      startLock.current = false;
     };
   }, [enabled]);
 
