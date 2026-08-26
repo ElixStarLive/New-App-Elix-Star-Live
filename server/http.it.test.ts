@@ -4935,10 +4935,10 @@ describe("http integration", () => {
 
     const listA = await authJson("/api/blocked-users", userA.token);
     expect(listA.status).toBe(200);
-    const rows = (listA.body.data as Array<{ blocked_user_id?: string; username?: string }>) ?? [];
-    expect(rows.map((row) => row.blocked_user_id)).toEqual([userC.id, userB.id]);
-    expect(rows.some((row) => row.blocked_user_id === userA.id)).toBe(false);
-    expect(rows.find((row) => row.blocked_user_id === userB.id)?.username).toBe(userB.username);
+    const rows = (listA.body.data as Array<{ blockedUserId?: string; username?: string }>) ?? [];
+    expect(rows.map((row) => row.blockedUserId)).toEqual([userC.id, userB.id]);
+    expect(rows.some((row) => row.blockedUserId === userA.id)).toBe(false);
+    expect(rows.find((row) => row.blockedUserId === userB.id)?.username).toBe(userB.username);
 
     const listB = await authJson("/api/blocked-users", userB.token);
     expect(listB.body).toEqual({ data: [] });
@@ -4999,8 +4999,8 @@ describe("http integration", () => {
     expect(again.body).toEqual({ success: true });
 
     const after = await authJson("/api/blocked-users", userA.token);
-    const afterRows = (after.body.data as Array<{ blocked_user_id?: string }>) ?? [];
-    expect(afterRows.map((row) => row.blocked_user_id)).toEqual([userC.id]);
+    const afterRows = (after.body.data as Array<{ blockedUserId?: string }>) ?? [];
+    expect(afterRows.map((row) => row.blockedUserId)).toEqual([userC.id]);
 
     const profileOpen = await authJson(`/api/profiles/${userB.id}`, userA.token);
     expect(profileOpen.status).toBe(200);

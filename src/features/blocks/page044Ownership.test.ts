@@ -42,6 +42,8 @@ describe("PAGE-044 Blocked Accounts ownership", () => {
     expect(session).not.toMatch(/localStorage|sessionStorage|location\.reload|setTimeout\(/);
     expect(router).toMatch(/router\.get\("\/blocked-users"/);
     expect(router).toMatch(/router\.post\("\/unblock-user"/);
+    expect(router).toMatch(/listBlockedUsers\(req\.userId/);
+    expect(router).not.toMatch(/blocked_user_id:/);
     expect(router).toMatch(/req\.userId/);
     expect(router).not.toMatch(/req\.body\?\.(viewerId|blockerId)|req\.query\?\.(viewerId|blockerId)/);
     expect(service).toMatch(/FROM blocks/);
