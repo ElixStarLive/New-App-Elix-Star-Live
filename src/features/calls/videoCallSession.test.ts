@@ -188,6 +188,22 @@ describe("PAGE-034 video call session", () => {
     expect(acceptIncomingCall(callId).ok).toBe(false);
   });
 
+  it("rejects connecting accept when server signals blocked during ring", () => {
+    useCallStore.setState({ viewerId: calleeId });
+    applyCallEvent("call_invite", invitePayload());
+    expect(acceptIncomingCall(callId).ok).toBe(true);
+    expect(useCallStore.getState().status).toBe("connecting");
+    applyCallEvent("call_rejected", {
+      reason: "blocked",
+      callId,
+      callerId,
+      calleeId,
+      threadId,
+    });
+    expect(useCallStore.getState().status).toBe("rejected");
+    expect(useCallStore.getState().endReason).toBe("Call blocked");
+  });
+
   it("lets only the first Accept or Decline win", () => {
     useCallStore.setState({ viewerId: calleeId });
     applyCallEvent("call_invite", invitePayload());

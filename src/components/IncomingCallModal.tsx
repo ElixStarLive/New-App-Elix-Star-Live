@@ -32,7 +32,13 @@ export function IncomingCallModal() {
   return (
     <div className="fixed inset-0 z-[100] elix-panel backdrop-blur-md flex items-center justify-center">
       <div className="bg-[rgba(0,0,0,0.35)] rounded-3xl p-8 max-w-sm w-full mx-4 text-center shadow-2xl">
-        <AvatarRing src={remoteUser.avatar} alt={remoteUser.username} size={96} className="mx-auto mb-4" />
+        {remoteUser.avatar ? (
+          <AvatarRing src={remoteUser.avatar} alt={remoteUser.username} size={96} className="mx-auto mb-4" />
+        ) : (
+          <div className="w-24 h-24 rounded-full bg-[rgba(0,0,0,0.35)] border border-[#D8D9DD]/40 mx-auto mb-4 flex items-center justify-center text-3xl text-white">
+            {remoteUser.username[0]?.toUpperCase()}
+          </div>
+        )}
         <h2 className="text-white text-xl font-bold mb-1">{remoteUser.username}</h2>
         <p className="text-white/60 text-sm mb-8">Incoming video call...</p>
         <div className="flex items-center justify-center gap-12">

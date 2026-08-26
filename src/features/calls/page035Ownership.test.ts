@@ -19,9 +19,17 @@ describe("PAGE-035 Incoming Call Modal ownership", () => {
     expect(modal).toMatch(/bg-\[#22C55E\]/);
     expect(modal).toMatch(/bg-\[#EF4444\]/);
     expect(modal).toMatch(/z-\[100\]/);
-    expect(modal).not.toMatch(/LiveKitSession|new Room|getUserMedia|new WebSocket|apiCallAction|IncomingCallModalV2|IncomingCallModalFixed|location\.reload|setTimeout|callerId \|\||userId \|\||threadId \|\|/);
+    expect(modal).toMatch(/username\[0\]\?\.toUpperCase/);
+    expect(modal).toMatch(/pathname === "\/call"/);
+    expect(modal).not.toMatch(
+      /LiveKitSession|new Room|getUserMedia|new WebSocket|apiCallAction|IncomingCallModalV2|IncomingCallModalFixed|location\.reload|setTimeout|callerId \|\||userId \|\||threadId \|\|/,
+    );
     expect(page034).not.toMatch(/IncomingCallModal/);
     expect(session).not.toMatch(/IncomingCallModal|new WebSocket|setTimeout/);
+    expect(session).toMatch(/call_invite/);
+    expect(session).toMatch(/call_accepted/);
+    expect(session).toMatch(/call_rejected/);
+    expect(session).toMatch(/call_ended/);
     expect(clientWs).toMatch(/export const wsClient = new WsClient/);
   });
 });

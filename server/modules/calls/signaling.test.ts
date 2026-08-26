@@ -113,6 +113,42 @@ describe("PAGE-034 call signalling", () => {
     expect(strangerEnd.items).toEqual([]);
   });
 
+  it("rejects accept when a block appears during ring", async () => {
+    blockedMock.mockResolvedValue(true);
+    queryMock.mockImplementation(async (sql: string) => {
+      if (sql.includes("FROM calls WHERE id")) {
+        return {
+          rows: [
+            {
+              id: callId,
+              caller_id: callerId,
+              callee_id: calleeId,
+              room_name: `call_${callId}`,
+              thread_id: threadId,
+              status: "ringing",
+            },
+          ],
+        };
+      }
+      return { rows: [], rowCount: 1 };
+    });
+    const result = await handleCallSignal(calleeId, "call_accepted", { callId });
+    expect(result.items).toEqual([
+      {
+        userId: callerId,
+        event: "call_rejected",
+        data: { reason: "blocked", callId, callerId, calleeId, threadId },
+      },
+      {
+        userId: calleeId,
+        event: "call_rejected",
+        data: { reason: "blocked", callId, callerId, calleeId, threadId },
+      },
+    ]);
+    expect(queryMock.mock.calls.some((row) => String(row[0]).includes("status = 'active'"))).toBe(false);
+    expect(queryMock.mock.calls.some((row) => String(row[0]).includes("status = 'rejected'"))).toBe(true);
+  });
+
   it("ignores a client-supplied caller id and room name", async () => {
     queryMock.mockImplementation(async (sql: string) => {
       if (sql.includes("FROM chat_thread_members")) {

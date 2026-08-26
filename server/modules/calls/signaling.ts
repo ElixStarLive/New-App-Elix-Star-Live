@@ -205,6 +205,25 @@ async function acceptCall(userId: string, body: Record<string, unknown>): Promis
   if (!call || !call.thread_id) return empty();
   if (call.callee_id !== userId) return empty();
   if (call.status === "ended" || call.status === "rejected") return empty();
+  if (await isBlockedEitherWay(call.caller_id, call.callee_id)) {
+    await getPool().query(
+      `UPDATE calls SET status = 'rejected', ended_at = NOW() WHERE id = $1 AND status IN ('ringing', 'active')`,
+      [call.id],
+    );
+    const blocked = rejectPayload({
+      reason: "blocked",
+      callId: call.id,
+      callerId: call.caller_id,
+      calleeId: call.callee_id,
+      threadId: call.thread_id,
+    });
+    return {
+      items: [
+        { userId: call.caller_id, event: "call_rejected", data: blocked },
+        { userId: call.callee_id, event: "call_rejected", data: blocked },
+      ],
+    };
+  }
   if (call.status === "ringing") {
     const updated = await getPool().query(
       `UPDATE calls SET status = 'active' WHERE id = $1 AND status = 'ringing'`,

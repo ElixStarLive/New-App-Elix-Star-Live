@@ -115,6 +115,28 @@ describe("PAGE-035 Incoming Call Modal", () => {
     expect(useCallStore.getState().threadId).toBe(threadId);
   });
 
+  it("shows letter avatar fallback when caller has no photo (OLD chrome)", () => {
+    const view = renderModal("/inbox");
+    root = view.root;
+    container = view.container;
+    expect(container.querySelector("img")).toBeNull();
+    expect(container.textContent).toContain("M");
+    expect(container.textContent).toContain("Maya");
+    expect(container.textContent).toContain("LOC /inbox");
+  });
+
+  it("closes when caller ends before answer without navigating", () => {
+    const view = renderModal("/feed");
+    root = view.root;
+    container = view.container;
+    expect(container.querySelector('[aria-label="Accept call"]')).toBeTruthy();
+    act(() => {
+      useCallStore.getState().reset();
+    });
+    expect(container.querySelector('[aria-label="Accept call"]')).toBeNull();
+    expect(container.textContent).toContain("LOC /feed");
+  });
+
   it("does not render on /call and does not own LiveKit", () => {
     const view = renderModal("/call");
     root = view.root;
