@@ -139,4 +139,27 @@ describe("PAGE-003 AuthCallback", () => {
     expect(mounted.container.textContent).toContain("Invalid or expired confirmation link.");
     expect(mounted.container.textContent).toContain("Something went wrong.");
   });
+
+  it("surfaces oauth error_description without calling verify", async () => {
+    const mounted = renderCallback("?error_description=Access%20denied");
+    root = mounted.root;
+    container = mounted.container;
+    await act(async () => undefined);
+    expect(authVerifyEmail).not.toHaveBeenCalled();
+    expect(mounted.container.textContent).toContain("Access denied");
+    expect(mounted.container.textContent).toContain("Something went wrong.");
+  });
+
+  it("Go to Login uses named replace navigation", async () => {
+    const mounted = renderCallback("");
+    root = mounted.root;
+    container = mounted.container;
+    await act(async () => undefined);
+    const button = mounted.container.querySelector("button") as HTMLButtonElement;
+    expect(button.textContent).toBe("Go to Login");
+    act(() => {
+      button.click();
+    });
+    expect(mounted.container.textContent).toContain("login-destination");
+  });
 });

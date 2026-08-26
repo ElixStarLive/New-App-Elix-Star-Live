@@ -195,7 +195,7 @@ export async function authVerifyEmail(
     method: "POST",
     body: JSON.stringify({ token: trimmed }),
   });
-  if (error) return { ok: false, error: error.message || "Email confirmation failed. Please try again." };
+  if (error) return { ok: false, error: error.message || "Verification failed." };
   const parsed = verifyEmailSuccessSchema.safeParse(data);
   if (!parsed.success) return { ok: false, error: "Invalid verification response from server." };
   const user = sessionUserFromProductionLogin(parsed.data);

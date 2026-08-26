@@ -522,8 +522,21 @@ describe("http integration", () => {
     });
     expect(verified.status).toBe(200);
     expect(verified.body.already_confirmed).toBe(false);
-    expect((verified.body as { session?: { access_token?: string } }).session?.access_token).toBeTruthy();
+    expect(verified.body.session).toEqual(
+      expect.objectContaining({
+        access_token: expect.any(String),
+        accessToken: expect.any(String),
+      }),
+    );
+    const verifiedSession = verified.body.session as { access_token: string; accessToken: string };
+    expect(verifiedSession.access_token).toBe(verifiedSession.accessToken);
     expect((verified.body as { user?: { email_confirmed_at?: string } }).user?.email_confirmed_at).toBeTruthy();
+    expect(verified.body.profile_meta).toEqual(
+      expect.objectContaining({
+        is_admin: false,
+        banned_until: null,
+      }),
+    );
 
     const confirmed = await getPool().query<{ email_confirmed_at: Date | null }>(
       `SELECT email_confirmed_at FROM users WHERE id = $1`,
@@ -537,7 +550,79 @@ describe("http integration", () => {
     });
     expect(reused.status).toBe(200);
     expect(reused.body.already_confirmed).toBe(true);
-    expect((reused.body as { session?: { access_token?: string } }).session?.access_token).toBeTruthy();
+    expect(accessTokenFromLogin(reused.body)).toBeTruthy();
+
+    // Pending token must die after password change (binding includes password_hash).
+    const pendingBeforePw = await issueVerifyJwtForUser(userId);
+    const { hashPassword } = await import("./infra/password.js");
+    const newHash = await hashPassword("password99xx");
+    await getPool().query(`UPDATE users SET password_hash = $2, email_confirmed_at = NULL WHERE id = $1`, [
+      userId,
+      newHash,
+    ]);
+    const staleAfterPw = await json("/api/auth/verify-email", {
+      method: "POST",
+      body: JSON.stringify({ token: pendingBeforePw }),
+    });
+    expect(staleAfterPw.status).toBe(401);
+    expect(staleAfterPw.body.error).toBe("This confirmation link is no longer valid.");
+    // Restore password + pending state for remaining cases (issueVerifyJwt helper clears confirm).
+    const restoredHash = await hashPassword("password12");
+    await getPool().query(`UPDATE users SET password_hash = $2, email_confirmed_at = NULL WHERE id = $1`, [
+      userId,
+      restoredHash,
+    ]);
+
+    // Expired purpose JWT is rejected (frozen OLD copy).
+    const { SignJWT } = await import("jose");
+    const expiredVerify = await new SignJWT({
+      email: `${unique}@example.com`,
+      purpose: "email_verify",
+      pv: "a".repeat(22),
+    })
+      .setProtectedHeader({ alg: "HS256", typ: "JWT" })
+      .setSubject(userId)
+      .setIssuedAt(Math.floor(Date.now() / 1000) - 3600)
+      .setExpirationTime(Math.floor(Date.now() / 1000) - 30)
+      .sign(new TextEncoder().encode(TEST_JWT));
+    const expiredVerifyRes = await json("/api/auth/verify-email", {
+      method: "POST",
+      body: JSON.stringify({ token: expiredVerify }),
+    });
+    expect(expiredVerifyRes.status).toBe(401);
+    expect(expiredVerifyRes.body.error).toBe("Invalid or expired confirmation link.");
+
+    // Resend confirmation: no enumeration; Valkey throttle; honest send failure.
+    const resendNoMail = await json("/api/auth/resend-confirmation", {
+      method: "POST",
+      body: JSON.stringify({ email: `${unique}@example.com` }),
+    });
+    expect(resendNoMail.status).toBe(501);
+    process.env.SMTP_URL = "smtp://127.0.0.1:9";
+    process.env.CLIENT_URL = "https://app.example";
+    const resendUnknown = await json("/api/auth/resend-confirmation", {
+      method: "POST",
+      body: JSON.stringify({ email: "nobody-resend@example.com" }),
+    });
+    expect(resendUnknown.status).toBe(200);
+    expect(resendUnknown.body).toEqual({ success: true });
+    await valkeyDel(`email_confirm_sent:${unique}@example.com`).catch(() => undefined);
+    const resendPending = await json("/api/auth/resend-confirmation", {
+      method: "POST",
+      body: JSON.stringify({ email: `${unique}@example.com` }),
+    });
+    expect(resendPending.status).toBe(500);
+    expect(resendPending.body.error).toBe("Failed to send email. Please try again later.");
+    await getPool().query(`UPDATE users SET email_confirmed_at = NOW() WHERE id = $1`, [userId]);
+    const resendConfirmed = await json("/api/auth/resend-confirmation", {
+      method: "POST",
+      body: JSON.stringify({ email: `${unique}@example.com` }),
+    });
+    expect(resendConfirmed.status).toBe(200);
+    expect(resendConfirmed.body).toEqual({ success: true, already_confirmed: true });
+    delete process.env.SMTP_URL;
+    delete process.env.CLIENT_URL;
+    await getPool().query(`UPDATE users SET email_confirmed_at = NULL WHERE id = $1`, [userId]);
 
     const raceRaw = await issueVerifyJwtForUser(userId);
     const [firstRace, secondRace] = await Promise.all([
