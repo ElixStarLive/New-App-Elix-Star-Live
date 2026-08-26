@@ -75,20 +75,34 @@ export async function listShopItems(req: AuthedRequest, res: Response): Promise<
   const category = typeof req.query.category === "string" ? req.query.category : "";
   const values: unknown[] = [];
 
-  let where = "WHERE deleted_at IS NULL AND is_active = TRUE";
+  let where = `WHERE si.deleted_at IS NULL AND si.is_active = TRUE
+     AND EXISTS (
+       SELECT 1 FROM users u
+       WHERE u.id = si.seller_id
+         AND u.deleted_at IS NULL
+         AND (u.banned_until IS NULL OR u.banned_until <= NOW())
+     )`;
   if (seller) {
     values.push(seller);
-    where += ` AND seller_id = $${values.length}`;
+    where += ` AND si.seller_id = $${values.length}`;
   }
   if (category && category !== "all" && shopCategorySchema.safeParse(category).success) {
     values.push(category);
-    where += ` AND category = $${values.length}`;
+    where += ` AND si.category = $${values.length}`;
+  }
+  if (req.userId) {
+    values.push(req.userId);
+    where += ` AND NOT EXISTS (
+      SELECT 1 FROM blocks b
+      WHERE (b.blocker_id = $${values.length} AND b.blocked_id = si.seller_id)
+         OR (b.blocker_id = si.seller_id AND b.blocked_id = $${values.length})
+    )`;
   }
   const { rows } = await getPool().query<ShopItemRow>(
-    `SELECT id, seller_id, title, description, price_pence, image_url, category
-     FROM shop_items
+    `SELECT si.id, si.seller_id, si.title, si.description, si.price_pence, si.image_url, si.category
+     FROM shop_items si
      ${where}
-     ORDER BY created_at DESC
+     ORDER BY si.created_at DESC
      LIMIT 100`,
     values,
   );

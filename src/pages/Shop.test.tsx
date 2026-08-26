@@ -8,6 +8,13 @@ const live = vi.fn();
 let navigateShop: ((to: string) => void) | null = null;
 
 vi.mock("@/lib/toast", () => ({ showToast: vi.fn() }));
+vi.mock("@/lib/wsClient", () => ({
+  wsClient: {
+    on: vi.fn(),
+    off: vi.fn(),
+    send: vi.fn(),
+  },
+}));
 vi.mock("@/features/shop/shopApi", async (importOriginal) => {
   const actual = await importOriginal<typeof import("@/features/shop/shopApi")>();
   return {

@@ -4,6 +4,7 @@ import { getPool } from "../../infra/postgres.js";
 import { env } from "../../infra/env.js";
 import { AppError } from "../../middleware/errors.js";
 import type { AuthedRequest } from "../../middleware/auth.js";
+import { isBlockedEitherWay } from "../blocks/service.js";
 import { SHOP_STRIPE_GBP_MIN_PENCE } from "../../../shared/contracts/shop.js";
 import { parseShopCheckoutLines, shopCheckoutIdempotencyKey } from "./lines.js";
 
@@ -67,6 +68,9 @@ export async function createShopCheckout(req: AuthedRequest, res: Response): Pro
     const item = byId.get(line.id);
     if (!item) throw new AppError("not_found", "An item is no longer available", 404);
     if (item.seller_id === buyerId) throw new AppError("validation_error", "Cannot buy your own item", 400);
+    if (await isBlockedEitherWay(buyerId, item.seller_id)) {
+      throw new AppError("forbidden", "This seller is not available", 403);
+    }
     if (!Number.isFinite(item.price_pence) || item.price_pence < 1) {
       throw new AppError("validation_error", "An item has no valid price", 400);
     }

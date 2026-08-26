@@ -26,6 +26,7 @@ import {
   returnToFromLocationState,
 } from "@/lib/settingsNav";
 import { showToast } from "@/lib/toast";
+import { wsClient } from "@/lib/wsClient";
 import { useAuthStore } from "@/store/useAuthStore";
 import { useShopBasketStore } from "@/store/useShopBasketStore";
 
@@ -157,17 +158,29 @@ export default function Shop() {
   }, []);
 
   useEffect(() => {
-    void apiLiveStreams().then((res) => {
-      if (res.error || !res.streams) return;
-      setLiveUsers(
-        res.streams.slice(0, 25).map((stream) => ({
-          id: stream.hostId,
-          name: stream.displayName,
-          avatar: stream.avatarUrl || "",
-          roomId: stream.roomId,
-        })),
-      );
-    });
+    let cancelled = false;
+    const loadLive = () => {
+      void apiLiveStreams().then((res) => {
+        if (cancelled || res.error || !res.streams) return;
+        setLiveUsers(
+          res.streams.slice(0, 25).map((stream) => ({
+            id: stream.hostId,
+            name: stream.displayName,
+            avatar: stream.avatarUrl || "",
+            roomId: stream.roomId,
+          })),
+        );
+      });
+    };
+    loadLive();
+    const onLiveChange = () => loadLive();
+    wsClient.on("stream_started", onLiveChange);
+    wsClient.on("stream_ended", onLiveChange);
+    return () => {
+      cancelled = true;
+      wsClient.off("stream_started", onLiveChange);
+      wsClient.off("stream_ended", onLiveChange);
+    };
   }, []);
 
   useEffect(() => {

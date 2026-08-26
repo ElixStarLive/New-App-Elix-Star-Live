@@ -19,6 +19,8 @@ describe("PAGE-036 Shop ownership", () => {
     expect(page).toMatch(/Checkout with Stripe/);
     expect(page).toMatch(/RoyceBackIcon/);
     expect(page).toMatch(/ShopBasketIcon/);
+    expect(page).toMatch(/wsClient\.on\("stream_started"/);
+    expect(page).toMatch(/wsClient\.on\("stream_ended"/);
     expect(page).not.toMatch(/new WebSocket|ShopV2|ShopFixed|location\.reload|verify-purchase|StoreKit|Play Billing|coin_balance|testCoins|apiStartShopCheckout/);
     expect(api).toMatch(/\/api\/shop\/checkout/);
     expect(api).toMatch(/idempotencyKey/);
@@ -28,8 +30,11 @@ describe("PAGE-036 Shop ownership", () => {
     expect(checkout).toMatch(/purchase=cancelled/);
     expect(checkout).toMatch(/Checkout URLs are server-owned/);
     expect(checkout).toMatch(/unit_amount: item\.price_pence/);
+    expect(checkout).toMatch(/isBlockedEitherWay/);
     expect(catalog).toMatch(/seller_id = \$2/);
     expect(catalog).toMatch(/sellerId: row\.seller_id/);
+    expect(catalog).toMatch(/FROM blocks b/);
+    expect(catalog).toMatch(/u\.banned_until/);
     expect(catalog).not.toMatch(/user_id: row\.seller_id/);
     expect(catalog).not.toMatch(/image_url: row\.image_url/);
     expect(catalog).not.toMatch(/req\.query\.user_id/);
