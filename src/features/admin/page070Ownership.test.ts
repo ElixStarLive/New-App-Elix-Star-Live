@@ -57,9 +57,13 @@ describe("PAGE-070 Admin Dashboard ownership", () => {
     expect(auth).not.toMatch(/ADMIN_EMAIL|email ===|username === ['"]admin['"]/);
     expect(guard).toMatch(/user\.isAdmin !== true/);
     expect(guard).toMatch(/\/login/);
-    expect(guard).toMatch(/\/feed/);
+    expect(guard).toMatch(/to="\/"/);
     expect(settings).toMatch(/user\?\.isAdmin === true/);
     expect(settings).toMatch(/go\("\/admin"\)/);
+    expect(app.indexOf("<Route element={<RequireAdmin")).toBeGreaterThan(app.indexOf("<Route element={<RequireAuth"));
+    expect(dashboard).toMatch(/private, no-store/);
+    expect(extra).toMatch(/requireAdmin/);
+    expect(extra).toMatch(/handleAdminDashboard/);
     expect(nav).toMatch(/path === "\/admin"/);
     // PAGE-006: admin keeps bottom nav (not a shell-hidden path).
     expect(shell).not.toMatch(/pathname === "\/admin"|pathname\.startsWith\("\/admin"\)/);
