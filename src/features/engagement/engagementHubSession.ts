@@ -60,7 +60,8 @@ export function createEngagementHubSession(deps: HubDeps) {
         return;
       }
       accountId = expectedAccountId;
-      const gen = generation;
+      // Bump so an older in-flight Hub GET cannot overwrite a newer summary.
+      const gen = ++generation;
       view = { kind: "loading", hub: null, error: null };
       emit();
       const result = await deps.loadHub();

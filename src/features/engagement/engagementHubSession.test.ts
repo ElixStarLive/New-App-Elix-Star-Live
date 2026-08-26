@@ -113,6 +113,25 @@ describe("PAGE-047 engagement hub session", () => {
     });
   });
 
+  it("does not let a stale Hub GET overwrite a newer same-account summary", async () => {
+    const deps = createDeps(userA);
+    const stale = deferred<{ ok: true; hub: EngagementHub }>();
+    deps.loadHub.mockReturnValueOnce(stale.promise);
+    const first = deps.session.load(userA);
+    deps.loadHub.mockResolvedValueOnce({
+      ok: true,
+      hub: hub({ promotional_balance: 200, battle_energy: 5, total_xp: 10, fan_level: 1 }),
+    });
+    await deps.session.load(userA);
+    expect(deps.session.getSnapshot().hub?.promotional_balance).toBe(200);
+    stale.resolve({
+      ok: true,
+      hub: hub({ promotional_balance: 100, battle_energy: 1, total_xp: 1, fan_level: 1 }),
+    });
+    await first;
+    expect(deps.session.getSnapshot().hub?.promotional_balance).toBe(200);
+  });
+
   it("expires only an unauthenticated load and redirects a disabled hub", async () => {
     const expired = createDeps();
     expired.loadHub.mockResolvedValueOnce({
