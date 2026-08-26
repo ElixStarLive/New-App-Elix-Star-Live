@@ -25,6 +25,7 @@ import {
 } from "lucide-react";
 import LanguagePickerSheet from "@/components/LanguagePickerSheet";
 import SettingsOptionSheet from "@/components/SettingsOptionSheet";
+import { isEngagementHubEnabled } from "@/config/engagementFlags";
 import { requestSettingsDeleteAccount, requestSettingsLogout } from "@/features/settings/settingsSession";
 import { LANGUAGE_SHORT, useT } from "@/lib/i18n";
 import {
@@ -132,7 +133,9 @@ export default function Settings() {
           <SettingsRow icon={<Shield size={14} />} label={t("settings.security")} onPress={() => go("/settings/security")} />
           <SettingsRow icon={<Trash2 size={14} />} label={t("settings.deleteAccount")} onPress={() => void handleDeleteAccount()} />
           <SettingsRow icon={<Wallet size={14} />} label="Creator payout" onPress={() => go("/settings/payout")} />
-          <SettingsRow icon={<Gift size={14} />} label="Engagement Hub" onPress={() => go(ENGAGEMENT_HOME)} />
+          {isEngagementHubEnabled() ? (
+            <SettingsRow icon={<Gift size={14} />} label="Engagement Hub" onPress={() => go(ENGAGEMENT_HOME)} />
+          ) : null}
           {user?.isAdmin === true ? <SettingsRow icon={<LayoutDashboard size={14} />} label="Admin" onPress={() => go("/admin")} /> : null}
 
           <SettingsSection label={t("settings.section.preferences")} />

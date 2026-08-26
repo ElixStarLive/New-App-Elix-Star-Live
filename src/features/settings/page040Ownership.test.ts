@@ -31,11 +31,12 @@ describe("PAGE-040 Settings ownership", () => {
     expect(store).toMatch(/muteAllSounds/);
   });
 
-  it("gates admin from authority and always exposes Engagement Hub like OLD", () => {
+  it("gates admin from authority and Engagement Hub from the canonical fail-closed flag", () => {
     expect(settings).toMatch(/user\?\.isAdmin === true/);
     expect(settings).not.toMatch(/admin@|is_admin\s*=\s*true|hardcoded admin/i);
+    expect(settings).toMatch(/isEngagementHubEnabled\(\)/);
     expect(settings).toMatch(/Engagement Hub/);
-    expect(settings).not.toMatch(/isEngagementHubEnabled/);
+    expect(settings).not.toMatch(/engagementFlags\.engagementHubEnabled\s*=\s*true|hubEnabled:\s*true/);
   });
 
   it("has one logout owner and one delete owner", () => {

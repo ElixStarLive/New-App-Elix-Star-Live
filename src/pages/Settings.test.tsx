@@ -188,6 +188,7 @@ describe("PAGE-040 Settings", () => {
   });
 
   it("hands children Settings returnTo on every completed destination", () => {
+    flags.hub = true;
     const cases: Array<[string, string]> = [
       ["Edit Profile", "LOC /edit-profile"],
       ["Privacy", "LOC /settings/safety"],
@@ -244,11 +245,21 @@ describe("PAGE-040 Settings", () => {
     expect(container.textContent).toContain('STATE {"returnTo":"/settings"}');
   });
 
-  it("always shows Engagement Hub like OLD", () => {
-    const view = renderSettings();
+  it("shows Engagement Hub only when the canonical flag is enabled", () => {
+    flags.hub = true;
+    let view = renderSettings();
     root = view.root;
     container = view.container;
     expect(visibleLabels(container)).toContain("Engagement Hub");
+    act(() => {
+      root?.unmount();
+      container?.remove();
+    });
+    flags.hub = false;
+    view = renderSettings();
+    root = view.root;
+    container = view.container;
+    expect(visibleLabels(container)).not.toContain("Engagement Hub");
   });
 
   it("shows Admin only when profiles.is_admin is true", () => {

@@ -32,7 +32,7 @@ describe("PAGE-047 Engagement Hub ownership", () => {
     expect(page).not.toMatch(/history\.back|navigate\(-1\)|location\.reload|setTimeout\(/);
     expect(page).not.toMatch(/WebSocket|wsClient|new WebSocket|localStorage|sessionStorage/);
     expect(settings).toMatch(/Engagement Hub/);
-    expect(settings).not.toMatch(/isEngagementHubEnabled/);
+    expect(settings).toMatch(/isEngagementHubEnabled\(\)/);
     expect(nav).toMatch(/ENGAGEMENT_HOME = "\/engagement"/);
   });
 
