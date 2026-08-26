@@ -25,6 +25,7 @@ describe("PAGE-068 How It Works ownership", () => {
   it("has one public /how-it-works owner and the frozen in-app document", () => {
     expect(app.match(/path="\/how-it-works"/g)?.length).toBe(1);
     expect(app).toMatch(/<Route path="\/how-it-works" element=\{<HowItWorks \/>\} \/>/);
+    expect(app.indexOf('path="/how-it-works"')).toBeLessThan(app.indexOf("<Route element={<RequireAuth"));
     expect(app).not.toMatch(/path="\/how"|path="\/help\/how-it-works"|path="\/getting-started"/);
     expect(shell).toMatch(/pathname === "\/how-it-works"/);
     expect(HOW_IT_WORKS_TITLE).toBe("How the app works");
