@@ -4,12 +4,14 @@ import { apiFetchFollowingFeed } from "@/features/feed/feedApi";
 import { useAuthStore } from "@/store/useAuthStore";
 
 export function useFollowingFeed() {
+  const viewerId = useAuthStore((state) => state.user?.id ?? null);
   const [videos, setVideos] = useState<FeedVideo[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [activeIndex, setActiveIndex] = useState(0);
   const fetchGen = useRef(0);
   const seenVideoIds = useRef(new Set<string>());
+  const viewerRef = useRef<string | null>(viewerId);
 
   const loadVideos = useCallback(async () => {
     const gen = ++fetchGen.current;
@@ -39,8 +41,23 @@ export function useFollowingFeed() {
   }, [loadVideos]);
 
   useEffect(() => {
+    const switched = viewerRef.current !== viewerId;
+    if (switched) {
+      viewerRef.current = viewerId;
+      fetchGen.current += 1;
+      seenVideoIds.current = new Set();
+      setVideos([]);
+      setActiveIndex(0);
+      setError(null);
+    }
+    if (!viewerId) {
+      setLoading(false);
+      setVideos([]);
+      setError(null);
+      return;
+    }
     void reload();
-  }, [reload]);
+  }, [viewerId, reload]);
 
   const updateVideo = useCallback((videoId: string, patch: Partial<FeedVideo>) => {
     setVideos((prev) =>
