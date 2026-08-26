@@ -170,7 +170,7 @@ async function writeProductionSession(res: Response, user: UserRow, token: strin
   setAuthSessionCookie(res, token);
   res.json({
     user: productionAuthUser(user),
-    session: { access_token: token },
+    session: { access_token: token, accessToken: token },
     profile_meta: await loadLoginProfileMeta(user),
   });
 }
@@ -203,7 +203,7 @@ async function writeProductionRegister(
   setAuthSessionCookie(res, session.token);
   res.status(201).json({
     user: productionAuthUser(user),
-    session: { access_token: session.token },
+    session: { access_token: session.token, accessToken: session.token },
     profile_meta: await loadLoginProfileMeta(user),
     needsEmailConfirmation: false,
     confirmation_email_sent: false,
@@ -268,7 +268,14 @@ function mailIsConfigured(): boolean {
 async function assertLoginAllowed(
   identifier: string,
 ): Promise<{ ok: true } | { ok: false; status: number; error: string }> {
-  if (!env().valkeyUrl) return { ok: true };
+  // Frozen OLD: production/dev without Valkey fails closed — never skip lockout.
+  if (!env().valkeyUrl) {
+    return {
+      ok: false,
+      status: 503,
+      error: "Sign-in is temporarily unavailable. Please try again later.",
+    };
+  }
   try {
     // Frozen OLD Valkey shape: Hash field `n` on auth:login:fail:{sha256}
     const count = Number((await requireValkey().hget(loginFailKey(identifier), "n")) ?? "0");
@@ -412,7 +419,7 @@ router.post("/register", async (req: Request, res: Response) => {
            email, email_normalized, username, username_normalized, password_hash, display_name, email_confirmed_at
          )
          VALUES ($1, $2, $3, $4, $5, $6, $7)
-         RETURNING id, email, username, display_name, avatar_url, bio, is_verified, is_admin, email_confirmed_at, banned_until`,
+         RETURNING id, email, username, display_name, avatar_url, bio, is_verified, is_admin, email_confirmed_at, created_at, banned_until`,
         [
           body.email.trim(),
           emailNormalized,
@@ -741,7 +748,7 @@ router.post("/verify-email", async (req: Request, res: Response) => {
     setAuthSessionCookie(res, session.token);
     res.json({
       user: productionAuthUser(sessionUser),
-      session: { access_token: session.token },
+      session: { access_token: session.token, accessToken: session.token },
       profile_meta: await loadLoginProfileMeta(sessionUser),
       already_confirmed: result.alreadyConfirmed,
     });

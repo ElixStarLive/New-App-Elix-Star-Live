@@ -58,6 +58,12 @@ export default function Login() {
     const remembered = readRememberedEmail();
     setSaveDetails(remembered.save);
     if (remembered.email) setEmail(remembered.email);
+    // Frozen OLD: never keep a legacy password in storage.
+    try {
+      window.localStorage.removeItem("login_saved_password");
+    } catch {
+      /* storage may be unavailable */
+    }
   }, []);
 
   const unlockSubmit = useCallback(() => {
@@ -95,6 +101,11 @@ export default function Login() {
       }
       // Persist email on success even if this screen unmounts before navigation.
       writeRememberedEmail(saveDetails, email.trim());
+      try {
+        window.localStorage.removeItem("login_saved_password");
+      } catch {
+        /* storage may be unavailable */
+      }
       goAfterAuth();
     } catch (err) {
       if (isAbortLike(err)) {

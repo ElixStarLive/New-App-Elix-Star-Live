@@ -117,6 +117,8 @@ export const productionLoginUserSchema = z.object({
 
 export const productionLoginSessionSchema = z.object({
   access_token: z.string().min(1),
+  /** Frozen OLD dual key — same JWT as access_token. */
+  accessToken: z.string().min(1),
 });
 
 export const productionLoginProfileMetaSchema = z.object({

@@ -18,7 +18,7 @@ describe("PAGE-001 Login ownership", () => {
     expect(login).toMatch(/to="\/forgot-password"/);
     expect(login).toMatch(/login_saved_email/);
     expect(login).toMatch(/login_save_details/);
-    expect(login).not.toMatch(/login_saved_password/);
+    expect(login).toMatch(/removeItem\("login_saved_password"\)/);
     expect(login).not.toMatch(/elix-page-glass/);
     expect(login).not.toMatch(/LoginV2|LoginOld|LoginFixed|LoginBackup|history\.back|navigate\(-1\)/);
     expect(session).toMatch(/\/api\/auth\/login/);
@@ -29,11 +29,10 @@ describe("PAGE-001 Login ownership", () => {
     expect(session).not.toMatch(/meSuccessSchema/);
     expect(contract).toMatch(/productionLoginSuccessSchema/);
     expect(contract).toMatch(/access_token/);
-    expect(contract).not.toMatch(/accessToken: z/);
+    expect(contract).toMatch(/accessToken: z\.string/);
     expect(router).toMatch(/writeProductionLogin/);
     expect(router).toMatch(/writeProductionSession/);
-    expect(router).toMatch(/access_token/);
-    expect(router).not.toMatch(/accessToken: token|accessToken: session\.token/);
+    expect(router).toMatch(/access_token: token, accessToken: token/);
     expect(router).toMatch(/Invalid login credentials\./);
     expect(session).toMatch(/idToken/);
     expect(session).not.toMatch(/identityToken,\s*nonce/);
