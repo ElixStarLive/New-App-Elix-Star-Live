@@ -8,6 +8,8 @@ import { requireAuth, requireAdmin, type AuthedRequest } from "../../middleware/
 import { AppError } from "../../middleware/errors.js";
 import { reportBodySchema } from "../../../shared/contracts/social.js";
 import { withdrawalBodySchema } from "../../../shared/contracts/money.js";
+import { routeParam } from "../../http/param.js";
+import { withdrawCreatorGbp } from "../wallet/withdrawGbp.js";
 
 export const inboxRouter = Router();
 export const safetyRouter = Router();
@@ -15,11 +17,6 @@ export const discoverRouter = Router();
 export const callsRouter = Router();
 export const payoutsRouter = Router();
 export const extraAdminRouter = Router();
-
-function param(req: { params: Record<string, string | string[] | undefined> }, name: string): string {
-  const value = req.params[name];
-  return Array.isArray(value) ? (value[0] ?? "") : (value ?? "");
-}
 
 inboxRouter.get("/threads", requireAuth, async (req: AuthedRequest, res) => {
   const { rows } = await getPool().query<{
@@ -99,13 +96,13 @@ inboxRouter.delete("/threads/:threadId", requireAuth, async (req: AuthedRequest,
     `DELETE FROM chat_threads t
      USING chat_thread_members m
      WHERE t.id = $1 AND m.thread_id = t.id AND m.user_id = $2`,
-    [param(req, "threadId"), req.userId],
+    [routeParam(req, "threadId"), req.userId],
   );
   res.json({ ok: true });
 });
 
 inboxRouter.get("/threads/:threadId/messages", requireAuth, async (req: AuthedRequest, res) => {
-  const threadId = param(req, "threadId");
+  const threadId = routeParam(req, "threadId");
   const member = await getPool().query(
     `SELECT 1 FROM chat_thread_members WHERE thread_id = $1 AND user_id = $2`,
     [threadId, req.userId],
@@ -138,7 +135,7 @@ inboxRouter.get("/threads/:threadId/messages", requireAuth, async (req: AuthedRe
 });
 
 inboxRouter.post("/threads/:threadId/messages", requireAuth, async (req: AuthedRequest, res) => {
-  const threadId = param(req, "threadId");
+  const threadId = routeParam(req, "threadId");
   const body = typeof req.body?.body === "string" ? req.body.body.trim() : "";
   if (!body) throw new AppError("validation_error", "Message required", 400);
   const member = await getPool().query(
@@ -185,7 +182,7 @@ safetyRouter.get("/blocked", requireAuth, async (req: AuthedRequest, res) => {
 safetyRouter.delete("/blocked/:userId", requireAuth, async (req: AuthedRequest, res) => {
   await getPool().query(`DELETE FROM blocks WHERE blocker_id = $1 AND blocked_id = $2`, [
     req.userId,
-    param(req, "userId"),
+    routeParam(req, "userId"),
   ]);
   res.json({ ok: true });
 });
@@ -272,8 +269,8 @@ callsRouter.post("/start", requireAuth, async (req: AuthedRequest, res) => {
 });
 
 callsRouter.post("/:callId/:action", requireAuth, async (req: AuthedRequest, res) => {
-  const action = param(req, "action");
-  const callId = param(req, "callId");
+  const action = routeParam(req, "action");
+  const callId = routeParam(req, "callId");
   const { rows } = await getPool().query<{ caller_id: string; callee_id: string; room_name: string; status: string }>(
     `SELECT caller_id, callee_id, room_name, status FROM calls WHERE id = $1`,
     [callId],
@@ -305,32 +302,7 @@ payoutsRouter.post("/withdraw", requireAuth, async (req: AuthedRequest, res) => 
   if (!account.rows[0]?.stripe_account_id) {
     throw new AppError("validation_error", "Connect your payout account first", 400);
   }
-  await withTransaction(async (client) => {
-    const wallet = await client.query<{ available_pence: string }>(
-      `SELECT available_pence FROM creator_wallet_gbp WHERE user_id = $1 FOR UPDATE`,
-      [req.userId],
-    );
-    const available = Number(wallet.rows[0]?.available_pence ?? 0);
-    if (available < body.amountPence) {
-      throw new AppError("insufficient_balance", "Not enough available balance", 400);
-    }
-    await client.query(
-      `UPDATE creator_wallet_gbp
-       SET available_pence = available_pence - $2, withdrawn_pence = withdrawn_pence + $2, updated_at = NOW()
-       WHERE user_id = $1`,
-      [req.userId, body.amountPence],
-    );
-    await client.query(
-      `INSERT INTO financial_ledger (account, amount_pence, reason, idempotency_key, ref_type, ref_id)
-       VALUES ($1, $2, 'withdrawal', $3, 'withdrawal', $3)`,
-      [`creator:${req.userId}`, -body.amountPence, body.idempotencyKey],
-    );
-    await client.query(
-      `INSERT INTO withdrawals_gbp (user_id, amount_pence, status, idempotency_key)
-       VALUES ($1, $2, 'pending', $3)`,
-      [req.userId, body.amountPence, body.idempotencyKey],
-    );
-  });
+  await withdrawCreatorGbp(req.userId as string, body);
   res.json({ ok: true });
 });
 
@@ -366,7 +338,7 @@ extraAdminRouter.post("/users/:userId/ban", requireAuth, requireAdmin, async (re
   const banned = req.body?.banned !== false;
   await getPool().query(
     `UPDATE users SET banned_until = $2, updated_at = NOW() WHERE id = $1 AND deleted_at IS NULL`,
-    [param(req, "userId"), banned ? new Date("9999-12-31T00:00:00.000Z") : null],
+    [routeParam(req, "userId"), banned ? new Date("9999-12-31T00:00:00.000Z") : null],
   );
   res.json({ ok: true, banned });
 });
@@ -374,7 +346,7 @@ extraAdminRouter.post("/users/:userId/ban", requireAuth, requireAdmin, async (re
 extraAdminRouter.post("/reports/:reportId/resolve", requireAuth, requireAdmin, async (req: AuthedRequest, res) => {
   const result = await getPool().query(
     `UPDATE reports SET status = 'resolved', reviewed_by = $2, reviewed_at = NOW() WHERE id = $1`,
-    [param(req, "reportId"), req.userId],
+    [routeParam(req, "reportId"), req.userId],
   );
   if (result.rowCount === 0) throw new AppError("not_found", "Report not found", 404);
   res.json({ ok: true });

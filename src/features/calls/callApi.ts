@@ -1,4 +1,5 @@
 import { apiRequest } from "@/lib/apiClient";
+import { apiMutate, type MutationResult } from "@/lib/apiResult";
 import { isRecord } from "@/lib/isRecord";
 
 export type CallInvite = {
@@ -40,10 +41,6 @@ export async function apiStartCall(userId: string): Promise<{
 export async function apiCallAction(
   callId: string,
   action: "accept" | "reject" | "end",
-): Promise<{ ok: true } | { ok: false; error: string }> {
-  const { error } = await apiRequest<unknown>(`/api/calls/${encodeURIComponent(callId)}/${action}`, {
-    method: "POST",
-  });
-  if (error) return { ok: false, error: error.message };
-  return { ok: true };
+): Promise<MutationResult> {
+  return apiMutate(`/api/calls/${encodeURIComponent(callId)}/${action}`);
 }

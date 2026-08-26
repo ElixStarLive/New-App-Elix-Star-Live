@@ -8,17 +8,39 @@ import { extractHashtags } from "../../lib/hashtags.js";
 import { AppError } from "../../middleware/errors.js";
 import type { AuthedRequest } from "../../middleware/auth.js";
 
-export async function handleVideoUpload(req: AuthedRequest, res: Response): Promise<void> {
+type MultipartFile = NonNullable<ReturnType<typeof parseMultipart>["file"]>;
+
+type UploadedMedia = {
+  url: string;
+  file: MultipartFile;
+  fields: Record<string, string>;
+};
+
+/**
+ * Reads the request's single multipart file and stores it under
+ * `<folder>/<userId>/<uuid><ext>`, falling back to `defaultExt` when the
+ * uploaded filename has no extension.
+ */
+async function storeUploadedFile(
+  req: AuthedRequest,
+  folder: string,
+  defaultExt: string,
+): Promise<UploadedMedia> {
   const contentType = req.headers["content-type"] ?? "";
   const buffer = await readRequestBuffer(req);
   const parsed = parseMultipart(buffer, contentType);
   if (!parsed.file) throw new AppError("validation_error", "File required", 400);
-  const storagePath = `videos/${req.userId}/${randomUUID()}${path.extname(parsed.file.filename) || ".bin"}`;
+  const storagePath = `${folder}/${req.userId}/${randomUUID()}${path.extname(parsed.file.filename) || defaultExt}`;
   const url = await bunnyUpload(storagePath, parsed.file.buffer, parsed.file.contentType);
-  const caption = parsed.fields.caption ?? "";
-  const privacy = parsed.fields.privacy === "private" ? "private" : "public";
-  const soundId = parsed.fields.soundId?.trim() || null;
-  const isStem = parsed.fields.stem === "1" || parsed.fields.isStem === "true";
+  return { url, file: parsed.file, fields: parsed.fields };
+}
+
+export async function handleVideoUpload(req: AuthedRequest, res: Response): Promise<void> {
+  const { url, fields } = await storeUploadedFile(req, "videos", ".bin");
+  const caption = fields.caption ?? "";
+  const privacy = fields.privacy === "private" ? "private" : "public";
+  const soundId = fields.soundId?.trim() || null;
+  const isStem = fields.stem === "1" || fields.isStem === "true";
   const hashtags = extractHashtags(caption);
   const inserted = await getPool().query<{ id: string }>(
     `INSERT INTO videos (user_id, bunny_path, caption, hashtags, privacy, sound_id, is_stem)
@@ -30,23 +52,13 @@ export async function handleVideoUpload(req: AuthedRequest, res: Response): Prom
 }
 
 export async function handleAvatarUpload(req: AuthedRequest, res: Response): Promise<void> {
-  const contentType = req.headers["content-type"] ?? "";
-  const buffer = await readRequestBuffer(req);
-  const parsed = parseMultipart(buffer, contentType);
-  if (!parsed.file) throw new AppError("validation_error", "File required", 400);
-  const storagePath = `avatars/${req.userId}/${randomUUID()}${path.extname(parsed.file.filename) || ".jpg"}`;
-  const url = await bunnyUpload(storagePath, parsed.file.buffer, parsed.file.contentType);
+  const { url } = await storeUploadedFile(req, "avatars", ".jpg");
   await getPool().query(`UPDATE users SET avatar_url = $2, updated_at = NOW() WHERE id = $1`, [req.userId, url]);
   res.json({ avatarUrl: url });
 }
 
 export async function handleStoryUpload(req: AuthedRequest, res: Response): Promise<void> {
-  const contentType = req.headers["content-type"] ?? "";
-  const buffer = await readRequestBuffer(req);
-  const parsed = parseMultipart(buffer, contentType);
-  if (!parsed.file) throw new AppError("validation_error", "File required", 400);
-  const storagePath = `stories/${req.userId}/${randomUUID()}${path.extname(parsed.file.filename) || ".bin"}`;
-  const url = await bunnyUpload(storagePath, parsed.file.buffer, parsed.file.contentType);
+  const { url, file, fields } = await storeUploadedFile(req, "stories", ".bin");
   const inserted = await getPool().query<{ id: string }>(
     `INSERT INTO stories (user_id, media_url, thumbnail, media_type, expires_at)
      VALUES ($1, $2, $3, $4, NOW() + INTERVAL '24 hours')
@@ -54,8 +66,8 @@ export async function handleStoryUpload(req: AuthedRequest, res: Response): Prom
     [
       req.userId,
       url,
-      parsed.fields.thumbnail || url,
-      parsed.file.contentType.startsWith("image/") ? "image" : "video",
+      fields.thumbnail || url,
+      file.contentType.startsWith("image/") ? "image" : "video",
     ],
   );
   res.status(201).json({ id: inserted.rows[0].id, mediaUrl: url });

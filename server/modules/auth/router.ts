@@ -30,6 +30,7 @@ import { requireValkey } from "../../infra/valkey.js";
 import { AppError } from "../../middleware/errors.js";
 import { requireAuth, type AuthedRequest } from "../../middleware/auth.js";
 import { consumeEmailVerifyToken, emailVerifyCallbackUrl, issueEmailVerifyToken } from "./emailVerify.js";
+import { provisionNewUser } from "./provision.js";
 import {
   applyPasswordReset,
   assertPasswordResetRequestAllowed,
@@ -242,17 +243,12 @@ router.post("/register", async (req: Request, res: Response) => {
         ],
       );
       const row = inserted.rows[0];
-      await client.query(`INSERT INTO wallet_balances (user_id, starter_coins) VALUES ($1, $2)`, [
-        row.id,
-        REGISTER_STARTER_COINS,
-      ]);
+      await provisionNewUser(client, row.id, REGISTER_STARTER_COINS);
       await client.query(
         `INSERT INTO wallet_ledger (user_id, bucket, delta, balance_after, reason, idempotency_key)
          VALUES ($1, 'starter', $2, $2, 'register_starter', $3)`,
         [row.id, REGISTER_STARTER_COINS, `starter:onboarding:${row.id}`],
       );
-      await client.query(`INSERT INTO creator_wallet_gbp (user_id) VALUES ($1)`, [row.id]);
-      await client.query(`INSERT INTO notification_prefs (user_id) VALUES ($1)`, [row.id]);
       await client.query(`INSERT INTO user_consents (user_id, kind) VALUES ($1, $2)`, [
         row.id,
         REGISTER_CONSENT_TYPE,
@@ -334,9 +330,7 @@ router.post("/guest", async (_req: Request, res: Response) => {
         [email, email, passwordHash],
       );
       const row = inserted.rows[0];
-      await client.query(`INSERT INTO wallet_balances (user_id) VALUES ($1)`, [row.id]);
-      await client.query(`INSERT INTO creator_wallet_gbp (user_id) VALUES ($1)`, [row.id]);
-      await client.query(`INSERT INTO notification_prefs (user_id) VALUES ($1)`, [row.id]);
+      await provisionNewUser(client, row.id);
       return row;
     });
   }
@@ -499,9 +493,7 @@ async function appleNative(req: Request, res: Response): Promise<void> {
       [email, normalizeEmail(email), username, username.toLowerCase(), sub],
     );
     const row = inserted.rows[0];
-    await client.query(`INSERT INTO wallet_balances (user_id) VALUES ($1)`, [row.id]);
-    await client.query(`INSERT INTO creator_wallet_gbp (user_id) VALUES ($1)`, [row.id]);
-    await client.query(`INSERT INTO notification_prefs (user_id) VALUES ($1)`, [row.id]);
+    await provisionNewUser(client, row.id);
     return row;
   });
   res.status(201).json(await issueSession(user));

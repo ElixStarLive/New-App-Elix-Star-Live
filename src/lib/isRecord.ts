@@ -6,6 +6,10 @@ export function asString(value: unknown, fallback = ""): string {
   return typeof value === "string" ? value : fallback;
 }
 
+export function asStringOrNull(value: unknown): string | null {
+  return typeof value === "string" ? value : null;
+}
+
 export function asNonNegInt(value: unknown, fallback = 0): number {
   const n = typeof value === "number" ? value : Number(value);
   if (!Number.isFinite(n) || n < 0) return fallback;

@@ -1,5 +1,6 @@
 import type { PoolClient } from "pg";
-import type { CoinBucket } from "../../../shared/contracts/money.js";
+import type { CoinBucket, WalletBalance } from "../../../shared/contracts/money.js";
+import { getPool } from "../../infra/postgres.js";
 import { AppError } from "../../middleware/errors.js";
 
 export type WalletRow = {
@@ -73,11 +74,21 @@ export async function applyWalletDelta(
   return { balanceAfter: next };
 }
 
-export function balancesFromRow(row: WalletRow) {
+export function balancesFromRow(row: WalletRow): WalletBalance {
   return {
     paidCoins: Number(row.paid_coins),
     promoCoins: Number(row.promo_coins),
     starterCoins: Number(row.starter_coins),
     testCoins: Number(row.test_coins),
   };
+}
+
+/** Coin balances for a user, 404-ing when the wallet row is missing. */
+export async function readWalletBalances(userId: string): Promise<WalletBalance> {
+  const { rows } = await getPool().query<WalletRow>(
+    `SELECT paid_coins, promo_coins, starter_coins, test_coins FROM wallet_balances WHERE user_id = $1`,
+    [userId],
+  );
+  if (!rows[0]) throw new AppError("not_found", "Wallet not found", 404);
+  return balancesFromRow(rows[0]);
 }

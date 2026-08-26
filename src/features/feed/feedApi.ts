@@ -13,6 +13,7 @@ import {
   type UserPublic,
 } from "@shared/contracts";
 import { apiRequest, apiUploadForm } from "@/lib/apiClient";
+import { apiMutate, type MutationResult } from "@/lib/apiResult";
 import { asNonNegInt, isRecord } from "@/lib/isRecord";
 import { rankStemItems } from "@/features/feed/stemRank";
 
@@ -123,16 +124,32 @@ export async function apiFetchForYouFeed(cursor?: string | null): Promise<{
   return { page: parsed, error: null };
 }
 
+/**
+ * Fetches a `feedPageSchema` page from a cursor-paginated endpoint.
+ * `extraParams` carries endpoint-specific query values alongside the cursor.
+ */
+async function fetchFeedPage(
+  path: string,
+  cursor: string | null | undefined,
+  invalidMessage: string,
+  extraParams?: Record<string, string>,
+): Promise<{ page: FeedPage | null; error: string | null }> {
+  const params = new URLSearchParams();
+  if (cursor) params.set("cursor", cursor);
+  for (const [key, value] of Object.entries(extraParams ?? {})) params.set(key, value);
+  const qs = params.toString() ? `?${params}` : "";
+  const { data, error } = await apiRequest<unknown>(`${path}${qs}`);
+  if (error) return { page: null, error: error.message };
+  const parsed = feedPageSchema.safeParse(data);
+  if (!parsed.success) return { page: null, error: invalidMessage };
+  return { page: parsed.data, error: null };
+}
+
 export async function apiFetchFeed(cursor?: string | null): Promise<{
   page: FeedPage | null;
   error: string | null;
 }> {
-  const qs = cursor ? `?cursor=${encodeURIComponent(cursor)}` : "";
-  const { data, error } = await apiRequest<unknown>(`/api/feed${qs}`);
-  if (error) return { page: null, error: error.message };
-  const parsed = feedPageSchema.safeParse(data);
-  if (!parsed.success) return { page: null, error: "Invalid feed response" };
-  return { page: parsed.data, error: null };
+  return fetchFeedPage("/api/feed", cursor, "Invalid feed response");
 }
 
 export async function apiTrackView(
@@ -201,13 +218,8 @@ export async function apiFetchStories(): Promise<{
 export async function apiTrackInteraction(
   videoId: string,
   type: "like" | "comment" | "share" | "save",
-): Promise<{ ok: true } | { ok: false; error: string }> {
-  const { error } = await apiRequest<unknown>("/api/feed/track-interaction", {
-    method: "POST",
-    body: JSON.stringify({ videoId, type }),
-  });
-  if (error) return { ok: false, error: error.message };
-  return { ok: true };
+): Promise<MutationResult> {
+  return apiMutate("/api/feed/track-interaction", "POST", { videoId, type });
 }
 
 export async function apiFetchVideoComments(videoId: string): Promise<{
@@ -268,24 +280,14 @@ export async function apiFetchFollowingFeed(cursor?: string | null): Promise<{
   page: FeedPage | null;
   error: string | null;
 }> {
-  const qs = cursor ? `?cursor=${encodeURIComponent(cursor)}` : "";
-  const { data, error } = await apiRequest<unknown>(`/api/feed/following${qs}`);
-  if (error) return { page: null, error: error.message };
-  const parsed = feedPageSchema.safeParse(data);
-  if (!parsed.success) return { page: null, error: "Invalid feed response" };
-  return { page: parsed.data, error: null };
+  return fetchFeedPage("/api/feed/following", cursor, "Invalid feed response");
 }
 
 export async function apiFetchFriendsFeed(cursor?: string | null): Promise<{
   page: FeedPage | null;
   error: string | null;
 }> {
-  const qs = cursor ? `?cursor=${encodeURIComponent(cursor)}` : "";
-  const { data, error } = await apiRequest<unknown>(`/api/feed/friends${qs}`);
-  if (error) return { page: null, error: error.message };
-  const parsed = feedPageSchema.safeParse(data);
-  if (!parsed.success) return { page: null, error: "Invalid feed response" };
-  return { page: parsed.data, error: null };
+  return fetchFeedPage("/api/feed/friends", cursor, "Invalid feed response");
 }
 
 export async function apiFetchStemFeed(cursor?: string | null): Promise<{
@@ -312,36 +314,20 @@ export async function apiFetchStemFeed(cursor?: string | null): Promise<{
   return { page: { items: rankStemItems(mapped), nextCursor: null }, error: null };
 }
 
-export async function apiLikeVideo(videoId: string): Promise<{ ok: true } | { ok: false; error: string }> {
-  const { error } = await apiRequest<unknown>(`/api/videos/${encodeURIComponent(videoId)}/like`, {
-    method: "POST",
-  });
-  if (error) return { ok: false, error: error.message };
-  return { ok: true };
+export async function apiLikeVideo(videoId: string): Promise<MutationResult> {
+  return apiMutate(`/api/videos/${encodeURIComponent(videoId)}/like`, "POST");
 }
 
-export async function apiUnlikeVideo(videoId: string): Promise<{ ok: true } | { ok: false; error: string }> {
-  const { error } = await apiRequest<unknown>(`/api/videos/${encodeURIComponent(videoId)}/like`, {
-    method: "DELETE",
-  });
-  if (error) return { ok: false, error: error.message };
-  return { ok: true };
+export async function apiUnlikeVideo(videoId: string): Promise<MutationResult> {
+  return apiMutate(`/api/videos/${encodeURIComponent(videoId)}/like`, "DELETE");
 }
 
-export async function apiSaveVideo(videoId: string): Promise<{ ok: true } | { ok: false; error: string }> {
-  const { error } = await apiRequest<unknown>(`/api/videos/${encodeURIComponent(videoId)}/save`, {
-    method: "POST",
-  });
-  if (error) return { ok: false, error: error.message };
-  return { ok: true };
+export async function apiSaveVideo(videoId: string): Promise<MutationResult> {
+  return apiMutate(`/api/videos/${encodeURIComponent(videoId)}/save`, "POST");
 }
 
-export async function apiUnsaveVideo(videoId: string): Promise<{ ok: true } | { ok: false; error: string }> {
-  const { error } = await apiRequest<unknown>(`/api/videos/${encodeURIComponent(videoId)}/save`, {
-    method: "DELETE",
-  });
-  if (error) return { ok: false, error: error.message };
-  return { ok: true };
+export async function apiUnsaveVideo(videoId: string): Promise<MutationResult> {
+  return apiMutate(`/api/videos/${encodeURIComponent(videoId)}/save`, "DELETE");
 }
 
 export async function apiFetchProfile(userId: string): Promise<{
@@ -362,29 +348,16 @@ export async function apiPatchProfile(body: {
   displayName?: string;
   bio?: string;
   username?: string;
-}): Promise<{ ok: true } | { ok: false; error: string }> {
-  const { error } = await apiRequest<unknown>("/api/profiles/me", {
-    method: "PATCH",
-    body: JSON.stringify(body),
-  });
-  if (error) return { ok: false, error: error.message };
-  return { ok: true };
+}): Promise<MutationResult> {
+  return apiMutate("/api/profiles/me", "PATCH", body);
 }
 
-export async function apiFollow(userId: string): Promise<{ ok: true } | { ok: false; error: string }> {
-  const { error } = await apiRequest<unknown>(`/api/profiles/${encodeURIComponent(userId)}/follow`, {
-    method: "POST",
-  });
-  if (error) return { ok: false, error: error.message };
-  return { ok: true };
+export async function apiFollow(userId: string): Promise<MutationResult> {
+  return apiMutate(`/api/profiles/${encodeURIComponent(userId)}/follow`, "POST");
 }
 
-export async function apiUnfollow(userId: string): Promise<{ ok: true } | { ok: false; error: string }> {
-  const { error } = await apiRequest<unknown>(`/api/profiles/${encodeURIComponent(userId)}/follow`, {
-    method: "DELETE",
-  });
-  if (error) return { ok: false, error: error.message };
-  return { ok: true };
+export async function apiUnfollow(userId: string): Promise<MutationResult> {
+  return apiMutate(`/api/profiles/${encodeURIComponent(userId)}/follow`, "DELETE");
 }
 
 export async function apiFollowList(
@@ -475,48 +448,33 @@ export async function apiLiveToken(
   return { token: parsed.data, error: null };
 }
 
-export async function apiLiveEnd(streamId: string): Promise<{ ok: true } | { ok: false; error: string }> {
-  const { error } = await apiRequest<unknown>(`/api/live/${encodeURIComponent(streamId)}/end`, {
-    method: "POST",
-  });
-  if (error) return { ok: false, error: error.message };
-  return { ok: true };
+export async function apiLiveEnd(streamId: string): Promise<MutationResult> {
+  return apiMutate(`/api/live/${encodeURIComponent(streamId)}/end`, "POST");
 }
 
 export async function apiFetchSavedFeed(cursor?: string | null): Promise<{
   page: FeedPage | null;
   error: string | null;
 }> {
-  const qs = cursor ? `?cursor=${encodeURIComponent(cursor)}` : "";
-  const { data, error } = await apiRequest<unknown>(`/api/videos/saved/list${qs}`);
-  if (error) return { page: null, error: error.message };
-  const parsed = feedPageSchema.safeParse(data);
-  if (!parsed.success) return { page: null, error: "Invalid saved feed" };
-  return { page: parsed.data, error: null };
+  return fetchFeedPage("/api/videos/saved/list", cursor, "Invalid saved feed");
 }
 
 export async function apiFetchHashtagFeed(tag: string, cursor?: string | null): Promise<{
   page: FeedPage | null;
   error: string | null;
 }> {
-  const qs = cursor ? `?cursor=${encodeURIComponent(cursor)}` : "";
-  const { data, error } = await apiRequest<unknown>(`/api/hashtags/${encodeURIComponent(tag)}/videos${qs}`);
-  if (error) return { page: null, error: error.message };
-  const parsed = feedPageSchema.safeParse(data);
-  if (!parsed.success) return { page: null, error: "Invalid hashtag feed" };
-  return { page: parsed.data, error: null };
+  return fetchFeedPage(
+    `/api/hashtags/${encodeURIComponent(tag)}/videos`,
+    cursor,
+    "Invalid hashtag feed",
+  );
 }
 
 export async function apiFetchMusicFeed(soundId: string, cursor?: string | null): Promise<{
   page: FeedPage | null;
   error: string | null;
 }> {
-  const qs = cursor ? `?cursor=${encodeURIComponent(cursor)}` : "";
-  const { data, error } = await apiRequest<unknown>(`/api/music/videos/${encodeURIComponent(soundId)}${qs}`);
-  if (error) return { page: null, error: error.message };
-  const parsed = feedPageSchema.safeParse(data);
-  if (!parsed.success) return { page: null, error: "Invalid music feed" };
-  return { page: parsed.data, error: null };
+  return fetchFeedPage(`/api/music/videos/${encodeURIComponent(soundId)}`, cursor, "Invalid music feed");
 }
 
 export async function apiFetchUserVideos(
@@ -524,39 +482,26 @@ export async function apiFetchUserVideos(
   privacy: "public" | "private" = "public",
   cursor?: string | null,
 ): Promise<{ page: FeedPage | null; error: string | null }> {
-  const params = new URLSearchParams();
-  if (cursor) params.set("cursor", cursor);
-  if (privacy === "private") params.set("privacy", "private");
-  const qs = params.toString() ? `?${params}` : "";
-  const { data, error } = await apiRequest<unknown>(`/api/videos/user/${encodeURIComponent(userId)}${qs}`);
-  if (error) return { page: null, error: error.message };
-  const parsed = feedPageSchema.safeParse(data);
-  if (!parsed.success) return { page: null, error: "Invalid user videos" };
-  return { page: parsed.data, error: null };
+  return fetchFeedPage(
+    `/api/videos/user/${encodeURIComponent(userId)}`,
+    cursor,
+    "Invalid user videos",
+    privacy === "private" ? { privacy: "private" } : undefined,
+  );
 }
 
 export async function apiFetchLikedFeed(cursor?: string | null): Promise<{
   page: FeedPage | null;
   error: string | null;
 }> {
-  const qs = cursor ? `?cursor=${encodeURIComponent(cursor)}` : "";
-  const { data, error } = await apiRequest<unknown>(`/api/videos/liked/list${qs}`);
-  if (error) return { page: null, error: error.message };
-  const parsed = feedPageSchema.safeParse(data);
-  if (!parsed.success) return { page: null, error: "Invalid liked feed" };
-  return { page: parsed.data, error: null };
+  return fetchFeedPage("/api/videos/liked/list", cursor, "Invalid liked feed");
 }
 
 export async function apiFetchReposts(userId: string, cursor?: string | null): Promise<{
   page: FeedPage | null;
   error: string | null;
 }> {
-  const qs = cursor ? `?cursor=${encodeURIComponent(cursor)}` : "";
-  const { data, error } = await apiRequest<unknown>(`/api/reposts/${encodeURIComponent(userId)}${qs}`);
-  if (error) return { page: null, error: error.message };
-  const parsed = feedPageSchema.safeParse(data);
-  if (!parsed.success) return { page: null, error: "Invalid reposts" };
-  return { page: parsed.data, error: null };
+  return fetchFeedPage(`/api/reposts/${encodeURIComponent(userId)}`, cursor, "Invalid reposts");
 }
 
 export async function apiUploadAvatar(file: Blob, filename = "avatar.jpg"): Promise<{
@@ -576,7 +521,7 @@ export async function apiUploadVideo(
   caption?: string,
   filename = "clip.webm",
   extra?: { soundId?: string },
-): Promise<{ ok: true } | { ok: false; error: string }> {
+): Promise<MutationResult> {
   const body = new FormData();
   body.append("file", file, filename);
   if (caption) body.append("caption", caption);

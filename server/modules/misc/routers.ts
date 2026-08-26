@@ -3,17 +3,13 @@ import { getPool } from "../../infra/postgres.js";
 import { requireAuth, requireAdmin, type AuthedRequest } from "../../middleware/auth.js";
 import { AppError } from "../../middleware/errors.js";
 import { reportBodySchema } from "../../../shared/contracts/social.js";
+import { routeParam } from "../../http/param.js";
 
 export const moderationRouter = Router();
 export const chatRouter = Router();
 export const shopRouter = Router();
 export const notifyRouter = Router();
 export const adminRouter = Router();
-
-function param(req: { params: Record<string, string | string[] | undefined> }, name: string): string {
-  const value = req.params[name];
-  return Array.isArray(value) ? (value[0] ?? "") : (value ?? "");
-}
 
 moderationRouter.post("/report", requireAuth, async (req: AuthedRequest, res) => {
   const body = reportBodySchema.parse(req.body);
@@ -28,7 +24,7 @@ moderationRouter.post("/report", requireAuth, async (req: AuthedRequest, res) =>
 moderationRouter.post("/block/:userId", requireAuth, async (req: AuthedRequest, res) => {
   await getPool().query(
     `INSERT INTO blocks (blocker_id, blocked_id) VALUES ($1, $2) ON CONFLICT DO NOTHING`,
-    [req.userId, param(req, "userId")],
+    [req.userId, routeParam(req, "userId")],
   );
   res.json({ ok: true });
 });
@@ -36,7 +32,7 @@ moderationRouter.post("/block/:userId", requireAuth, async (req: AuthedRequest, 
 moderationRouter.delete("/block/:userId", requireAuth, async (req: AuthedRequest, res) => {
   await getPool().query(`DELETE FROM blocks WHERE blocker_id = $1 AND blocked_id = $2`, [
     req.userId,
-    param(req, "userId"),
+    routeParam(req, "userId"),
   ]);
   res.json({ ok: true });
 });
@@ -134,7 +130,7 @@ shopRouter.post("/items", requireAuth, async (req: AuthedRequest, res) => {
 });
 
 shopRouter.delete("/items/:itemId", requireAuth, async (req: AuthedRequest, res) => {
-  const itemId = param(req, "itemId");
+  const itemId = routeParam(req, "itemId");
   const result = await getPool().query(
     `UPDATE shop_items SET deleted_at = NOW()
      WHERE id = $1 AND seller_id = $2 AND deleted_at IS NULL`,

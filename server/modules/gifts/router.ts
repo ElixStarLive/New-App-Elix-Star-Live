@@ -2,7 +2,7 @@ import { Router } from "express";
 import { getPool, withTransaction } from "../../infra/postgres.js";
 import { requireAuth, type AuthedRequest } from "../../middleware/auth.js";
 import { sendGiftBodySchema } from "../../../shared/contracts/money.js";
-import { applyWalletDelta, balancesFromRow, type WalletRow } from "../wallet/ledger.js";
+import { applyWalletDelta, readWalletBalances } from "../wallet/ledger.js";
 import { AppError } from "../../middleware/errors.js";
 import { applyGiftToBattle, publishRoom } from "../battle/runtime.js";
 import { consumePaidLots, creditPaidGiftGbp } from "./settle.js";
@@ -102,12 +102,7 @@ router.post("/send", requireAuth, async (req: AuthedRequest, res) => {
 });
 
 router.get("/wallet", requireAuth, async (req: AuthedRequest, res) => {
-  const { rows } = await getPool().query<WalletRow>(
-    `SELECT paid_coins, promo_coins, starter_coins, test_coins FROM wallet_balances WHERE user_id = $1`,
-    [req.userId],
-  );
-  if (!rows[0]) throw new AppError("not_found", "Wallet not found", 404);
-  res.json(balancesFromRow(rows[0]));
+  res.json(await readWalletBalances(req.userId as string));
 });
 
 export default router;

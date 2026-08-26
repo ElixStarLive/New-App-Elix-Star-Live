@@ -1,6 +1,6 @@
 import { apiRequest } from "@/lib/apiClient";
-import { isRecord } from "@/lib/isRecord";
-import { asNonNegInt, asString } from "@/lib/isRecord";
+import { apiMutate, listFrom, parseListFrom, type MutationResult } from "@/lib/apiResult";
+import { asNonNegInt, asString, isRecord } from "@/lib/isRecord";
 
 export type AdminDashboard = {
   dailyActiveUsers: number;
@@ -39,22 +39,22 @@ export type AdminUserRow = {
   banned: boolean;
 };
 
+function parseUserRow(raw: unknown): AdminUserRow | null {
+  if (!isRecord(raw) || typeof raw.id !== "string") return null;
+  return {
+    id: raw.id,
+    username: asString(raw.username, "user"),
+    email: asString(raw.email),
+    isAdmin: raw.isAdmin === true,
+    banned: raw.banned === true,
+  };
+}
+
 export async function apiFetchAdminUsers(): Promise<{ users: AdminUserRow[]; error: string | null }> {
   const { data, error } = await apiRequest<unknown>("/api/admin/users");
   if (error) return { users: [], error: error.message };
-  const list = Array.isArray(data) ? data : isRecord(data) && Array.isArray(data.users) ? data.users : null;
-  if (!list) return { users: [], error: "Invalid users" };
-  const users: AdminUserRow[] = [];
-  for (const raw of list) {
-    if (!isRecord(raw) || typeof raw.id !== "string") continue;
-    users.push({
-      id: raw.id,
-      username: asString(raw.username, "user"),
-      email: asString(raw.email),
-      isAdmin: raw.isAdmin === true,
-      banned: raw.banned === true,
-    });
-  }
+  const users = parseListFrom(data, "users", parseUserRow);
+  if (!users) return { users: [], error: "Invalid users" };
   return { users, error: null };
 }
 
@@ -66,46 +66,34 @@ export type AdminReportRow = {
   status: string;
 };
 
+function parseReportRow(raw: unknown): AdminReportRow | null {
+  if (!isRecord(raw) || typeof raw.id !== "string") return null;
+  return {
+    id: raw.id,
+    targetKind: asString(raw.targetKind),
+    targetId: asString(raw.targetId),
+    reason: asString(raw.reason),
+    status: asString(raw.status, "open"),
+  };
+}
+
 export async function apiFetchAdminReports(): Promise<{
   reports: AdminReportRow[];
   error: string | null;
 }> {
   const { data, error } = await apiRequest<unknown>("/api/admin/reports");
   if (error) return { reports: [], error: error.message };
-  const list = Array.isArray(data) ? data : isRecord(data) && Array.isArray(data.reports) ? data.reports : null;
-  if (!list) return { reports: [], error: "Invalid reports" };
-  const reports: AdminReportRow[] = [];
-  for (const raw of list) {
-    if (!isRecord(raw) || typeof raw.id !== "string") continue;
-    reports.push({
-      id: raw.id,
-      targetKind: asString(raw.targetKind),
-      targetId: asString(raw.targetId),
-      reason: asString(raw.reason),
-      status: asString(raw.status, "open"),
-    });
-  }
+  const reports = parseListFrom(data, "reports", parseReportRow);
+  if (!reports) return { reports: [], error: "Invalid reports" };
   return { reports, error: null };
 }
 
-export async function apiBanUser(
-  userId: string,
-  banned: boolean,
-): Promise<{ ok: true } | { ok: false; error: string }> {
-  const { error } = await apiRequest<unknown>(`/api/admin/users/${encodeURIComponent(userId)}/ban`, {
-    method: "POST",
-    body: JSON.stringify({ banned }),
-  });
-  if (error) return { ok: false, error: error.message };
-  return { ok: true };
+export async function apiBanUser(userId: string, banned: boolean): Promise<MutationResult> {
+  return apiMutate(`/api/admin/users/${encodeURIComponent(userId)}/ban`, "POST", { banned });
 }
 
-export async function apiResolveReport(reportId: string): Promise<{ ok: true } | { ok: false; error: string }> {
-  const { error } = await apiRequest<unknown>(`/api/admin/reports/${encodeURIComponent(reportId)}/resolve`, {
-    method: "POST",
-  });
-  if (error) return { ok: false, error: error.message };
-  return { ok: true };
+export async function apiResolveReport(reportId: string): Promise<MutationResult> {
+  return apiMutate(`/api/admin/reports/${encodeURIComponent(reportId)}/resolve`);
 }
 
 export async function apiFetchAdminTable(path: string): Promise<{
@@ -114,10 +102,7 @@ export async function apiFetchAdminTable(path: string): Promise<{
 }> {
   const { data, error } = await apiRequest<unknown>(path);
   if (error) return { rows: [], error: error.message };
-  const list = Array.isArray(data) ? data : isRecord(data) && Array.isArray(data.rows) ? data.rows : null;
+  const list = listFrom(data, "rows");
   if (!list) return { rows: [], error: "Invalid response" };
-  return {
-    rows: list.filter(isRecord),
-    error: null,
-  };
+  return { rows: list.filter(isRecord), error: null };
 }

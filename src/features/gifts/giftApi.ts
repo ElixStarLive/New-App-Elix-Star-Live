@@ -4,6 +4,7 @@ import {
   type GiftCatalogItem,
 } from "@shared/contracts";
 import { apiRequest } from "@/lib/apiClient";
+import { parseListFrom } from "@/lib/apiResult";
 import { isRecord } from "@/lib/isRecord";
 
 export async function apiGiftCatalog(): Promise<{
@@ -12,13 +13,11 @@ export async function apiGiftCatalog(): Promise<{
 }> {
   const { data, error } = await apiRequest<unknown>("/api/gifts");
   if (error) return { gifts: [], error: error.message };
-  const list = Array.isArray(data) ? data : isRecord(data) && Array.isArray(data.gifts) ? data.gifts : null;
-  if (!list) return { gifts: [], error: "Invalid gift catalog" };
-  const gifts: GiftCatalogItem[] = [];
-  for (const item of list) {
+  const gifts = parseListFrom(data, "gifts", (item) => {
     const parsed = giftCatalogItemSchema.safeParse(item);
-    if (parsed.success) gifts.push(parsed.data);
-  }
+    return parsed.success ? parsed.data : null;
+  });
+  if (!gifts) return { gifts: [], error: "Invalid gift catalog" };
   return { gifts, error: null };
 }
 

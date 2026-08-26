@@ -14,6 +14,7 @@ export type ApiResult<T> =
   | { data: null; error: ApiError };
 
 const REQUEST_TIMEOUT_MS = 20_000;
+const UPLOAD_TIMEOUT_MS = 120_000;
 
 function authHeaders(): Record<string, string> {
   const headers: Record<string, string> = { "Content-Type": "application/json" };
@@ -119,85 +120,62 @@ async function nativeCapacitorHttpRequest<T>(
   return toResult<T>(Number(response.status || 0), response.data);
 }
 
-async function browserFetchRequest<T>(
+async function resultFromResponse<T>(res: Response): Promise<ApiResult<T>> {
+  const ct = res.headers.get("content-type") || "";
+  const isJson = ct.includes("application/json") || ct.includes("+json");
+  if (!isJson) {
+    return {
+      data: null,
+      error: { message: nonJsonHttpMessage(res.ok, res.status), status: res.status },
+    };
+  }
+  const body: unknown = await res.json().catch(() => null);
+  return toResult<T>(res.status, body);
+}
+
+function transportErrorMessage(err: unknown, fallback: string): string {
+  if (err instanceof DOMException && err.name === "AbortError") return "Request timed out";
+  return err instanceof Error ? err.message : fallback;
+}
+
+/** Browser fetch with a timeout, JSON decoding and network errors mapped to `ApiResult`. */
+async function fetchJsonResult<T>(
   path: string,
-  init: RequestInit = {},
+  init: RequestInit,
+  timeoutMs: number,
 ): Promise<ApiResult<T>> {
   const controller = new AbortController();
-  const timer = window.setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS);
+  const timer = window.setTimeout(() => controller.abort(), timeoutMs);
   try {
     const res = await fetch(apiUrl(path), {
       ...init,
-      headers: { ...authHeaders(), ...normalizeHeaders(init.headers) },
       credentials: requestCredentials(),
       signal: init.signal ?? controller.signal,
     });
-    const ct = res.headers.get("content-type") || "";
-    const isJson = ct.includes("application/json") || ct.includes("+json");
-    if (!isJson) {
-      return {
-        data: null,
-        error: {
-          message: nonJsonHttpMessage(res.ok, res.status),
-          status: res.status,
-        },
-      };
-    }
-    const body: unknown = await res.json().catch(() => null);
-    return toResult<T>(res.status, body);
+    return await resultFromResponse<T>(res);
   } catch (err) {
-    const aborted = err instanceof DOMException && err.name === "AbortError";
     return {
       data: null,
-      error: {
-        message: aborted ? "Request timed out" : err instanceof Error ? err.message : "Network error",
-        status: 0,
-      },
+      error: { message: transportErrorMessage(err, "Network error"), status: 0 },
     };
   } finally {
     window.clearTimeout(timer);
   }
 }
 
-export async function apiUploadForm<T>(path: string, form: FormData): Promise<ApiResult<T>> {
+function browserFetchRequest<T>(path: string, init: RequestInit = {}): Promise<ApiResult<T>> {
+  return fetchJsonResult<T>(
+    path,
+    { ...init, headers: { ...authHeaders(), ...normalizeHeaders(init.headers) } },
+    REQUEST_TIMEOUT_MS,
+  );
+}
+
+export function apiUploadForm<T>(path: string, form: FormData): Promise<ApiResult<T>> {
   const token = getSessionToken();
   const headers: Record<string, string> = {};
   if (token) headers.Authorization = `Bearer ${token}`;
-  const controller = new AbortController();
-  const timer = window.setTimeout(() => controller.abort(), 120_000);
-  try {
-    const res = await fetch(apiUrl(path), {
-      method: "POST",
-      headers,
-      body: form,
-      credentials: requestCredentials(),
-      signal: controller.signal,
-    });
-    const ct = res.headers.get("content-type") || "";
-    const isJson = ct.includes("application/json") || ct.includes("+json");
-    if (!isJson) {
-      return {
-        data: null,
-        error: {
-          message: nonJsonHttpMessage(res.ok, res.status),
-          status: res.status,
-        },
-      };
-    }
-    const body: unknown = await res.json().catch(() => null);
-    return toResult<T>(res.status, body);
-  } catch (err) {
-    const aborted = err instanceof DOMException && err.name === "AbortError";
-    return {
-      data: null,
-      error: {
-        message: aborted ? "Request timed out" : err instanceof Error ? err.message : "Network error",
-        status: 0,
-      },
-    };
-  } finally {
-    window.clearTimeout(timer);
-  }
+  return fetchJsonResult<T>(path, { method: "POST", headers, body: form }, UPLOAD_TIMEOUT_MS);
 }
 
 export async function apiRequest<T>(path: string, init: RequestInit = {}): Promise<ApiResult<T>> {
@@ -207,10 +185,7 @@ export async function apiRequest<T>(path: string, init: RequestInit = {}): Promi
     } catch (err) {
       return {
         data: null,
-        error: {
-          message: err instanceof Error ? err.message : "Native request failed",
-          status: 0,
-        },
+        error: { message: transportErrorMessage(err, "Native request failed"), status: 0 },
       };
     }
   }

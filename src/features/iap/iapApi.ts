@@ -1,5 +1,6 @@
 import { apiRequest } from "@/lib/apiClient";
-import { isRecord } from "@/lib/isRecord";
+import { parseListFrom, type MutationResult } from "@/lib/apiResult";
+import { asNonNegInt, asString, isRecord } from "@/lib/isRecord";
 import { platform } from "@/lib/platform";
 
 export type CoinProduct = {
@@ -14,21 +15,19 @@ export async function apiListCoinProducts(): Promise<{
 }> {
   const { data, error } = await apiRequest<unknown>("/api/iap/products");
   if (error) return { products: [], error: error.message };
-  const list = Array.isArray(data) ? data : isRecord(data) && Array.isArray(data.products) ? data.products : null;
-  if (!list) return { products: [], error: "Invalid IAP catalog" };
-  const products: CoinProduct[] = [];
-  for (const raw of list) {
-    if (!isRecord(raw) || typeof raw.productId !== "string") continue;
-    products.push({
+  const products = parseListFrom(data, "products", (raw) => {
+    if (!isRecord(raw) || typeof raw.productId !== "string") return null;
+    return {
       productId: raw.productId,
-      coins: typeof raw.coins === "number" ? raw.coins : 0,
-      label: typeof raw.label === "string" ? raw.label : raw.productId,
-    });
-  }
+      coins: asNonNegInt(raw.coins),
+      label: asString(raw.label, raw.productId),
+    };
+  });
+  if (!products) return { products: [], error: "Invalid IAP catalog" };
   return { products, error: null };
 }
 
-export async function purchaseCoinProduct(productId: string): Promise<{ ok: true } | { ok: false; error: string }> {
+export async function purchaseCoinProduct(productId: string): Promise<MutationResult> {
   if (!platform.isNative) {
     return { ok: false, error: "Coin purchases are available in the iOS and Android apps only." };
   }

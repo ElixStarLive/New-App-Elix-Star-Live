@@ -7,6 +7,7 @@ import {
   type SessionUser,
 } from "@shared/contracts";
 import { apiRequest } from "@/lib/apiClient";
+import { apiMutate, type MutationResult } from "@/lib/apiResult";
 import { isRecord } from "@/lib/isRecord";
 
 export type AuthLoginResult =
@@ -222,23 +223,21 @@ export async function authGetMe(): Promise<AuthMeResult> {
   return { ok: true, token: null, user: userOnly.data };
 }
 
-export async function authLogout(): Promise<{ ok: true } | { ok: false; error: string }> {
-  const { error } = await apiRequest<unknown>("/api/auth/logout", { method: "POST" });
-  if (error) return { ok: false, error: error.message };
-  return { ok: true };
+export async function authLogout(): Promise<MutationResult> {
+  return apiMutate("/api/auth/logout");
 }
 
-export async function authForgotPassword(email: string): Promise<{ ok: true } | { ok: false; error: string }> {
+export async function authForgotPassword(email: string): Promise<MutationResult> {
   const trimmed = email.trim();
   if (!trimmed) {
     return { ok: false, error: "Email is required." };
   }
-  const { error } = await apiRequest<unknown>("/api/auth/forgot-password", {
-    method: "POST",
-    body: JSON.stringify({ email: trimmed }),
-  });
-  if (error) return { ok: false, error: error.message || "Unable to process request. Please try again." };
-  return { ok: true };
+  return apiMutate(
+    "/api/auth/forgot-password",
+    "POST",
+    { email: trimmed },
+    "Unable to process request. Please try again.",
+  );
 }
 
 export async function authVerifyEmail(
@@ -259,7 +258,7 @@ export async function authVerifyEmail(
 export async function authResetPassword(
   token: string,
   password: string,
-): Promise<{ ok: true } | { ok: false; error: string }> {
+): Promise<MutationResult> {
   const trimmed = token.trim();
   if (!trimmed) {
     return { ok: false, error: "Invalid or missing reset link. Please request a new password reset." };
@@ -267,12 +266,12 @@ export async function authResetPassword(
   if (password.length < 8) {
     return { ok: false, error: "Password must be at least 8 characters." };
   }
-  const { error } = await apiRequest<unknown>("/api/auth/reset-password", {
-    method: "POST",
-    body: JSON.stringify({ token: trimmed, password }),
-  });
-  if (error) return { ok: false, error: error.message || "Failed to reset password. Please try again." };
-  return { ok: true };
+  return apiMutate(
+    "/api/auth/reset-password",
+    "POST",
+    { token: trimmed, password },
+    "Failed to reset password. Please try again.",
+  );
 }
 
 export async function authAppleNative(
@@ -289,26 +288,14 @@ export async function authAppleNative(
   return { ok: true, token: parsed.token, user: parsed.user };
 }
 
-export async function authDeleteAccount(
-  password?: string,
-): Promise<{ ok: true } | { ok: false; error: string }> {
-  const { error } = await apiRequest<unknown>("/api/auth/delete-account", {
-    method: "POST",
-    body: JSON.stringify({ password }),
-  });
-  if (error) return { ok: false, error: error.message };
-  return { ok: true };
+export async function authDeleteAccount(password?: string): Promise<MutationResult> {
+  return apiMutate("/api/auth/delete-account", "POST", { password });
 }
 
-export async function authSaveConsent(): Promise<{ ok: true } | { ok: false; error: string }> {
-  const { error } = await apiRequest<unknown>("/api/auth/consent", {
-    method: "POST",
-    body: JSON.stringify({
-      consent_type: "terms_privacy_and_age_13_plus",
-      version: "2026-07-21",
-      age_confirmed_13_plus: true,
-    }),
+export async function authSaveConsent(): Promise<MutationResult> {
+  return apiMutate("/api/auth/consent", "POST", {
+    consent_type: "terms_privacy_and_age_13_plus",
+    version: "2026-07-21",
+    age_confirmed_13_plus: true,
   });
-  if (error) return { ok: false, error: error.message };
-  return { ok: true };
 }
