@@ -289,12 +289,12 @@ export async function applyAdminReportPatch(
     if (!current.rows[0]) throw new AppError("not_found", "Report not found", 404);
     const alreadyActioned = current.rows[0].status === "actioned";
     let actionApplied = false;
+    let warnOwnerId = "";
     if (action && !alreadyActioned) {
       if (action === "removed") {
         await removeReportedTarget(client, current.rows[0].target_kind, current.rows[0].target_id ?? "", actorId);
       } else if (action === "warned") {
-        const ownerId = await warnReportedOwner(client, current.rows[0].target_kind, current.rows[0].target_id ?? "");
-        if (ownerId) await notifyWarnedOwner(ownerId);
+        warnOwnerId = await warnReportedOwner(client, current.rows[0].target_kind, current.rows[0].target_id ?? "");
       }
       actionApplied = true;
     }
@@ -305,8 +305,9 @@ export async function applyAdminReportPatch(
       [reportId, status, actorId],
     );
     if (!updated.rowCount) throw new AppError("not_found", "Report not found", 404);
-    return { actionApplied };
+    return { actionApplied, warnOwnerId };
   });
+  if (result.warnOwnerId) await notifyWarnedOwner(result.warnOwnerId);
   const report = await loadAdminReportById(reportId);
   if (!report) throw new AppError("not_found", "Report not found", 404);
   logger.info({ reportId, status, action, by: actorId, actionApplied: result.actionApplied }, "admin report updated");

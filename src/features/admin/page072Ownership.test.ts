@@ -52,9 +52,14 @@ describe("PAGE-072 Admin Reports ownership", () => {
     expect(extra).not.toMatch(/\/reports\/:reportId\/resolve/);
     expect(auth).toMatch(/SELECT is_admin FROM users/);
     expect(dashboard).toMatch(/path: "\/admin\/reports"/);
+    expect(app.indexOf("<Route element={<RequireAdmin")).toBeGreaterThan(app.indexOf("<Route element={<RequireAuth"));
     expect(submit).toMatch(/INSERT INTO reports/);
+    expect(submit).toMatch(/VALUES \(\$1, \$2, \$3, \$4, \$5, \$6, 'open'\)/);
+    expect(submit).not.toMatch(/reporter_id:\s*body|reporterId:\s*body\.reporter/);
     expect(ws).toMatch(/class WsClient/);
     expect(page).not.toMatch(/new WebSocket|reconnectOnForeground/);
+    expect(reports).toMatch(/sendToUserGlobal/);
+    expect(reports).toMatch(/FOR UPDATE/);
   });
 
   it("does not implement later admin child pages or PAGE-071 ban", () => {
