@@ -4,6 +4,7 @@ import {
   AlertTriangle,
   BarChart2,
   ChevronLeft,
+  Coins,
   Gift,
   Mic,
   MicOff,
@@ -37,6 +38,7 @@ import { formatCompactNumber } from "@/lib/formatCompactNumber";
 import { GiftOverlay } from "@/components/GiftOverlay";
 import GiftAnimationOverlay from "@/components/GiftAnimationOverlay";
 import { LiveGiftFeedStack } from "@/components/LiveGiftFeedStack";
+import { BuyCoinsModal } from "@/components/BuyCoinsModal";
 import ReportModal from "@/components/ReportModal";
 import { AvatarRing } from "@/components/AvatarRing";
 import {
@@ -140,6 +142,7 @@ export function LiveRoomScreen({
   const [battle, setBattle] = useState<BattleState>(emptyBattle);
   const [gifts, setGifts] = useState<GiftCatalogItem[]>([]);
   const [giftOpen, setGiftOpen] = useState(false);
+  const [buyCoinsOpen, setBuyCoinsOpen] = useState(false);
   const [giftVideo, setGiftVideo] = useState<string | null>(null);
   const [giftGoal, setGiftGoal] = useState<GiftGoal | null>(null);
   const [camOn, setCamOn] = useState(true);
@@ -395,6 +398,7 @@ export function LiveRoomScreen({
       }
       if (bucket === "paid" && (paidCoins ?? 0) < gift.coinCost) {
         showToast("Not enough coins");
+        setBuyCoinsOpen(true);
         return;
       }
     }
@@ -909,9 +913,19 @@ export function LiveRoomScreen({
         <div className="absolute inset-x-0 bottom-0 z-50 mx-auto max-w-[480px] rounded-t-2xl border border-[#D8D9DD]/30 bg-black/80 p-3">
           <div className="flex justify-between items-center mb-2">
             <p className="text-sm font-bold">Gifts</p>
-            <button type="button" onClick={() => setGiftOpen(false)} aria-label="Close gifts">
-              <X size={16} />
-            </button>
+            <div className="flex items-center gap-2">
+              <button
+                type="button"
+                onClick={() => setBuyCoinsOpen(true)}
+                className="flex items-center gap-1 flex-shrink-0 rounded-full px-2 py-0.5 border border-[#D8D9DD]/40 bg-transparent active:scale-95 transition-transform"
+              >
+                <Coins className="w-2.5 h-2.5 text-[#F5F5F7] flex-shrink-0" />
+                <span className="text-[#F5F5F7] text-[8px] font-bold whitespace-nowrap">Top Up</span>
+              </button>
+              <button type="button" onClick={() => setGiftOpen(false)} aria-label="Close gifts">
+                <X size={16} />
+              </button>
+            </div>
           </div>
           <p className="text-[11px] text-white/50 mb-2">
             Paid coins {formatWalletCount(paidCoins, walletStatus)} · Promo {formatWalletCount(promoCoins, walletStatus)} · Test coins {formatWalletCount(testCoins, testStatus)} (battle score only)
@@ -991,6 +1005,13 @@ export function LiveRoomScreen({
       <GiftOverlay videoSrc={giftVideo} onEnded={() => setGiftVideo(null)} isBattleMode={isBattle} />
       <GiftAnimationOverlay streamId={streamId} isBattleMode={isBattle} />
       <LiveGiftFeedStack streamId={streamId} isBattleMode={isBattle} isCohostMode={isCohost} />
+      <BuyCoinsModal
+        isOpen={buyCoinsOpen}
+        onClose={() => setBuyCoinsOpen(false)}
+        onSuccess={() => {
+          void fetchWallet();
+        }}
+      />
     </div>
   );
 }

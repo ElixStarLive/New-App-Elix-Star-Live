@@ -3,6 +3,8 @@ import { resolve } from "node:path";
 import { describe, expect, it } from "vitest";
 
 const page = readFileSync(resolve(process.cwd(), "src/pages/PurchaseCoins.tsx"), "utf8");
+const modal = readFileSync(resolve(process.cwd(), "src/components/BuyCoinsModal.tsx"), "utf8");
+const live = readFileSync(resolve(process.cwd(), "src/features/live/LiveRoomScreen.tsx"), "utf8");
 const api = readFileSync(resolve(process.cwd(), "src/features/iap/iapApi.ts"), "utf8");
 const app = readFileSync(resolve(process.cwd(), "src/App.tsx"), "utf8");
 const index = readFileSync(resolve(process.cwd(), "server/index.ts"), "utf8");
@@ -20,6 +22,12 @@ describe("PAGE-038 Purchase Coins ownership", () => {
     expect(page).toMatch(/purchaseCoinProduct/);
     expect(page).not.toMatch(/location\.reload|PurchaseCoinsV2|IAPFixed|setTimeout\(/);
     expect(page).not.toMatch(/\/api\/shop\/checkout|openStripeCheckoutUrl/);
+    expect(modal).toMatch(/export function BuyCoinsModal/);
+    expect(modal).toMatch(/purchaseCoinProduct/);
+    expect(modal).toMatch(/Recharge Coins/);
+    expect(modal).not.toMatch(/\/api\/shop\/checkout|openStripeCheckoutUrl|testCoins|coin_balance/);
+    expect(live).toMatch(/BuyCoinsModal/);
+    expect(live).toMatch(/Top Up/);
     expect(api).toMatch(/\/api\/coin-packages/);
     expect(api).toMatch(/\/api\/verify-purchase/);
     expect(api).toMatch(/purchaseLock/);
