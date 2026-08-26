@@ -48,24 +48,23 @@ export function useStemFeed() {
     setLoading(true);
     setError(null);
     setActiveIndex(0);
+    setCursor(null);
     await loadVideos(null, false);
     setLoading(false);
   }, [loadVideos]);
 
   useEffect(() => {
-    void reload();
-  }, [reload]);
-
-  useEffect(() => {
-    if (viewerRef.current === viewerId) return;
-    viewerRef.current = viewerId;
-    fetchGen.current += 1;
-    moreLock.current = false;
-    seenVideoIds.current = new Set();
-    setVideos([]);
-    setActiveIndex(0);
-    setCursor(null);
-    setError(null);
+    const switched = viewerRef.current !== viewerId;
+    if (switched) {
+      viewerRef.current = viewerId;
+      fetchGen.current += 1;
+      moreLock.current = false;
+      seenVideoIds.current = new Set();
+      setVideos([]);
+      setActiveIndex(0);
+      setCursor(null);
+      setError(null);
+    }
     void reload();
   }, [viewerId, reload]);
 

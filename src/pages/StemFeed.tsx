@@ -1,9 +1,11 @@
 import { useEffect, useRef, useState } from "react";
+import { useLocation } from "react-router-dom";
 import { useStemFeed } from "@/features/feed/useStemFeed";
 import { ForYouPlayer } from "@/components/ForYouPlayer";
 import { StemFeedOverlay } from "@/components/StemFeedOverlay";
 
 export default function StemFeed() {
+  const location = useLocation();
   const pageRef = useRef<HTMLDivElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
   const [storyOpen, setStoryOpen] = useState(false);
@@ -19,6 +21,17 @@ export default function StemFeed() {
     loadMore,
     updateVideo,
   } = useStemFeed();
+
+  useEffect(() => {
+    if (location.pathname !== "/stem") return;
+    setActiveIndex(0);
+    setTimeout(() => {
+      const el = containerRef.current;
+      if (el && typeof el.scrollTo === "function") {
+        el.scrollTo({ top: 0, behavior: "auto" });
+      }
+    }, 0);
+  }, [location.pathname, setActiveIndex]);
 
   useEffect(() => {
     if (hasMore && !loadingMore && activeIndex >= videos.length - 5) {
