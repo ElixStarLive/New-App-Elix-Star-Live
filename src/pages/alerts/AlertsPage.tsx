@@ -4,6 +4,7 @@ import { Bell } from "lucide-react";
 import { RoyceBackIcon } from "@/components/royce";
 import { StoryGoldRingAvatar } from "@/components/StoryGoldRingAvatar";
 import { liveEndedKeys } from "@/features/feed/livePresence";
+import { apiLiveStatus } from "@/features/feed/feedApi";
 import { alertsTimeAgo } from "@/features/alerts/alertsTimeAgo";
 import { createAlertsSession } from "@/features/alerts/alertsSession";
 import { useAlertsSession } from "@/features/alerts/useAlertsSession";
@@ -58,6 +59,32 @@ export default function AlertsPage() {
     };
   }, [session]);
 
+  const openAlert = (kind: string, path: string | null) => {
+    if (!path) return;
+    if (kind !== "live_started") {
+      navigate(path, { state: inboxReturnState() });
+      return;
+    }
+    const roomMatch = path.match(/^\/watch\/([^/?#]+)/);
+    const room = roomMatch?.[1] ? decodeURIComponent(roomMatch[1]) : "";
+    if (!room) {
+      showToast("This live has ended");
+      return;
+    }
+    void apiLiveStatus(room).then(({ status, error }) => {
+      if (error) {
+        showToast(error);
+        return;
+      }
+      if (!status?.active) {
+        showToast("This live has ended");
+        session.applyStreamEnded("", room);
+        return;
+      }
+      navigate(`/watch/${encodeURIComponent(status.room || room)}`, { state: inboxReturnState() });
+    });
+  };
+
   return (
     <div className="page-above-bottom-nav bg-transparent">
       <div className="page-above-bottom-nav__inner bg-transparent flex flex-col min-h-0">
@@ -94,7 +121,7 @@ export default function AlertsPage() {
                     key={notif.id}
                     type="button"
                     onClick={() => {
-                      if (path) navigate(path, { state: inboxReturnState() });
+                      openAlert(notif.kind, path);
                     }}
                     className="flex items-center gap-3 w-full text-left py-2 px-2 bg-transparent"
                   >

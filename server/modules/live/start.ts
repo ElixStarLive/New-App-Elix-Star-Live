@@ -6,6 +6,10 @@ import { valkeyDel, valkeySet } from "../../infra/valkey.js";
 import { logger } from "../../infra/logger.js";
 import { broadcastLivePresence } from "./presenceFanout.js";
 import { clearHostPresence, getHostPresence, markHostStarting } from "./hostGrace.js";
+import {
+  deleteLiveStartedNotificationsForRoom,
+  notifyFollowersLiveStarted,
+} from "../notifications/liveStarted.js";
 import type { LiveStartResponse, LiveStreamCard } from "../../../shared/contracts/live.js";
 
 const STREAM_TTL_MS = 8 * 60 * 60 * 1000;
@@ -209,6 +213,16 @@ export async function startLive(
     } catch (error) {
       logger.error({ err: error, roomId }, "stream_started fanout failed");
     }
+    try {
+      await notifyFollowersLiveStarted({
+        hostId,
+        roomId,
+        hostLabel: row.display_name || row.username || "A creator you follow",
+        hostAvatar: row.avatar_url,
+      });
+    } catch (error) {
+      logger.error({ err: error, roomId }, "live_started alerts fanout failed");
+    }
   }
 
   return {
@@ -237,6 +251,11 @@ export async function endLive(
     const roomId = ended.rows[0].room_id;
     await clearRealtime(roomId);
     await broadcastLivePresence("stream_ended", { streamId, roomId });
+    try {
+      await deleteLiveStartedNotificationsForRoom(roomId, hostId);
+    } catch (error) {
+      logger.error({ err: error, roomId }, "live_started prune failed");
+    }
     return { ok: true, alreadyEnded: false, roomId };
   }
 

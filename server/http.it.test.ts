@@ -1,5 +1,5 @@
-/**
- * HTTP integration suite — TEST-ONLY harness.
+﻿/**
+ * HTTP integration suite ΓÇö TEST-ONLY harness.
  *
  * Intentionally mocks/disables LiveKit, SMTP, and Bunny credentials where unset
  * so unit-style API contract tests can run without real third-party services.
@@ -38,7 +38,7 @@ const TEST_JWT = "integration-test-jwt-secret-key-32chars";
 let httpIntegrationSkipReason = "";
 
 function clearIntegrationSecrets(): void {
-  // Do not strip VALKEY_URL / REDIS_URL / TEST_VALKEY_URL — local IT may use real Valkey.
+  // Do not strip VALKEY_URL / REDIS_URL / TEST_VALKEY_URL ΓÇö local IT may use real Valkey.
   delete process.env.STRIPE_SECRET_KEY;
   delete process.env.STRIPE_WEBHOOK_SECRET;
   delete process.env.FIREBASE_SERVICE_ACCOUNT_JSON;
@@ -465,7 +465,7 @@ describe("http integration", () => {
     });
     expect(mint.status).toBe(404);
 
-    // Canonical store is Valkey (`/api/test-coins/*`). With Valkey present → 200; never Neon wallet.
+    // Canonical store is Valkey (`/api/test-coins/*`). With Valkey present ΓåÆ 200; never Neon wallet.
     const testBalance = await json("/api/test-coins/balance");
     expect(testBalance.status).toBe(200);
     expect(testBalance.body).toEqual(expect.objectContaining({ balance: expect.any(Number) }));
@@ -754,7 +754,7 @@ describe("http integration", () => {
     await getPool().query(`UPDATE users SET banned_until = $2 WHERE id = $1`, [userId, new Date("9999-12-31T00:00:00.000Z")]);
     const bannedMe = await json("/api/auth/me");
     expect(bannedMe.status).toBe(403);
-    // Prior forgot calls in this case already hit PASSWORD_RESET_REQUEST_MAX on Valkey —
+    // Prior forgot calls in this case already hit PASSWORD_RESET_REQUEST_MAX on Valkey ΓÇö
     // clear so the banned-user forgot behaviour is isolated (not rate-limit noise).
     await valkeyDel(passwordResetRequestKey(`${unique}@example.com`));
     const suspendedForgot = await json("/api/auth/forgot-password", {
@@ -3094,7 +3094,7 @@ describe("http integration", () => {
       headers: { Authorization: `Bearer ${owner.token}`, "Content-Type": "application/json" },
       body: JSON.stringify({
         username: owner.username,
-        displayName: "Display ✨",
+        displayName: "Display Γ£¿",
         bio: "Bio line",
         website: "https://elix.example",
         instagram: "@elix",
@@ -3107,7 +3107,7 @@ describe("http integration", () => {
       user?: { id?: string; displayName?: string; bio?: string; website?: string; instagram?: string; isAdmin?: boolean };
     };
     expect(savedBody.user?.id).toBe(owner.id);
-    expect(savedBody.user?.displayName).toBe("Display ✨");
+    expect(savedBody.user?.displayName).toBe("Display Γ£¿");
     expect(savedBody.user?.bio).toBe("Bio line");
     expect(savedBody.user?.website).toBe("https://elix.example");
     expect(savedBody.user?.instagram).toBe("@elix");
@@ -3117,7 +3117,7 @@ describe("http integration", () => {
       headers: { Authorization: `Bearer ${other.token}` },
     });
     const publicAfterBody = (await publicAfter.json()) as { user?: { displayName?: string; bio?: string; website?: unknown } };
-    expect(publicAfterBody.user?.displayName).toBe("Display ✨");
+    expect(publicAfterBody.user?.displayName).toBe("Display Γ£¿");
     expect(publicAfterBody.user?.bio).toBe("Bio line");
     expect(publicAfterBody.user?.website).toBeUndefined();
 
@@ -3664,6 +3664,97 @@ describe("http integration", () => {
       [owner.id],
     );
     expect(Number(after.rows[0]?.n)).toBe(1);
+  });
+
+  it("PAGE-032 live_started fanout writes one alert per follower and prunes on end", async ({ skip }) => {
+    if (!db || !base) {
+      skip();
+      return;
+    }
+    const { notifyFollowersLiveStarted, deleteLiveStartedNotificationsForRoom } = await import(
+      "./modules/notifications/liveStarted.js"
+    );
+    async function registerUser(stamp: string) {
+      const username = `p32f${stamp}${Math.random().toString(36).slice(2, 8)}`.slice(0, 12);
+      const registered = await json("/api/auth/register", {
+        method: "POST",
+        body: JSON.stringify({
+          email: `${username}@example.com`,
+          username,
+          password: "password12",
+          ageConfirmed13Plus: true,
+          consentVersion: "2026-07-21",
+        }),
+      });
+      expect(registered.status).toBe(201);
+      return {
+        id: String((registered.body.user as { id?: string } | undefined)?.id ?? ""),
+        token: accessTokenFromLogin(registered.body),
+        username,
+      };
+    }
+
+    const host = await registerUser("h");
+    const follower = await registerUser("f");
+    const blocked = await registerUser("b");
+    await getPool().query(`INSERT INTO follows (follower_id, followee_id) VALUES ($1, $2), ($3, $2)`, [
+      follower.id,
+      host.id,
+      blocked.id,
+    ]);
+    // Host blocks the third follower so they must not receive live_started.
+    await getPool().query(`INSERT INTO blocks (blocker_id, blocked_id) VALUES ($1, $2)`, [host.id, blocked.id]);
+
+    await getPool().query(`INSERT INTO live_streams (host_id, room_id, title, status) VALUES ($1, $2, 'LIVE', 'live')`, [
+      host.id,
+      host.id,
+    ]);
+
+    const written = await notifyFollowersLiveStarted({
+      hostId: host.id,
+      roomId: host.id,
+      hostLabel: host.username,
+      hostAvatar: null,
+    });
+    expect(written).toBe(1);
+
+    const listed = await fetch(`${base}/api/notifications`, {
+      headers: { Authorization: `Bearer ${follower.token}` },
+    });
+    expect(listed.status).toBe(200);
+    const listedBody = (await listed.json()) as {
+      total?: number;
+      items?: Array<{ kind?: string; actionUrl?: string | null; title?: string }>;
+      unreadIds?: string[];
+    };
+    expect(listedBody.total).toBe(1);
+    expect(listedBody.items?.[0]?.kind).toBe("live_started");
+    expect(listedBody.items?.[0]?.actionUrl).toBe(`/watch/${host.id}`);
+    expect(listedBody.items?.[0]?.title).toContain("is live");
+
+    const blockedList = await fetch(`${base}/api/notifications`, {
+      headers: { Authorization: `Bearer ${blocked.token}` },
+    });
+    const blockedBody = (await blockedList.json()) as { items?: unknown[]; total?: number };
+    expect(blockedBody.total).toBe(0);
+    expect(blockedBody.items).toEqual([]);
+
+    const hostList = await fetch(`${base}/api/notifications`, {
+      headers: { Authorization: `Bearer ${host.token}` },
+    });
+    const hostBody = (await hostList.json()) as { items?: unknown[]; total?: number };
+    expect(hostBody.total).toBe(0);
+
+    await deleteLiveStartedNotificationsForRoom(host.id, host.id);
+    await getPool().query(`UPDATE live_streams SET status = 'ended', ended_at = NOW() WHERE host_id = $1 AND status = 'live'`, [
+      host.id,
+    ]);
+    const afterEnd = await fetch(`${base}/api/notifications`, {
+      headers: { Authorization: `Bearer ${follower.token}` },
+    });
+    const afterBody = (await afterEnd.json()) as { items?: unknown[]; total?: number };
+    expect(afterBody.total).toBe(0);
+    expect(afterBody.items).toEqual([]);
   });
 
   it("PAGE-033 chat thread membership, persist, read, block, and idempotency are server-owned", async ({ skip }) => {
@@ -5113,7 +5204,7 @@ describe("http integration", () => {
     expect(saveMethod.status).toBe(200);
     const methods = await authJson("/api/creator/payout-methods", creator.token);
     const methodRows = (methods.body.methods as Array<{ details?: { iban_or_account?: string } }>) ?? [];
-    expect(methodRows[0]?.details?.iban_or_account).toBe("••••5432");
+    expect(methodRows[0]?.details?.iban_or_account).toBe("ΓÇóΓÇóΓÇóΓÇó5432");
 
     const zero = await authJson("/api/creator/withdraw-gbp", creator.token, {
       method: "POST",

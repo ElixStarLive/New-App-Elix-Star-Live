@@ -35,6 +35,13 @@ vi.mock("./presenceFanout.js", () => ({
 vi.mock("../../infra/logger.js", () => ({
   logger: { error: vi.fn(), warn: vi.fn() },
 }));
+const notifyLiveMock = vi.fn(async (..._args: unknown[]) => 0);
+const deleteLiveMock = vi.fn(async (..._args: unknown[]) => undefined);
+vi.mock("../notifications/liveStarted.js", () => ({
+  notifyFollowersLiveStarted: (input: unknown) => notifyLiveMock(input),
+  deleteLiveStartedNotificationsForRoom: (roomId: string, hostId: string) =>
+    deleteLiveMock(roomId, hostId),
+}));
 
 import { endLive, expireAbandonedLives, startLive } from "./start.js";
 
@@ -68,6 +75,8 @@ describe("PAGE-018 live start/end", () => {
     connectMock.mockReset();
     mintMock.mockReset();
     broadcastMock.mockClear();
+    notifyLiveMock.mockClear();
+    deleteLiveMock.mockClear();
     valkeySetMock.mockClear();
     valkeyDelMock.mockClear();
     valkeyGetMock.mockReset();
@@ -123,6 +132,13 @@ describe("PAGE-018 live start/end", () => {
         viewerCount: 0,
       }),
     );
+    expect(notifyLiveMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        hostId,
+        roomId: hostId,
+        hostLabel: "Maya",
+      }),
+    );
   });
 
   it("treats a second start as reconnect without a second stream_started", async () => {
@@ -132,6 +148,7 @@ describe("PAGE-018 live start/end", () => {
     expect(result.reconnect).toBe(true);
     expect(result.streamId).toBe(streamId);
     expect(broadcastMock).not.toHaveBeenCalled();
+    expect(notifyLiveMock).not.toHaveBeenCalled();
   });
 
   it("refuses a banned host", async () => {
@@ -161,6 +178,7 @@ describe("PAGE-018 live start/end", () => {
     const result = await endLive(hostId, streamId);
     expect(result).toEqual({ ok: true, alreadyEnded: false, roomId: hostId });
     expect(broadcastMock).toHaveBeenCalledWith("stream_ended", { streamId, roomId: hostId });
+    expect(deleteLiveMock).toHaveBeenCalledWith(hostId, hostId);
   });
 
   it("expires a live after host presence is gone and fans out stream_ended", async () => {
