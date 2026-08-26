@@ -111,4 +111,32 @@ describe("PAGE-051 achievements session", () => {
       { id: "first_gift", progress: 0, unlocked: false },
     ]);
   });
+
+  it("does not let a stale achievements GET overwrite a newer same-account unlock", async () => {
+    const deps = createDeps();
+    deps.loadAchievements.mockResolvedValueOnce({
+      ok: true,
+      achievements: [row({ progress: 0, unlocked: false })],
+    });
+    await deps.session.load(userA);
+    const stale = deferred<{ ok: true; achievements: EngagementAchievement[] }>();
+    deps.loadAchievements.mockReturnValueOnce(stale.promise);
+    const pending = deps.session.load(userA);
+    deps.loadAchievements.mockResolvedValueOnce({
+      ok: true,
+      achievements: [row({ progress: 1, unlocked: true, claimed: true })],
+    });
+    await deps.session.load(userA);
+    expect(deps.session.getSnapshot().achievements).toMatchObject([
+      { progress: 1, unlocked: true, claimed: true },
+    ]);
+    stale.resolve({
+      ok: true,
+      achievements: [row({ progress: 0, unlocked: false })],
+    });
+    await pending;
+    expect(deps.session.getSnapshot().achievements).toMatchObject([
+      { progress: 1, unlocked: true, claimed: true },
+    ]);
+  });
 });

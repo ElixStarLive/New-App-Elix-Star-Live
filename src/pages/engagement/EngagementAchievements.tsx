@@ -102,7 +102,7 @@ export default function EngagementAchievements() {
 
   return (
     <div className="page-above-bottom-nav bg-transparent text-white">
-      <div className="page-above-bottom-nav__inner">
+      <div className="page-above-bottom-nav__inner engagement-panel-writing">
         <div className="w-full shrink-0 bg-transparent z-10" style={{ paddingTop: "var(--topnav-anchor-top)" }}>
           <div className="w-full px-3 flex items-center" style={{ minHeight: "var(--topnav-bar-height)" }}>
             <div className="w-10 shrink-0" aria-hidden />

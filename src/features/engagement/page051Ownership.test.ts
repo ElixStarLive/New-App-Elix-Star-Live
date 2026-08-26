@@ -49,12 +49,13 @@ describe("PAGE-051 Achievements ownership", () => {
     expect(gifts).toMatch(/bumpAchievement/);
     expect(gifts).toMatch(/gifts_sent/);
     expect(mvp).toMatch(/mvp_top10/);
+    expect(session).toMatch(/const gen = \+\+generation/);
     expect(session).not.toMatch(/localStorage|sessionStorage|setTimeout\(|location\.reload|progress \+=|unlocked = true/);
     expect(wallet).toMatch(/Test coins are not wallet money/);
     expect(payout).not.toMatch(/bumpAchievement|listAchievementsForUser/);
   });
 
-  it("does not take PAGE-047â€“050 or PAGE-052 ownership", () => {
+  it("does not take PAGE-047-050 or PAGE-052 ownership", () => {
     expect(hubPage).toMatch(/SettingsOptionSheet/);
     expect(hubPage).toMatch(/\/engagement\/achievements/);
     expect(hubPage).not.toMatch(/createEngagementAchievementsSession/);

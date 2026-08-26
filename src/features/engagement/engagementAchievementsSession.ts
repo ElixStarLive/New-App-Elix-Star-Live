@@ -60,6 +60,7 @@ export function createEngagementAchievementsSession(deps: AchievementsDeps) {
         return;
       }
       accountId = expectedAccountId;
+      // Bump so an older in-flight achievements GET cannot overwrite a newer unlock.
       const gen = ++generation;
       view = { kind: "loading", achievements: null, error: null };
       emit();
