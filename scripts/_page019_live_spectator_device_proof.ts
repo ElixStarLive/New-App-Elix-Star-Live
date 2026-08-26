@@ -1,0 +1,189 @@
+/**
+ * PAGE-019 device proof — physical Android spectator /watch/:roomId against a live host.
+ * Run: npx tsx scripts/_page019_live_spectator_device_proof.ts
+ */
+import { execFileSync } from "node:child_process";
+import { setTimeout as sleep } from "node:timers/promises";
+
+const adb = "C:\\Users\\Absm Construction\\AppData\\Local\\Android\\Sdk\\platform-tools\\adb.exe";
+const pkg = "com.elixstarlive.app";
+const api = "http://127.0.0.1:8080";
+
+function adbCmd(...args: string[]): string {
+  return execFileSync(adb, args, { encoding: "utf8" }).trim();
+}
+function assert(cond: unknown, msg: string): asserts cond {
+  if (!cond) throw new Error(msg);
+}
+
+async function evaluate(expression: string): Promise<unknown> {
+  const listRes = await fetch("http://127.0.0.1:9222/json/list");
+  assert(listRes.ok, `devtools list failed ${listRes.status}`);
+  const pages = (await listRes.json()) as Array<{ webSocketDebuggerUrl?: string }>;
+  const page = pages.find((p) => p.webSocketDebuggerUrl);
+  assert(page?.webSocketDebuggerUrl, "no webview debugger");
+  const ws = new WebSocket(page.webSocketDebuggerUrl);
+  await new Promise<void>((resolve, reject) => {
+    ws.addEventListener("open", () => resolve());
+    ws.addEventListener("error", (ev) => reject(ev));
+  });
+  try {
+    return await new Promise<unknown>((resolve, reject) => {
+      const id = 1;
+      const timer = setTimeout(() => reject(new Error("eval timeout")), 20000);
+      ws.addEventListener("message", (ev) => {
+        const msg = JSON.parse(String(ev.data)) as {
+          id?: number;
+          result?: { result?: { value?: unknown } };
+          error?: unknown;
+        };
+        if (msg.id !== id) return;
+        clearTimeout(timer);
+        if (msg.error) reject(new Error(JSON.stringify(msg.error)));
+        else resolve(msg.result?.result?.value);
+      });
+      ws.send(
+        JSON.stringify({
+          id,
+          method: "Runtime.evaluate",
+          params: { expression, returnByValue: true, awaitPromise: true },
+        }),
+      );
+    });
+  } finally {
+    ws.close();
+  }
+}
+
+async function register(suffix: string) {
+  const unique = `d19${suffix}${Date.now().toString(36)}`.slice(0, 16);
+  const email = `${unique}@example.com`;
+  const password = "password12";
+  const registered = await fetch(`${api}/api/auth/register`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      email,
+      username: unique,
+      password,
+      displayName: `Device ${unique}`,
+      ageConfirmed13Plus: true,
+      consentVersion: "2026-07-21",
+    }),
+  });
+  const body = (await registered.json()) as Record<string, unknown>;
+  const session = (body.session || {}) as Record<string, unknown>;
+  let token = String(session.access_token ?? session.accessToken ?? "");
+  let user = (body.user || {}) as Record<string, unknown>;
+  if (!token) {
+    const { getPool } = await import("../server/infra/postgres.ts");
+    await getPool().query(
+      `UPDATE users SET email_confirmed_at = COALESCE(email_confirmed_at, NOW()) WHERE email_normalized = $1`,
+      [email.toLowerCase()],
+    );
+    const login = await fetch(`${api}/api/auth/login`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ email, password }),
+    });
+    const loginBody = (await login.json()) as Record<string, unknown>;
+    const loginSession = (loginBody.session || {}) as Record<string, unknown>;
+    token = String(loginSession.access_token ?? loginSession.accessToken ?? "");
+    user = (loginBody.user || user) as Record<string, unknown>;
+  }
+  assert(token && typeof user.id === "string", `auth ${suffix} failed`);
+  return { token, user };
+}
+
+const devices = adbCmd("devices", "-l")
+  .split(/\r?\n/)
+  .slice(1)
+  .map((line) => line.trim())
+  .filter((line) => /\sdevice(\s|$)/.test(line));
+assert(devices.length > 0, "no device");
+adbCmd("reverse", "tcp:8080", "tcp:8080");
+
+const host = await register("h");
+const viewer = await register("v");
+const start = await fetch(`${api}/api/live/start`, {
+  method: "POST",
+  headers: { "Content-Type": "application/json", Authorization: `Bearer ${host.token}` },
+  body: JSON.stringify({ title: "PAGE019 device" }),
+});
+const startBody = (await start.json()) as Record<string, unknown>;
+assert(start.ok, `host start ${start.status} ${JSON.stringify(startBody)}`);
+const roomId = String(startBody.roomId || host.user.id);
+const streamId = String(startBody.streamId || "");
+assert(streamId, "missing streamId");
+
+adbCmd("shell", "pm", "clear", pkg);
+adbCmd("shell", "am", "force-stop", pkg);
+adbCmd("shell", "am", "start", "-n", `${pkg}/.MainActivity`);
+await sleep(4000);
+const pid = adbCmd("shell", "pidof", pkg).split(/\s+/).find((p) => /^\d+$/.test(p));
+assert(pid, "app not running");
+try {
+  adbCmd("forward", "--remove", "tcp:9222");
+} catch {
+  /* none */
+}
+adbCmd("forward", "tcp:9222", `localabstract:webview_devtools_remote_${pid}`);
+await sleep(800);
+
+const route = `/watch/${roomId}`;
+const authPayload = JSON.stringify({
+  state: {
+    user: {
+      id: viewer.user.id,
+      email: viewer.user.email ?? null,
+      username: viewer.user.username ?? "",
+      displayName: viewer.user.displayName ?? viewer.user.display_name ?? "",
+      avatarUrl: viewer.user.avatarUrl ?? viewer.user.avatar_url ?? null,
+    },
+    session: { token: viewer.token },
+    isAuthenticated: true,
+  },
+  version: 0,
+});
+
+assert(
+  (await evaluate(`(async () => {
+  await window.Capacitor.Plugins.Preferences.set({ key: 'elix-auth', value: ${JSON.stringify(authPayload)} });
+  try { localStorage.removeItem('elix-auth'); } catch (_) {}
+  history.replaceState({}, '', ${JSON.stringify(route)});
+  setTimeout(() => location.reload(), 50);
+  return true;
+})()`)) === true,
+  "inject failed",
+);
+await sleep(9000);
+const pidAfter = adbCmd("shell", "pidof", pkg).split(/\s+/).find((p) => /^\d+$/.test(p));
+assert(pidAfter, "app died");
+try {
+  adbCmd("forward", "--remove", "tcp:9222");
+} catch {
+  /* none */
+}
+adbCmd("forward", "tcp:9222", `localabstract:webview_devtools_remote_${pidAfter}`);
+await sleep(1200);
+await evaluate(`(() => { if (!location.pathname.startsWith('/watch')) { history.replaceState({}, '', ${JSON.stringify(route)}); window.dispatchEvent(new PopStateEvent('popstate')); } return location.pathname; })()`);
+await sleep(4000);
+
+const proof = (await evaluate(`(() => {
+  const text = document.body?.innerText || '';
+  return {
+    pathname: location.pathname,
+    spectatorCue: /join|gift|live|ranking|connecting|follow/i.test(text),
+    snippet: text.slice(0, 320),
+  };
+})()`)) as Record<string, unknown>;
+
+assert(String(proof.pathname || "").startsWith("/watch"), `path ${proof.pathname} ${proof.snippet}`);
+assert(proof.spectatorCue === true, `no spectator chrome: ${proof.snippet}`);
+
+await fetch(`${api}/api/live/${streamId}/end`, {
+  method: "POST",
+  headers: { Authorization: `Bearer ${host.token}` },
+}).catch(() => undefined);
+
+console.log(JSON.stringify({ ok: true, page: "PAGE-019", route, streamId, device: devices[0], proof }, null, 2));
