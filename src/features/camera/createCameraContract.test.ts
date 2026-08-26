@@ -63,6 +63,8 @@ describe("PAGE-021 camera contract", () => {
       facing: "user",
       soundId: "track-9",
       source: "camera",
+      originalVolume: 1,
+      musicVolume: 0.7,
     });
     expect(payload).toEqual({
       mimeType: "video/webm",

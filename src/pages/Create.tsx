@@ -1,15 +1,19 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type TouchEvent } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import { ElixCameraLayout, type CreateTab } from "@/components/ElixCameraLayout";
-import { setCapturedCreateMedia } from "@/features/camera/capturedMediaCache";
+import SoundMixPanel from "@/components/SoundMixPanel";
+import { discardCapturedCreateMedia, setCapturedCreateMedia } from "@/features/camera/capturedMediaCache";
 import { createSoundPickState, parseCreateSoundSelection } from "@/features/camera/createCameraContract";
 import { useCreateCameraSession } from "@/features/camera/useCreateCameraSession";
 import { FEED_HOME } from "@/lib/settingsNav";
 import { showToast } from "@/lib/toast";
+import { useAuthStore } from "@/store/useAuthStore";
 
 export default function Create() {
   const navigate = useNavigate();
   const location = useLocation();
+  const viewerId = useAuthStore((s) => s.user?.id ?? null);
+  const viewerRef = useRef<string | null>(viewerId);
   const videoRef = useRef<HTMLVideoElement>(null);
   const fileRef = useRef<HTMLInputElement>(null);
   const pinchDistRef = useRef<number | null>(null);
@@ -17,10 +21,28 @@ export default function Create() {
   const { state, session } = useCreateCameraSession(videoRef);
   const [tab, setTab] = useState<CreateTab>("create");
   const [speed, setSpeed] = useState(1);
+  const [soundMixOpen, setSoundMixOpen] = useState(false);
+  const [originalVolume, setOriginalVolume] = useState(1);
+  const [musicVolume, setMusicVolume] = useState(0.7);
   const sound = useMemo(
     () => parseCreateSoundSelection(location.search, location.state),
     [location.search, location.state],
   );
+
+  useEffect(() => {
+    const switched = viewerRef.current !== viewerId;
+    if (!switched) return;
+    viewerRef.current = viewerId;
+    setSoundMixOpen(false);
+    setOriginalVolume(1);
+    setMusicVolume(0.7);
+    setSpeed(1);
+    setTab("create");
+    discardCapturedCreateMedia();
+    session.release();
+    if (viewerId) void session.retry();
+    else navigate(FEED_HOME, { replace: true });
+  }, [viewerId, session, navigate]);
 
   useEffect(() => {
     const video = videoRef.current;
@@ -32,6 +54,14 @@ export default function Create() {
     }
   }, [speed, state.clip, state.attaching]);
 
+  useEffect(() => {
+    const video = videoRef.current;
+    if (!video || !state.clip || state.clip.kind !== "video") return;
+    const vol = Math.max(0, Math.min(1, originalVolume));
+    video.muted = vol <= 0.001;
+    video.volume = vol <= 0.001 ? 0 : vol;
+  }, [originalVolume, state.clip]);
+
   const handoff = useCallback(
     (path: string) => {
       const clip = session.markHandedOff();
@@ -39,10 +69,15 @@ export default function Create() {
         showToast("Record or capture first");
         return;
       }
-      setCapturedCreateMedia({ ...clip, soundId: sound?.soundId ?? null });
+      setCapturedCreateMedia({
+        ...clip,
+        soundId: sound?.soundId ?? null,
+        originalVolume: Math.max(0, Math.min(1, originalVolume)),
+        musicVolume: Math.max(0, Math.min(1, musicVolume)),
+      });
       navigate(path, { replace: true });
     },
-    [navigate, session, sound],
+    [navigate, session, sound, originalVolume, musicVolume],
   );
 
   const onClose = useCallback(() => {
@@ -52,6 +87,7 @@ export default function Create() {
       return;
     }
     if (state.clip) {
+      setSoundMixOpen(false);
       session.retake();
       return;
     }
@@ -75,6 +111,23 @@ export default function Create() {
   useEffect(() => {
     if (state.micDeniedMessage) showToast(state.micDeniedMessage);
   }, [state.micDeniedMessage]);
+
+  const openMusicPick = useCallback(() => {
+    navigate("/music", { state: createSoundPickState() });
+  }, [navigate]);
+
+  const onAddSound = useCallback(() => {
+    if (state.clip) {
+      setSoundMixOpen(true);
+      return;
+    }
+    openMusicPick();
+  }, [state.clip, openMusicPick]);
+
+  const clearSound = useCallback(() => {
+    navigate({ pathname: "/create", search: "" }, { replace: true, state: {} });
+    setMusicVolume(0.7);
+  }, [navigate]);
 
   const onTouchStart = useCallback(
     (event: TouchEvent) => {
@@ -109,7 +162,7 @@ export default function Create() {
           pinchDistRef.current = null;
         }}
       >
-        <video ref={videoRef} className="absolute inset-0 w-full h-full object-cover bg-black" playsInline muted />
+        <video ref={videoRef} className="absolute inset-0 w-full h-full object-cover bg-black" playsInline muted={!state.clip} />
         {state.clip?.kind === "image" ? (
           <img src={state.clip.objectUrl} alt="" className="absolute inset-0 w-full h-full object-cover bg-black" />
         ) : null}
@@ -155,7 +208,7 @@ export default function Create() {
         onShutter={onShutter}
         onClose={onClose}
         onFlip={() => void session.flip()}
-        onAddSound={() => navigate("/music", { state: createSoundPickState() })}
+        onAddSound={onAddSound}
         onUpload={() => fileRef.current?.click()}
         onPostTab={() => {
           setTab("post");
@@ -177,10 +230,26 @@ export default function Create() {
         duration={state.duration}
         onDuration={(value) => session.setDuration(value)}
         hasClip={Boolean(state.clip)}
-        onRetake={() => session.retake()}
+        onRetake={() => {
+          setSoundMixOpen(false);
+          session.retake();
+        }}
         onPostClip={() => handoff("/upload")}
         onStoryClip={() => handoff("/upload?type=story")}
         soundLabel={sound?.title ?? null}
+      />
+      <SoundMixPanel
+        isOpen={soundMixOpen}
+        onClose={() => setSoundMixOpen(false)}
+        originalVolume={originalVolume}
+        musicVolume={musicVolume}
+        onOriginalVolumeChange={setOriginalVolume}
+        onMusicVolumeChange={setMusicVolume}
+        hasOriginalAudio={state.clip?.kind !== "image"}
+        hasAddedSound={Boolean(sound)}
+        addedSoundTitle={sound?.title ?? null}
+        onChooseSound={openMusicPick}
+        onClearSound={clearSound}
       />
     </div>
   );

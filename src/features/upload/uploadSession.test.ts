@@ -15,6 +15,8 @@ function clip(): CapturedCreateMedia {
     facing: "user",
     soundId: "sound-1",
     source: "camera",
+    originalVolume: 1,
+    musicVolume: 0.7,
   };
 }
 

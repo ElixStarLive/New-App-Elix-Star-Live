@@ -19,6 +19,8 @@ const upload = vi.hoisted(() => {
       facing: "user",
       soundId: "sound-1",
       source: "camera",
+      originalVolume: 1,
+      musicVolume: 0.7,
     },
     caption: "",
     hashtagsText: "",

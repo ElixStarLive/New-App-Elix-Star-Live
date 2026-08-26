@@ -203,6 +203,53 @@ describe("PAGE-021 createCameraSession", () => {
     session.release();
   });
 
+  it("falls back to video:true when facingMode is rejected", async () => {
+    const video = fakeTrack("video");
+    const getUserMedia = vi.fn(async (constraints: MediaStreamConstraints) => {
+      if (constraints.audio && !constraints.video) return fakeStream([fakeTrack("audio")]);
+      const videoConstraint = constraints.video;
+      if (videoConstraint && typeof videoConstraint === "object" && "facingMode" in videoConstraint) {
+        throw Object.assign(new Error("facing"), { name: "OverconstrainedError" });
+      }
+      return fakeStream([video]);
+    });
+    const session = createCameraSession({
+      getUserMedia,
+      createRecorder: () => new FakeRecorder(),
+      isTypeSupported: () => true,
+      getVideoEl: () => videoEl(),
+      isSecureContext: () => true,
+    });
+    await session.open("user");
+    expect(session.getState().error).toBeNull();
+    expect(getUserMedia).toHaveBeenCalledWith({ video: { facingMode: "user" }, audio: false });
+    expect(getUserMedia).toHaveBeenCalledWith({ video: true, audio: false });
+    session.release();
+  });
+
+  it("reopens on foreground when the live track is gone", async () => {
+    const video = fakeTrack("video");
+    Object.defineProperty(video, "readyState", { get: () => "ended" });
+    let opens = 0;
+    const session = createCameraSession({
+      getUserMedia: async (constraints) => {
+        if (constraints.audio && !constraints.video) return fakeStream([fakeTrack("audio")]);
+        opens += 1;
+        return fakeStream([video]);
+      },
+      createRecorder: () => new FakeRecorder(),
+      isTypeSupported: () => true,
+      getVideoEl: () => videoEl(),
+      isSecureContext: () => true,
+    });
+    await session.open();
+    expect(opens).toBe(1);
+    session.onForeground();
+    await Promise.resolve();
+    expect(opens).toBe(2);
+    session.release();
+  });
+
   it("counts down then starts a real recorder", async () => {
     vi.useFakeTimers();
     const rec = new FakeRecorder();

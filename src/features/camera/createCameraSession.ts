@@ -202,10 +202,16 @@ export function createCameraSession(deps: CameraSessionDeps) {
   }
 
   async function acquireStream(facing: CameraFacing): Promise<MediaStream> {
-    const videoStream = await deps.getUserMedia({
-      video: { facingMode: facing },
-      audio: false,
-    });
+    let videoStream: MediaStream;
+    try {
+      videoStream = await deps.getUserMedia({
+        video: { facingMode: facing },
+        audio: false,
+      });
+    } catch {
+      // OLD Create falls back when facingMode is rejected by the device/browser.
+      videoStream = await deps.getUserMedia({ video: true, audio: false });
+    }
     let micDenied = false;
     let micDeniedMessage: string | null = null;
     try {
@@ -306,6 +312,8 @@ export function createCameraSession(deps: CameraSessionDeps) {
       facing: state.facing,
       soundId: null,
       source,
+      originalVolume: 1,
+      musicVolume: 0.7,
     };
   }
 
@@ -584,6 +592,16 @@ export function createCameraSession(deps: CameraSessionDeps) {
     if (state.recording) void stopRecording();
   }
 
+  function onForeground(): void {
+    if (state.clip || state.recording || state.attaching || state.countdown != null) return;
+    const live = stream?.getVideoTracks().some((track) => track.readyState === "live");
+    if (live) {
+      bindLivePreview();
+      return;
+    }
+    void open(state.facing);
+  }
+
   function release(): void {
     generation += 1;
     cancelCountdown();
@@ -624,6 +642,7 @@ export function createCameraSession(deps: CameraSessionDeps) {
     cancelCountdown,
     markHandedOff,
     onBackground,
+    onForeground,
     release,
     retry: () => open(state.facing),
   };

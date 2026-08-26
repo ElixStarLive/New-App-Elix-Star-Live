@@ -15,6 +15,8 @@ function media(id: string): CapturedCreateMedia {
     facing: "user",
     soundId: null,
     source: "camera",
+    originalVolume: 1,
+    musicVolume: 0.7,
   };
 }
 

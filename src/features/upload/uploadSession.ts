@@ -225,6 +225,8 @@ export function createUploadPublishSession(deps: UploadPublishDeps) {
         facing: "user",
         soundId: state.soundId,
         source: "gallery" as CapturedSource,
+        originalVolume: 1,
+        musicVolume: 0.7,
       };
       acceptMedia(media);
     },

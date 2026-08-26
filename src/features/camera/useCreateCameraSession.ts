@@ -15,6 +15,7 @@ export function useCreateCameraSession(videoRef: RefObject<HTMLVideoElement | nu
     void session.open();
     const onVisibility = () => {
       if (document.hidden) session.onBackground();
+      else session.onForeground();
     };
     document.addEventListener("visibilitychange", onVisibility);
     return () => {

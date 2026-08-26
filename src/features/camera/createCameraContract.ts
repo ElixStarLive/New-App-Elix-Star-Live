@@ -19,6 +19,8 @@ export type CapturedCreateMedia = {
   facing: CameraFacing;
   soundId: string | null;
   source: CapturedSource;
+  originalVolume: number;
+  musicVolume: number;
 };
 
 export type CreateSoundSelection = {

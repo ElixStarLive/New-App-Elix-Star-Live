@@ -35,6 +35,7 @@ const camera = vi.hoisted(() => {
     cancelCountdown: vi.fn(),
     markHandedOff: vi.fn(() => state.clip),
     onBackground: vi.fn(),
+    onForeground: vi.fn(),
     release: vi.fn(),
     retry: vi.fn(async () => undefined),
     getState: () => state,
@@ -139,6 +140,35 @@ describe("PAGE-021 Create camera page", () => {
     expect(container.textContent).toContain("MUSIC PAGE");
   });
 
+  it("after capture, Add sound opens Sound mix instead of leaving Create", () => {
+    camera.state.clip = {
+      blob: new Blob(["clip"], { type: "video/webm" }),
+      objectUrl: "blob:test",
+      mimeType: "video/webm",
+      kind: "video",
+      durationMs: 1500,
+      width: 720,
+      height: 1280,
+      orientation: "portrait",
+      facing: "user",
+      soundId: null,
+      source: "camera",
+      originalVolume: 1,
+      musicVolume: 0.7,
+    };
+    const mounted = renderCreate("/create?soundId=epidemic-1");
+    root = mounted.root;
+    container = mounted.container;
+    const add = Array.from(container.querySelectorAll("button")).find((el) =>
+      (el.getAttribute("title") || "").includes("Add sound"),
+    ) as HTMLButtonElement;
+    act(() => {
+      add.click();
+    });
+    expect(container.textContent).toContain("Original video");
+    expect(container.textContent).not.toContain("MUSIC PAGE");
+  });
+
   it("LIVE shutter releases the camera and goes to PAGE-018", () => {
     const mounted = renderCreate();
     root = mounted.root;
@@ -168,6 +198,8 @@ describe("PAGE-021 Create camera page", () => {
       facing: "user",
       soundId: null,
       source: "camera",
+      originalVolume: 1,
+      musicVolume: 0.7,
     };
     const mounted = renderCreate("/create?soundId=epidemic-1");
     root = mounted.root;
