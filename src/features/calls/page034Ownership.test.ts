@@ -26,22 +26,26 @@ describe("PAGE-034 Video Call ownership", () => {
     expect(page).toMatch(/endActiveCall/);
     expect(page).toMatch(/apiFetchCallToken/);
     expect(page).toMatch(/LiveKitSession/);
+    expect(page).toMatch(/app:back-button/);
     expect(page).toMatch(/absolute top-20 right-4 w-28 h-40 rounded-2xl/);
     expect(page).toMatch(/bg-\[#EF4444\]/);
     expect(page).toMatch(/bg-\[#22C55E\]/);
     expect(page).toMatch(/status === "incoming"/);
-    expect(page).not.toMatch(/new WebSocket|VideoCallOld|VideoCallNew|VideoCallV2|VideoCallFixed|location\.reload|threadId \|\||roomId \|\||userId \|\|/);
+    expect(page).toMatch(/RoyceCloseIcon/);
+    expect(page).not.toMatch(/new WebSocket|VideoCallOld|VideoCallNew|VideoCallV2|VideoCallFixed|location\.reload/);
     expect(page).not.toMatch(/\/api\/calls\/start/);
     expect(session).toMatch(/wsClient\.send\("call_invite"/);
     expect(session).toMatch(/wsClient\.send\("call_accepted"/);
     expect(session).toMatch(/wsClient\.send\("call_rejected"/);
     expect(session).toMatch(/wsClient\.send\("call_ended"/);
+    expect(session).toMatch(/isolateVideoCallAccount/);
     expect(session).not.toMatch(/new WebSocket|setTimeout|location\.reload|\/api\/calls\/start/);
     expect(token).not.toMatch(/\/api\/calls\/start/);
     expect(token).toMatch(/\/api\/calls\/\$\{encodeURIComponent\(callId\)\}\/token/);
     expect(signaling).toMatch(/handleCallSignal/);
     expect(signaling).toMatch(/reason: "blocked"/);
     expect(signaling).toMatch(/room_name/);
+    expect(signaling).toMatch(/call_\$\{callId\}/);
     expect(signaling).not.toMatch(/new Map\(|globalThis|INSERT INTO live_streams/);
     expect(callToken).toMatch(/canPublish: true/);
     expect(callToken).toMatch(/ttl: "1h"/);
@@ -53,6 +57,10 @@ describe("PAGE-034 Video Call ownership", () => {
     expect(thread).toMatch(/startOutgoingCall/);
     expect(thread).not.toMatch(/apiStartCall/);
     expect(liveToken).not.toMatch(/call_/);
+    expect(app).toMatch(/isolateVideoCallAccount/);
+    expect(app).toMatch(/endActiveCall\(\)/);
+    const nav = readFileSync(resolve(process.cwd(), "src/lib/settingsNav.ts"), "utf8");
+    expect(nav).toMatch(/path === "\/call"/);
   });
 
   it("does not implement PAGE-035 Incoming Call Modal", () => {

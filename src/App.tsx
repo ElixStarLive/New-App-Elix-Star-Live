@@ -22,7 +22,7 @@ import { namedExitForLocation } from "@/lib/settingsNav";
 import { useDeepLinks } from "@/lib/deepLinks";
 import { wsClient } from "@/lib/wsClient";
 import { getSessionToken } from "@/lib/sessionToken";
-import { bindVideoCallSignals, endActiveCall } from "@/features/calls/videoCallSession";
+import { bindVideoCallSignals, endActiveCall, isolateVideoCallAccount } from "@/features/calls/videoCallSession";
 import { registerPushToken } from "@/lib/pushRegister";
 import { initializeCoinIap, reconcileOwnedCoinPurchases } from "@/features/iap/iapApi";
 
@@ -161,6 +161,11 @@ function App() {
       const dx = endX - swipeStart.current.x;
       swipeStart.current = null;
       if (dx > SWIPE_THRESHOLD) {
+        if (location.pathname === "/call" || location.pathname.startsWith("/call/")) {
+          const { returnPath } = endActiveCall();
+          navigate(returnPath, { replace: true });
+          return;
+        }
         const exit = namedExitForLocation(location.pathname, location.state);
         if (exit !== location.pathname) navigate(exit, { replace: true });
       }
@@ -185,10 +190,15 @@ function App() {
   }, []);
 
   useEffect(() => {
-    if (!user?.id) return;
+    if (!user?.id) {
+      isolateVideoCallAccount();
+      return;
+    }
     const unbind = bindVideoCallSignals(user.id);
     return () => {
       unbind();
+      endActiveCall();
+      isolateVideoCallAccount();
     };
   }, [user?.id]);
 
@@ -201,6 +211,7 @@ function App() {
     void reconcileOwnedCoinPurchases().catch(() => undefined);
     const onForceDisconnect = () => {
       endActiveCall();
+      isolateVideoCallAccount();
       void useAuthStore.getState().signOut();
     };
     wsClient.on("force_disconnect", onForceDisconnect);

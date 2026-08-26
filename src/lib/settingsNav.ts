@@ -106,6 +106,7 @@ function namedExitForPath(pathname: string): string {
   if (path === "/music" || path.startsWith("/music/")) return FEED_HOME;
   if (path.startsWith("/hashtag/")) return DISCOVER_HOME;
   if (path.startsWith("/inbox/") || path.startsWith("/chat/") || path === "/alerts") return INBOX_HOME;
+  if (path === "/call" || path.startsWith("/call/")) return INBOX_HOME;
   if (path === "/live" || path.startsWith("/live/") || path.startsWith("/go-live")) return FEED_HOME;
   if (path.startsWith("/create") || path.startsWith("/upload")) return FEED_HOME;
   if (path === "/report") return FEED_HOME;

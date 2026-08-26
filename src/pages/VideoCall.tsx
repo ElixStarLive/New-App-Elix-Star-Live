@@ -217,6 +217,17 @@ export default function VideoCall() {
   }, [holdMediaRoom, callId, localStream, status]); // localStream captured only when canConnectMedia first becomes true
 
   useEffect(() => {
+    const onHardwareBack = (event: Event) => {
+      event.preventDefault();
+      endCallAndReturn();
+    };
+    document.addEventListener("app:back-button", onHardwareBack);
+    return () => {
+      document.removeEventListener("app:back-button", onHardwareBack);
+    };
+  }, [endCallAndReturn]);
+
+  useEffect(() => {
     if (status !== "connected" || !callStartTime) return;
     const interval = window.setInterval(() => {
       setElapsed(Date.now() - callStartTime);

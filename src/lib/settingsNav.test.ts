@@ -34,6 +34,10 @@ describe("PAGE-006 named hardware back", () => {
     expect(namedHardwareBackTarget("/live", { returnTo: "/inbox" })).toBe("/inbox");
   });
 
+  it("returns Video Call to Inbox when no returnTo (PAGE-034 ends via UI/back)", () => {
+    expect(namedHardwareBackTarget("/call")).toBe("/inbox");
+  });
+
   it("returns Hashtag to Discover", () => {
     expect(namedHardwareBackTarget("/hashtag/music")).toBe("/discover");
     expect(namedHardwareBackTarget("/hashtag/music", { returnTo: "/feed" })).toBe("/feed");

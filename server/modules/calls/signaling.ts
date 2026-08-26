@@ -227,6 +227,17 @@ async function acceptCall(userId: string, body: Record<string, unknown>): Promis
           roomName: call.room_name,
         },
       },
+      {
+        userId: call.callee_id,
+        event: "call_accepted",
+        data: {
+          callId: call.id,
+          callerId: call.caller_id,
+          calleeId: call.callee_id,
+          threadId: call.thread_id,
+          roomName: call.room_name,
+        },
+      },
     ],
   };
 }

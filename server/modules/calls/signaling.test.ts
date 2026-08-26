@@ -105,6 +105,7 @@ describe("PAGE-034 call signalling", () => {
     const accepted = await handleCallSignal(calleeId, "call_accepted", { callId });
     expect(accepted.items[0]?.event).toBe("call_accepted");
     expect(accepted.items[0]?.userId).toBe(callerId);
+    expect(accepted.items.some((row) => row.userId === calleeId && row.event === "call_accepted")).toBe(true);
     const ended = await handleCallSignal(callerId, "call_ended", { callId });
     expect(ended.items[0]?.event).toBe("call_ended");
     expect(ended.items[0]?.userId).toBe(calleeId);
