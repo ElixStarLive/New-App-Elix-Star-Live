@@ -23,6 +23,7 @@ describe("PAGE-061 Legal Audio ownership", () => {
   it("has one public /legal/audio owner and the frozen in-app document", () => {
     expect(app.match(/path="\/legal\/audio"/g)?.length).toBe(1);
     expect(app).toMatch(/<Route path="\/legal\/audio" element=\{<LegalAudio \/>\} \/>/);
+    expect(app.indexOf('path="/legal/audio"')).toBeLessThan(app.indexOf("<Route element={<RequireAuth"));
     expect(app).not.toMatch(/path="\/audio-policy"|path="\/legal\/music"|path="\/music-policy"/);
     expect(shell).toMatch(/pathname\.startsWith\("\/legal\/"\)/);
     expect(LEGAL_AUDIO_TITLE).toBe("Audio & Music Disclaimer");
