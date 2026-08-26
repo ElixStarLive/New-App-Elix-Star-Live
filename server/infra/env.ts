@@ -37,7 +37,9 @@ function resolveValkeyUrl(
   // production Valkey from developer .env unless TEST_VALKEY_URL is explicitly set.
   if (parsed.NODE_ENV === "test" && merged.TEST_DATABASE_URL?.trim()) {
     const testValkey = merged.TEST_VALKEY_URL?.trim();
-    return testValkey || null;
+    if (testValkey) return testValkey;
+    const raw = parsed.VALKEY_URL?.trim() || parsed.REDIS_URL?.trim() || "";
+    return raw || null;
   }
   const raw = parsed.VALKEY_URL?.trim() || parsed.REDIS_URL?.trim() || "";
   return raw || null;

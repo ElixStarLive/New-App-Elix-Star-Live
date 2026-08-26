@@ -1,8 +1,9 @@
 /**
  * HTTP integration suite — TEST-ONLY harness.
  *
- * Intentionally mocks/disables Valkey, LiveKit, SMTP, and Bunny credentials
+ * Intentionally mocks/disables LiveKit, SMTP, and Bunny credentials where unset
  * so unit-style API contract tests can run without real third-party services.
+ * VALKEY_URL / REDIS_URL / TEST_VALKEY_URL are preserved when present for real Valkey IT.
  *
  * This file is NOT production/runtime code and MUST NOT be counted as release
  * proof for Valkey, LiveKit, Bunny, SMTP, or full NEW Coolify runtime.
@@ -17,9 +18,13 @@ import os from "node:os";
 import path from "node:path";
 import { applyPendingMigrations, closePool, getPool, withTransaction } from "./infra/postgres.js";
 import { resetEnvCache } from "./infra/env.js";
-import { closeValkey } from "./infra/valkey.js";
+import { closeValkey, valkeyDel } from "./infra/valkey.js";
 import { emailVerifyCallbackUrl, issueEmailVerifyToken } from "./modules/auth/emailVerify.js";
-import { issuePasswordResetToken, passwordResetCallbackUrl } from "./modules/auth/passwordReset.js";
+import {
+  issuePasswordResetToken,
+  passwordResetCallbackUrl,
+  passwordResetRequestKey,
+} from "./modules/auth/passwordReset.js";
 import { bumpAchievement } from "./modules/engagement/achievements.js";
 import {
   grantStickerForUser,
@@ -32,9 +37,7 @@ const TEST_JWT = "integration-test-jwt-secret-key-32chars";
 let httpIntegrationSkipReason = "";
 
 function clearIntegrationSecrets(): void {
-  delete process.env.VALKEY_URL;
-  delete process.env.REDIS_URL;
-  delete process.env.TEST_VALKEY_URL;
+  // Do not strip VALKEY_URL / REDIS_URL / TEST_VALKEY_URL — local IT may use real Valkey.
   delete process.env.STRIPE_SECRET_KEY;
   delete process.env.STRIPE_WEBHOOK_SECRET;
   delete process.env.FIREBASE_SERVICE_ACCOUNT_JSON;
@@ -367,9 +370,12 @@ describe("http integration", () => {
       }),
     );
     expect(login.body.session).toEqual(
-      expect.objectContaining({ access_token: expect.any(String) }),
+      expect.objectContaining({
+        access_token: expect.any(String),
+        accessToken: expect.any(String),
+      }),
     );
-    expect(login.body.session).not.toHaveProperty("accessToken");
+    expect(login.body.session.access_token).toBe(login.body.session.accessToken);
     expect(login.body.profile_meta).toEqual(
       expect.objectContaining({
         is_admin: false,
@@ -429,8 +435,10 @@ describe("http integration", () => {
     });
     expect(mint.status).toBe(404);
 
+    // Canonical store is Valkey (`/api/test-coins/*`). With Valkey present → 200; never Neon wallet.
     const testBalance = await json("/api/test-coins/balance");
-    expect(testBalance.status).toBe(503);
+    expect(testBalance.status).toBe(200);
+    expect(testBalance.body).toEqual(expect.objectContaining({ balance: expect.any(Number) }));
 
     const iap = await json("/api/verify-purchase", {
       method: "POST",
@@ -623,6 +631,9 @@ describe("http integration", () => {
     await getPool().query(`UPDATE users SET banned_until = $2 WHERE id = $1`, [userId, new Date("9999-12-31T00:00:00.000Z")]);
     const bannedMe = await json("/api/auth/me");
     expect(bannedMe.status).toBe(403);
+    // Prior forgot calls in this case already hit PASSWORD_RESET_REQUEST_MAX on Valkey —
+    // clear so the banned-user forgot behaviour is isolated (not rate-limit noise).
+    await valkeyDel(passwordResetRequestKey(`${unique}@example.com`));
     const suspendedForgot = await json("/api/auth/forgot-password", {
       method: "POST",
       body: JSON.stringify({ email: `${unique}@example.com` }),
@@ -826,6 +837,7 @@ describe("http integration", () => {
     const deletedRaw = await issueVerifyJwtForUser(userId);
     await getPool().query(`UPDATE users SET deleted_at = NOW() WHERE id = $1`, [userId]);
     process.env.SMTP_URL = "smtp://127.0.0.1:9";
+    await valkeyDel(passwordResetRequestKey(`${unique}@example.com`));
     const deletedForgot = await json("/api/auth/forgot-password", {
       method: "POST",
       body: JSON.stringify({ email: `${unique}@example.com` }),
@@ -5986,6 +5998,79 @@ describe("http integration", () => {
        ON CONFLICT (user_id, achievement_id) DO UPDATE SET progress = -4`,
       [viewer.id],
     );
+
+    const boostRoomId = `p51-energy-${creator.id}`;
+    await getPool().query(
+      `INSERT INTO live_streams (host_id, room_id, title, status) VALUES ($1, $2, 'p51 energy', 'live')`,
+      [creator.id, boostRoomId],
+    );
+    await getPool().query(
+      `INSERT INTO user_engagement (user_id, battle_energy) VALUES ($1, 10)
+       ON CONFLICT (user_id) DO UPDATE SET battle_energy = 10`,
+      [viewer.id],
+    );
+    expect(
+      (
+        await authJson("/api/engagement/battle-energy/boost", viewer.token, {
+          method: "POST",
+          body: JSON.stringify({ roomId: boostRoomId, side: "host", amount: 99 }),
+        })
+      ).status,
+    ).toBe(400);
+    if (process.env.TEST_VALKEY_URL) {
+      const boost = await authJson("/api/engagement/battle-energy/boost", viewer.token, {
+        method: "POST",
+        body: JSON.stringify({ roomId: boostRoomId, side: "host", amount: 1 }),
+      });
+      expect(boost.status).toBe(200);
+      expect(boost.body).toMatchObject({
+        success: true,
+        energySpent: 1,
+        remainingEnergy: 9,
+        battleFanEnergy: 1,
+      });
+      const afterBoostAch = await authJson("/api/engagement/achievements", viewer.token);
+      expect(
+        (afterBoostAch.body.achievements as Array<Record<string, unknown>>).find((row) => row.id === "energy_master"),
+      ).toMatchObject({ progress: 1, unlocked: false, claimed: false });
+      const ledger = await getPool().query<{ amount_delta: string; reason: string }>(
+        `SELECT amount_delta::text, reason FROM battle_energy_ledger WHERE user_id = $1 ORDER BY created_at DESC LIMIT 1`,
+        [viewer.id],
+      );
+      expect(ledger.rows[0]).toMatchObject({ amount_delta: "-1", reason: "boost_creator" });
+      expect(
+        Number(
+          (
+            await getPool().query<{ battle_energy: string }>(
+              `SELECT battle_energy::text AS battle_energy FROM user_engagement WHERE user_id = $1`,
+              [viewer.id],
+            )
+          ).rows[0]?.battle_energy,
+        ),
+      ).toBe(9);
+    } else {
+      const noValkey = await authJson("/api/engagement/battle-energy/boost", viewer.token, {
+        method: "POST",
+        body: JSON.stringify({ roomId: boostRoomId, side: "host", amount: 1 }),
+      });
+      expect(noValkey.status).toBe(503);
+      expect(
+        Number(
+          (
+            await getPool().query<{ battle_energy: string }>(
+              `SELECT battle_energy::text AS battle_energy FROM user_engagement WHERE user_id = $1`,
+              [viewer.id],
+            )
+          ).rows[0]?.battle_energy,
+        ),
+      ).toBe(10);
+      expect(
+        (
+          await getPool().query(`SELECT 1 FROM battle_energy_ledger WHERE user_id = $1`, [viewer.id])
+        ).rowCount,
+      ).toBe(0);
+    }
+
     const malformed = await authJson("/api/engagement/achievements", viewer.token);
     expect(malformed.status).toBe(503);
 
