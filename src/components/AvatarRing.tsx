@@ -1,4 +1,5 @@
 import { cn } from "@/lib/cn";
+import { realAvatarUrl } from "@/lib/avatarUrl";
 
 export function AvatarRing({
   src,
@@ -14,7 +15,7 @@ export function AvatarRing({
   className?: string;
 }) {
   const ring = ringColor || "#D8D9DD";
-  const photo = typeof src === "string" ? src.trim() : "";
+  const photo = realAvatarUrl(src);
   const safeSize = typeof size === "number" && Number.isFinite(size) && size > 0 ? Math.floor(size) : 40;
   return (
     <span

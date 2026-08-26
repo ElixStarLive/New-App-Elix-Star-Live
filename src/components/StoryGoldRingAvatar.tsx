@@ -1,3 +1,5 @@
+import { realAvatarUrl } from "@/lib/avatarUrl";
+
 const SILVER_RING = "#D8D9DD";
 const LIVE_RING = "#FF2D55";
 
@@ -17,7 +19,7 @@ export function StoryGoldRingAvatar({
   "data-avatar-circle"?: string;
 }) {
   const box = typeof size === "number" && Number.isFinite(size) && size > 0 ? Math.floor(size) : 56;
-  const photo = typeof src === "string" ? src.trim() : "";
+  const photo = realAvatarUrl(src);
   const ring = live ? LIVE_RING : SILVER_RING;
 
   return (

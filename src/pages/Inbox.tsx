@@ -14,11 +14,11 @@ import { inboxMessagePreview, inboxTimeAgo } from "@/features/inbox/inboxPreview
 import { useInboxSession } from "@/features/inbox/useInboxSession";
 import { isRecord } from "@/lib/isRecord";
 import { FEED_HOME, inboxReturnState } from "@/lib/settingsNav";
+import { isGenuineAppUser } from "@/lib/genuineUser";
+import { realAvatarUrl } from "@/lib/avatarUrl";
 import { showToast } from "@/lib/toast";
 import { wsClient } from "@/lib/wsClient";
 import { useAuthStore } from "@/store/useAuthStore";
-
-const DEFAULT_AVATAR = "/royce/default-avatar.svg";
 
 function threadName(row: ChatThread): string {
   return (row.otherDisplayName || row.otherUsername).trim();
@@ -78,7 +78,10 @@ export default function Inbox() {
 
   const liveUserIds = new Set(snap.liveUserIds);
   const followersCount = snap.followers.length;
-  const suggested = snap.circles.filter((row) => !snap.followers.some((fan) => fan.id === row.id));
+  const suggested = snap.circles
+    .filter((row) => !snap.followers.some((fan) => fan.id === row.id))
+    .filter((row) => isGenuineAppUser(row.username, row.id, row.displayName))
+    .filter((row) => Boolean(realAvatarUrl(row.avatarUrl)));
   const unreadThreads = snap.threads.filter((row) => row.unread);
 
   const openUserOrLive = (userId: string, isLive: boolean, roomId?: string | null) => {
@@ -138,7 +141,7 @@ export default function Inbox() {
                 <StoryGoldRingAvatar
                   data-avatar-circle="followers"
                   alt="Followers"
-                  src={snap.followers[0]?.avatarUrl || me?.avatarUrl || DEFAULT_AVATAR}
+                  src={snap.followers[0]?.avatarUrl || me?.avatarUrl || ""}
                 />
                 <div className="text-[11px] text-gold-bright/80 truncate w-full text-center">Followers</div>
                 <div className="text-[10px] text-[#F5F5F7]/90 truncate w-full text-center">{followersCount}</div>
@@ -156,7 +159,7 @@ export default function Inbox() {
                     <StoryGoldRingAvatar
                       live={live}
                       data-avatar-circle={live ? "live" : undefined}
-                      src={user.avatarUrl || DEFAULT_AVATAR}
+                      src={user.avatarUrl || ""}
                       alt={user.displayName || user.username}
                     />
                     <div className="text-[11px] text-gold-bright/80 truncate w-full text-center">
@@ -178,7 +181,7 @@ export default function Inbox() {
                     <StoryGoldRingAvatar
                       live={live}
                       data-avatar-circle={live ? "live" : undefined}
-                      src={fan.avatarUrl || DEFAULT_AVATAR}
+                      src={fan.avatarUrl || ""}
                       alt={fan.displayName || fan.username}
                     />
                     <div className="text-[11px] text-gold-bright/80 truncate w-full text-center">

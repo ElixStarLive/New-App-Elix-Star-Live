@@ -46,7 +46,7 @@ import { useAuthStore } from "@/store/useAuthStore";
 
 type Tab = "trending" | "search" | "hashtags" | "ranking";
 
-const DEFAULT_AVATAR = "/royce/default-avatar.svg";
+const DEFAULT_AVATAR = "";
 
 export default function Discover() {
   const navigate = useNavigate();

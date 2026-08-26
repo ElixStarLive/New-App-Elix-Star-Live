@@ -386,7 +386,7 @@ export default function Shop() {
                   style={{ width: SHOP_LIVE_RING, minWidth: SHOP_LIVE_RING }}
                   title={u.name}
                 >
-                  <StoryGoldRingAvatar size={SHOP_LIVE_RING} live src={u.avatar || "/royce/default-avatar.svg"} alt={u.name} />
+                  <StoryGoldRingAvatar size={SHOP_LIVE_RING} live src={u.avatar || ""} alt={u.name} />
                   <div className="text-[9px] text-white/70 truncate w-full text-center">{u.name}</div>
                 </button>
               ))}

@@ -11,7 +11,7 @@ export const ADMIN_USERS_BAN_FAILURE = "Failed to ban user";
 export const ADMIN_USERS_UNBAN_SUCCESS = "User unbanned";
 export const ADMIN_USERS_UNBAN_FAILURE = "Failed to unban user";
 export const ADMIN_USERS_HOME = "/admin/users";
-export const ADMIN_USERS_DEFAULT_AVATAR = "/royce/default-avatar.svg";
+export const ADMIN_USERS_DEFAULT_AVATAR = "";
 export const ADMIN_USERS_BAN_REASON = "Banned by admin";
 
 export function formatAdminJoinedDate(value: string): string {

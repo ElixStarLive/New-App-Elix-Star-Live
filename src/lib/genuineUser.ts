@@ -1,3 +1,5 @@
+import { realAvatarUrl } from "@/lib/avatarUrl";
+
 /**
  * Story / suggestion circles — only real production accounts.
  * Written for NEW against OLD allowlist behaviour (not a paste of OLD source).
@@ -50,15 +52,5 @@ export function isGenuineAppUser(username: string, userId = "", displayName = ""
   return false;
 }
 
-/** Prefer a real photo URL; never the yellow default silhouette. */
-export function storyCirclePhotoUrl(
-  ...candidates: Array<string | null | undefined>
-): string {
-  for (const raw of candidates) {
-    const url = typeof raw === "string" ? raw.trim() : "";
-    if (!url) continue;
-    if (url.includes("default-avatar")) continue;
-    return url;
-  }
-  return "";
-}
+/** @deprecated Prefer realAvatarUrl — kept as the story-circle alias. */
+export const storyCirclePhotoUrl = realAvatarUrl;
