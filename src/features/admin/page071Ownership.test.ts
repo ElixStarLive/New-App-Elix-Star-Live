@@ -12,6 +12,7 @@ const app = readFileSync(resolve(process.cwd(), "src/App.tsx"), "utf8");
 const dashboard = readFileSync(resolve(process.cwd(), "src/content/adminDashboard.ts"), "utf8");
 const reports = readFileSync(resolve(process.cwd(), "src/pages/admin/Reports.tsx"), "utf8");
 const ws = readFileSync(resolve(process.cwd(), "src/lib/wsClient.ts"), "utf8");
+const wsServer = readFileSync(resolve(process.cwd(), "server/websocket/index.ts"), "utf8");
 const auth = readFileSync(resolve(process.cwd(), "server/middleware/auth.ts"), "utf8");
 
 describe("PAGE-071 Admin Users ownership", () => {
@@ -41,14 +42,21 @@ describe("PAGE-071 Admin Users ownership", () => {
     expect(users).toMatch(/banned_until/);
     expect(users).toMatch(/disconnectUserSessions/);
     expect(users).not.toMatch(/new Map\(|profiles SET banned[^_]/);
+    expect(wsServer).toMatch(/closeSockets: true/);
+    expect(wsServer).toMatch(/force_disconnect/);
+    expect(wsServer).toMatch(/USER_EVENT_CHANNEL|user:events/);
     expect(extra).toMatch(/handleAdminUsers/);
     expect(extra).toMatch(/handleAdminBan/);
     expect(extra).toMatch(/handleAdminUnban/);
     expect(extra).toMatch(/\.delete\("\/users\/:userId\/ban"/);
+    expect(extra).toMatch(/requireAdmin/);
     expect(auth).toMatch(/SELECT is_admin FROM users/);
     expect(dashboard).toMatch(/path: "\/admin\/users"/);
+    expect(app.indexOf("<Route element={<RequireAdmin")).toBeGreaterThan(app.indexOf("<Route element={<RequireAuth"));
     expect(ws).toMatch(/class WsClient/);
     expect(page).not.toMatch(/new WebSocket|reconnectOnForeground/);
+    expect(page).not.toMatch(/Force Disconnect|forceDisconnect/);
+    expect(content).toMatch(/adminUsersDefaultAvatar/);
   });
 
   it("does not implement later admin child pages", () => {

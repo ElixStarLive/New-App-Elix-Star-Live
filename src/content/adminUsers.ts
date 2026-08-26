@@ -11,8 +11,11 @@ export const ADMIN_USERS_BAN_FAILURE = "Failed to ban user";
 export const ADMIN_USERS_UNBAN_SUCCESS = "User unbanned";
 export const ADMIN_USERS_UNBAN_FAILURE = "Failed to unban user";
 export const ADMIN_USERS_HOME = "/admin/users";
-export const ADMIN_USERS_DEFAULT_AVATAR = "";
 export const ADMIN_USERS_BAN_REASON = "Banned by admin";
+
+export function adminUsersDefaultAvatar(username: string): string {
+  return `https://ui-avatars.com/api/?name=${encodeURIComponent(username || "user")}`;
+}
 
 export function formatAdminJoinedDate(value: string): string {
   if (!value) return "N/A";

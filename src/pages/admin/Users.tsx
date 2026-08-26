@@ -6,7 +6,6 @@ import {
   ADMIN_USERS_BAN_FAILURE,
   ADMIN_USERS_BAN_REASON,
   ADMIN_USERS_BAN_SUCCESS,
-  ADMIN_USERS_DEFAULT_AVATAR,
   ADMIN_USERS_ERROR,
   ADMIN_USERS_HOME,
   ADMIN_USERS_LOADING,
@@ -15,6 +14,7 @@ import {
   ADMIN_USERS_UNBAN_CONFIRM,
   ADMIN_USERS_UNBAN_FAILURE,
   ADMIN_USERS_UNBAN_SUCCESS,
+  adminUsersDefaultAvatar,
   formatAdminJoinedDate,
 } from "@/content/adminUsers";
 import {
@@ -194,7 +194,7 @@ export default function AdminUsers() {
                         <div className="flex items-center gap-3 min-w-0">
                           <div className="w-10 h-10 rounded-full overflow-hidden shrink-0">
                             <img
-                              src={user.avatarUrl || ADMIN_USERS_DEFAULT_AVATAR}
+                              src={user.avatarUrl || adminUsersDefaultAvatar(user.username)}
                               alt={user.username}
                               className="w-full h-full object-cover object-center"
                             />

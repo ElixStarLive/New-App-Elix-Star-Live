@@ -70,7 +70,8 @@ export async function sendToUserGlobal(userId: string, event: string, data: unkn
   );
 }
 
-export function disconnectUserSessions(userId: string, reason = "Password changed"): number {
+/** Close every live socket for a user on this instance (ban / password / session revoke). */
+function forceCloseLocalUserSockets(userId: string, reason: string): number {
   let closed = 0;
   for (const client of [...localSockets.values()]) {
     if (client.userId !== userId) continue;
@@ -78,6 +79,31 @@ export function disconnectUserSessions(userId: string, reason = "Password change
     client.ws.close(4001, reason);
     closed += 1;
   }
+  return closed;
+}
+
+/**
+ * Close every live socket for a user on this and other instances.
+ * Authority is Neon session revoke; Valkey coordinates cross-instance closes (no process-memory fallback).
+ */
+export function disconnectUserSessions(userId: string, reason = "Password changed"): number {
+  if (!userId) return 0;
+  const closed = forceCloseLocalUserSockets(userId, reason);
+  if (!env().valkeyUrl) return closed;
+  void valkeyPub()
+    .publish(
+      USER_EVENT_CHANNEL,
+      JSON.stringify({
+        sourceInstance: INSTANCE_ID,
+        userId,
+        event: "force_disconnect",
+        data: { reason },
+        closeSockets: true,
+      }),
+    )
+    .catch((error) => {
+      logger.warn({ err: error, userId }, "force_disconnect valkey publish failed");
+    });
   return closed;
 }
 
@@ -140,9 +166,18 @@ export function attachWebSocket(server: Server): void {
           userId?: string;
           event?: string;
           data?: unknown;
+          closeSockets?: boolean;
         };
         if (parsed.sourceInstance === INSTANCE_ID) return;
         if (typeof parsed.userId !== "string" || typeof parsed.event !== "string") return;
+        if (parsed.event === "force_disconnect" && parsed.closeSockets === true) {
+          const reason =
+            parsed.data && typeof parsed.data === "object" && "reason" in parsed.data
+              ? String((parsed.data as { reason?: unknown }).reason ?? "Disconnected")
+              : "Disconnected";
+          forceCloseLocalUserSockets(parsed.userId, reason);
+          return;
+        }
         sendToUserLocal(parsed.userId, parsed.event, parsed.data);
       } catch (error) {
         logger.warn({ err: error }, "user event fanout parse failed");

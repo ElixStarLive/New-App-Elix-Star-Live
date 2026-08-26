@@ -144,8 +144,8 @@ async function requireTargetUser(userId: string): Promise<void> {
 async function notifyBannedSessions(userId: string): Promise<void> {
   try {
     const realtime = await import("../../websocket/index.js");
+    // Ban → session revoke in Neon; PAGE-006 owner closes local + Valkey-fanout remote sockets.
     realtime.disconnectUserSessions(userId, "Banned");
-    await realtime.sendToUserGlobal(userId, "force_disconnect", { reason: "Banned" });
   } catch (error) {
     logger.warn({ err: error, userId }, "admin ban realtime notify failed");
   }
