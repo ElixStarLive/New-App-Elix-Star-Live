@@ -16,6 +16,19 @@ const api = vi.hoisted(() => ({
   apiBlockUser: vi.fn(),
   isProfileUserId: (value: string) =>
     /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(value),
+  isOwnPublicRouteKey: (routeKey: string, me: { id: string; username?: string | null } | null | undefined) => {
+    if (!me?.id || !routeKey.trim()) return false;
+    const key = routeKey.trim().replace(/^@+/, "");
+    if (me.id === key) return true;
+    const username = String(me.username ?? "")
+      .trim()
+      .replace(/^@+/, "");
+    return Boolean(username) && username.toLowerCase() === key.toLowerCase();
+  },
+  publicProfileEmailLine: (username: string) => {
+    const handle = username.replace(/^@+/, "").trim();
+    return handle ? `${handle}@` : "";
+  },
 }));
 
 const chat = vi.hoisted(() => ({
@@ -25,6 +38,17 @@ const chat = vi.hoisted(() => ({
 vi.mock("@/lib/toast", () => ({ showToast: vi.fn() }));
 vi.mock("@/features/profile/publicProfileApi", () => api);
 vi.mock("@/features/chat/chatApi", () => chat);
+vi.mock("@/lib/videoCollectionEvents", () => ({
+  subscribeVideoCollection: () => () => undefined,
+}));
+vi.mock("@/lib/wsClient", () => ({
+  wsClient: { on: vi.fn(), off: vi.fn() },
+}));
+vi.mock("@/features/feed/livePresence", () => ({
+  parseLiveStartedCard: () => null,
+  liveEndedKeys: () => [],
+}));
+
 vi.mock("@/store/useAuthStore", () => ({
   useAuthStore: (selector?: (state: { user: { id: string; username: string } }) => unknown) => {
     const state = { user: { id: "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa", username: "viewer" } };
@@ -141,6 +165,17 @@ afterEach(() => {
 describe("PAGE-025 public profile page", () => {
   it("redirects the session user's public route to own profile", async () => {
     const view = renderPublic("/profile/aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa");
+    root = view.root;
+    container = view.container;
+    await act(async () => {
+      await Promise.resolve();
+    });
+    expect(container.textContent).toContain("LOC /profile");
+    expect(api.apiFetchPublicProfile).not.toHaveBeenCalled();
+  });
+
+  it("redirects own username route to PAGE-024 without loading public controls", async () => {
+    const view = renderPublic("/profile/viewer");
     root = view.root;
     container = view.container;
     await act(async () => {

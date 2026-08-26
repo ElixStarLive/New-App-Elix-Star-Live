@@ -202,4 +202,34 @@ describe("PAGE-025 public profile session", () => {
     expect(res).toEqual({ ok: false, error: "Log in to follow" });
     expect(api.apiFollowPublicUser).not.toHaveBeenCalled();
   });
+
+  it("updates live ring from shared stream presence without inventing host state", async () => {
+    api.apiFetchPublicProfile.mockResolvedValue({ profile: target, error: null });
+    const session = createPublicProfileSession();
+    await session.load(target.id, viewerId);
+    expect(session.getSnapshot().profile?.isLive).toBe(false);
+    session.applyLivePresence({ hostId: target.id, live: true });
+    expect(session.getSnapshot().profile?.isLive).toBe(true);
+    session.applyLivePresence({ hostId: "cccccccc-cccc-4ccc-8ccc-cccccccccccc", live: true });
+    expect(session.getSnapshot().profile?.isLive).toBe(true);
+    session.applyLivePresence({ hostId: target.id, live: false });
+    expect(session.getSnapshot().profile?.isLive).toBe(false);
+  });
+
+  it("removes an unsaved video from the viewer saved tab", async () => {
+    api.apiFetchPublicProfile.mockResolvedValue({ profile: target, error: null });
+    api.apiFetchPublicTabPage.mockImplementation((tab: string) => {
+      if (tab === "saved") return Promise.resolve({ page: page(["s1", "s2"]), error: null });
+      return Promise.resolve({ page: page(["v1"]), error: null });
+    });
+    const session = createPublicProfileSession();
+    await session.load(target.id, viewerId);
+    session.setTab("saved");
+    for (let i = 0; i < 40 && session.getSnapshot().items.map((x) => x.id).join(",") !== "s1,s2"; i += 1) {
+      await Promise.resolve();
+    }
+    expect(session.getSnapshot().items.map((i) => i.id)).toEqual(["s1", "s2"]);
+    session.applyCollectionEvent({ type: "saved", videoId: "s1", saved: false });
+    expect(session.getSnapshot().items.map((i) => i.id)).toEqual(["s2"]);
+  });
 });

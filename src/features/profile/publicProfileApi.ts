@@ -4,10 +4,10 @@ import { decodeUserPublicFromPayload } from "@/lib/decodeUserPublic";
 import { apiRequest } from "@/lib/apiClient";
 import { isRecord } from "@/lib/isRecord";
 import {
+  apiFetchLikedFeed,
   apiFetchReposts,
+  apiFetchSavedFeed,
   apiFetchStories,
-  apiFetchUserLikedFeed,
-  apiFetchUserSavedFeed,
   apiFetchUserVideos,
   apiFollow,
   apiUnfollow,
@@ -21,6 +21,25 @@ export const PROFILE_USER_ID_RE =
 
 export function isProfileUserId(value: string): boolean {
   return PROFILE_USER_ID_RE.test(value);
+}
+
+/** Own-username route should redirect to PAGE-024 without a public Follow flash. */
+export function isOwnPublicRouteKey(
+  routeKey: string,
+  me: { id: string; username?: string | null } | null | undefined,
+): boolean {
+  if (!me?.id || !routeKey.trim()) return false;
+  const key = routeKey.trim().replace(/^@+/, "");
+  if (me.id === key) return true;
+  const username = String(me.username ?? "")
+    .trim()
+    .replace(/^@+/, "");
+  return Boolean(username) && username.toLowerCase() === key.toLowerCase();
+}
+
+export function publicProfileEmailLine(username: string): string {
+  const handle = username.replace(/^@+/, "").trim();
+  return handle ? `${handle}@` : "";
 }
 
 function parseProfile(data: unknown): UserPublic | null {
@@ -96,8 +115,9 @@ export async function apiFetchPublicTabPage(
   cursor?: string | null,
 ): Promise<{ page: FeedVideoPage | null; error: string | null }> {
   if (tab === "videos") return apiFetchUserVideos(userId, "public", cursor);
-  if (tab === "saved") return apiFetchUserSavedFeed(userId, cursor);
-  if (tab === "liked") return apiFetchUserLikedFeed(userId, cursor);
+  // OLD public profile Saved/Liked tabs show the *viewer* collections (same APIs as PAGE-015 / PAGE-024).
+  if (tab === "saved") return apiFetchSavedFeed(cursor);
+  if (tab === "liked") return apiFetchLikedFeed(cursor);
   return apiFetchReposts(userId, cursor);
 }
 

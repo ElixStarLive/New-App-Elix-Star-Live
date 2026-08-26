@@ -36,8 +36,19 @@ describe("PAGE-025 public-profile ownership", () => {
     expect(api).toMatch(/apiFollow\(/);
     expect(api).toMatch(/apiUnfollow\(/);
     expect(page).toMatch(/\/watch\/\$\{profile\.id\}/);
-    expect(page).not.toMatch(/streamId \|\|/);
-    expect(page).not.toMatch(/hostId/);
+    expect(page).not.toMatch(/\/watch\/\$\{[^}]*hostId/);
     expect(page).toMatch(/profile\.level/);
+  });
+
+  it("uses viewer saved/liked feeds and PAGE-006 stream presence", () => {
+    expect(api).toMatch(/apiFetchSavedFeed/);
+    expect(api).toMatch(/apiFetchLikedFeed/);
+    expect(api).not.toMatch(/apiFetchUserSavedFeed/);
+    expect(api).not.toMatch(/apiFetchUserLikedFeed/);
+    expect(page).toMatch(/subscribeVideoCollection/);
+    expect(page).toMatch(/stream_started/);
+    expect(page).toMatch(/stream_ended/);
+    expect(page).toMatch(/isOwnPublicRouteKey/);
+    expect(session).toMatch(/applyLivePresence/);
   });
 });

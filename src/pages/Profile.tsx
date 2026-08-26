@@ -19,15 +19,22 @@ import { RoyceCloseIcon } from "@/components/royce";
 import { StoryGoldRingAvatar } from "@/components/StoryGoldRingAvatar";
 import { apiEnsureDmThread } from "@/features/chat/chatApi";
 import { createPublicProfileSession } from "@/features/profile/publicProfileSession";
-import { type PublicProfileTab } from "@/features/profile/publicProfileApi";
+import {
+  isOwnPublicRouteKey,
+  publicProfileEmailLine,
+  type PublicProfileTab,
+} from "@/features/profile/publicProfileApi";
 import { usePublicProfileSession } from "@/features/profile/usePublicProfileSession";
 import { PROFILE_PAGE_AVATAR_PX } from "@/lib/profileFrame";
 import { containerReturnState, FEED_HOME, namedExitForLocation } from "@/lib/settingsNav";
 import { watchSessionPathFromOverlay } from "@/lib/liveProfileNav";
 import { formatCompactNumber } from "@/lib/formatCompactNumber";
 import { getPublicWebOrigin } from "@/lib/api";
+import { liveEndedKeys, parseLiveStartedCard } from "@/features/feed/livePresence";
 import { nativeShareUrl, openExternalLink } from "@/lib/platform";
 import { showToast } from "@/lib/toast";
+import { subscribeVideoCollection } from "@/lib/videoCollectionEvents";
+import { wsClient } from "@/lib/wsClient";
 import { useAuthStore } from "@/store/useAuthStore";
 
 const TABS: { id: PublicProfileTab; label: string; icon: ReactNode }[] = [
@@ -61,7 +68,7 @@ export default function Profile() {
   const me = useAuthStore((s) => s.user);
   const targetKey = (userId || "").trim();
   const isLiveProfileOverlay = /^\/watch\/[^/]+\/profile\//.test(location.pathname);
-  const isSelf = Boolean(me?.id && targetKey && me.id === targetKey);
+  const isSelf = isOwnPublicRouteKey(targetKey, me);
   const sessionRef = useRef(createPublicProfileSession());
   const session = sessionRef.current;
   const snap = usePublicProfileSession(session);
@@ -78,6 +85,37 @@ export default function Profile() {
       session.dispose();
     };
   }, [session, targetKey, me?.id, tabQuery, isSelf, isLiveProfileOverlay]);
+
+  useEffect(() => {
+    return subscribeVideoCollection((ev) => {
+      sessionRef.current.applyCollectionEvent(ev);
+    });
+  }, []);
+
+  useEffect(() => {
+    const onStarted = (data: unknown) => {
+      const card = parseLiveStartedCard(data, Date.now());
+      if (!card) return;
+      sessionRef.current.applyLivePresence({ hostId: card.hostId, live: true });
+    };
+    const onEnded = (data: unknown) => {
+      const keys = liveEndedKeys(data);
+      const hostFromPayload =
+        typeof data === "object" && data && "hostId" in data && typeof (data as { hostId?: unknown }).hostId === "string"
+          ? (data as { hostId: string }).hostId.trim()
+          : "";
+      // roomId is the canonical watch identity (host UUID); prefer explicit hostId when present.
+      const endedHost = hostFromPayload || keys[0] || "";
+      if (!endedHost) return;
+      sessionRef.current.applyLivePresence({ hostId: endedHost, live: false });
+    };
+    wsClient.on("stream_started", onStarted);
+    wsClient.on("stream_ended", onEnded);
+    return () => {
+      wsClient.off("stream_started", onStarted);
+      wsClient.off("stream_ended", onEnded);
+    };
+  }, []);
 
   if (isSelf && !isLiveProfileOverlay) {
     return <Navigate to="/profile" replace />;
@@ -108,6 +146,7 @@ export default function Profile() {
   const liveActive = Boolean(profile?.isLive);
   const hasStory = snap.stories.length > 0;
   const story = storyIndex != null ? snap.stories[storyIndex] : null;
+  const emailLine = profile ? publicProfileEmailLine(profile.username) : "";
 
   return (
     <div className="page-above-bottom-nav elix-page-glass text-white z-[1]">
@@ -172,6 +211,7 @@ export default function Profile() {
                   </button>
                 </div>
                 <div className="mt-1 flex items-center gap-2">
+                  {emailLine ? <span className="text-[13px] text-[#C8CDD5] font-medium">{emailLine}</span> : null}
                   <LevelBadge level={profile.level ?? 1} hideCircle />
                 </div>
               </div>
