@@ -184,4 +184,37 @@ describe("PAGE-013 Hashtag", () => {
     });
     expect(container.textContent).toContain("DISCOVER PAGE");
   });
+
+  it("clears grid on account switch while keeping the same tag request", async () => {
+    const auth = await import("@/store/useAuthStore");
+    auth.useAuthStore.setState({
+      user: { id: "viewer-a", username: "a", email: "a@example.com" } as never,
+      session: null,
+      loading: false,
+    });
+    const mounted = renderHashtag("/hashtag/music");
+    root = mounted.root;
+    container = mounted.container;
+    await flush();
+    expect(container.textContent).toContain("12 views");
+    feedApi.apiFetchHashtag.mockClear();
+    feedApi.apiFetchHashtag.mockResolvedValue({
+      tag: "music",
+      useCount: 1,
+      videos: [{ id: "vid-b", thumbnailUrl: null, viewCount: 4 }],
+      error: null,
+    });
+    await act(async () => {
+      auth.useAuthStore.setState({
+        user: { id: "viewer-b", username: "b", email: "b@example.com" } as never,
+        session: null,
+        loading: false,
+      });
+      await Promise.resolve();
+      await Promise.resolve();
+    });
+    expect(feedApi.apiFetchHashtag).toHaveBeenCalledWith("music");
+    expect(container.textContent).toContain("4 views");
+    expect(container.textContent).not.toContain("12 views");
+  });
 });

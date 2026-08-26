@@ -7,10 +7,16 @@ import { formatCompactNumber } from "@/lib/formatCompactNumber";
 import { DISCOVER_HOME, containerReturnState, exitToFromLocationState } from "@/lib/settingsNav";
 import { showToast } from "@/lib/toast";
 import { normalizeHashtag } from "@shared/hashtag";
+import { useAuthStore } from "@/store/useAuthStore";
+
+const EMPTY_THUMB =
+  "https://ui-avatars.com/api/?name=Video&background=1C1E24&color=FFFFFF&size=200";
 
 export default function Hashtag() {
   const navigate = useNavigate();
   const location = useLocation();
+  const viewerId = useAuthStore((s) => s.user?.id ?? null);
+  const viewerRef = useRef<string | null>(viewerId);
   const { tag: rawTag } = useParams<{ tag: string }>();
   const tag = normalizeHashtag(rawTag || "");
   const loadSeq = useRef(0);
@@ -28,6 +34,16 @@ export default function Hashtag() {
     (videoId: string) => navigate(`/video/${videoId}`, { state: containerReturnState(hashtagPath) }),
     [navigate, hashtagPath],
   );
+
+  useEffect(() => {
+    const switched = viewerRef.current !== viewerId;
+    if (!switched) return;
+    viewerRef.current = viewerId;
+    loadSeq.current += 1;
+    setVideos([]);
+    setUseCount(null);
+    setLoading(Boolean(tag));
+  }, [viewerId, tag]);
 
   useEffect(() => {
     if (!tag) {
@@ -51,11 +67,11 @@ export default function Hashtag() {
     return () => {
       loadSeq.current += 1;
     };
-  }, [tag]);
+  }, [tag, viewerId]);
 
   return (
     <div className="h-full min-h-0 w-full bg-transparent text-white flex justify-center px-2">
-      <div className="w-full max-w-[480px] h-full min-h-0 flex flex-col overflow-hidden elix-page-glass bg-transparent">
+      <div className="w-full max-w-[480px] h-full min-h-0 flex flex-col overflow-hidden bg-transparent">
         <div className="sticky top-0 z-10 px-4 py-6 bg-transparent">
           <div className="flex items-center gap-3 mb-4">
             <button type="button" onClick={goBack} className="p-1 hover:brightness-125 transition" title="Back to For You">
@@ -75,7 +91,7 @@ export default function Hashtag() {
           </div>
         </div>
 
-        <div className="px-4 py-4 flex-1 min-h-0 overflow-y-auto">
+        <div className="px-4 py-4">
           {loading ? (
             <div className="text-center py-12 text-white/40">Loading...</div>
           ) : (
@@ -87,11 +103,11 @@ export default function Hashtag() {
                   onClick={() => openVideo(video.id)}
                   className="relative aspect-[9/16] bg-transparent rounded overflow-hidden text-left"
                 >
-                  {video.thumbnailUrl ? (
-                    <img src={video.thumbnailUrl} alt="Video" className="w-full h-full object-cover" />
-                  ) : (
-                    <div className="w-full h-full bg-white/5" />
-                  )}
+                  <img
+                    src={video.thumbnailUrl || EMPTY_THUMB}
+                    alt="Video"
+                    className="w-full h-full object-cover"
+                  />
                   <div className="absolute bottom-2 left-2 text-white text-xs font-semibold">
                     {formatCompactNumber(video.viewCount)} views
                   </div>
