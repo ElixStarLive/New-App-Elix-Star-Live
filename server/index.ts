@@ -55,6 +55,7 @@ import {
 } from "./modules/webhooks/handlers.js";
 import { attachWebSocket } from "./websocket/index.js";
 import { startBackgroundJobs } from "./infra/jobs.js";
+import { isAllowedOrigin } from "./http/cors.js";
 
 function authedMultipart(
   handler: (req: AuthedRequest, res: express.Response) => Promise<void>,
@@ -65,13 +66,19 @@ function authedMultipart(
         next(err);
         return;
       }
-      requireAuth(req, res, (authErr?: unknown) => {
-        if (authErr) {
-          next(authErr);
+      void rateLimit(req, res, (rateErr?: unknown) => {
+        if (rateErr) {
+          next(rateErr);
           return;
         }
-        void handler(req as AuthedRequest, res).catch(next);
-      });
+        requireAuth(req, res, (authErr?: unknown) => {
+          if (authErr) {
+            next(authErr);
+            return;
+          }
+          void handler(req as AuthedRequest, res).catch(next);
+        });
+      }).catch(next);
     });
   };
 }
@@ -83,7 +90,15 @@ export async function createApp() {
   app.use(helmet({ contentSecurityPolicy: false }));
   app.use(
     cors({
-      origin: env().CLIENT_URL || true,
+      origin: (origin, cb) =>
+        cb(
+          null,
+          !origin ||
+            isAllowedOrigin(origin, {
+              clientUrl: env().CLIENT_URL,
+              isProduction: env().isProduction,
+            }),
+        ),
       credentials: true,
     }),
   );

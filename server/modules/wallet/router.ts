@@ -1,4 +1,4 @@
-import { createHash, randomUUID } from "node:crypto";
+import { randomUUID } from "node:crypto";
 import { Router } from "express";
 import { getPool, withTransaction } from "../../infra/postgres.js";
 import { requireAuth, type AuthedRequest } from "../../middleware/auth.js";
@@ -7,14 +7,9 @@ import { withdrawalBodySchema } from "../../../shared/contracts/money.js";
 import { applyWalletDelta, balancesFromRow, type WalletRow } from "./ledger.js";
 import { creditVerifiedIap } from "../iap/credit.js";
 import { env } from "../../infra/env.js";
+import { secretsMatch } from "../../infra/tokens.js";
 
 const router = Router();
-
-function secretsMatch(provided: string, expected: string): boolean {
-  const left = createHash("sha256").update(provided).digest();
-  const right = createHash("sha256").update(expected).digest();
-  return left.equals(right);
-}
 
 router.get("/", requireAuth, async (req: AuthedRequest, res) => {
   const { rows } = await getPool().query<WalletRow>(

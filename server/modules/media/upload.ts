@@ -1,4 +1,3 @@
-import path from "node:path";
 import { randomUUID } from "node:crypto";
 import type { Response } from "express";
 import { getPool } from "../../infra/postgres.js";
@@ -8,13 +7,43 @@ import { extractHashtags } from "../../lib/hashtags.js";
 import { AppError } from "../../middleware/errors.js";
 import type { AuthedRequest } from "../../middleware/auth.js";
 
+const UPLOAD_EXTENSIONS: Record<string, string> = {
+  "image/jpeg": ".jpg",
+  "image/png": ".png",
+  "image/webp": ".webp",
+  "image/heic": ".heic",
+  "image/heif": ".heif",
+  "image/gif": ".gif",
+  "video/mp4": ".mp4",
+  "video/quicktime": ".mov",
+  "video/webm": ".webm",
+};
+
+export type UploadKind = "avatar" | "story" | "video";
+
+export function assertUploadType(
+  rawContentType: string,
+  kind: UploadKind,
+): { contentType: string; extension: string } {
+  const contentType = rawContentType.split(";", 1)[0].trim().toLowerCase();
+  const isImage = contentType.startsWith("image/");
+  const isVideo = contentType.startsWith("video/");
+  const allowed = kind === "avatar" ? isImage : kind === "video" ? isVideo : isImage || isVideo;
+  const extension = allowed ? UPLOAD_EXTENSIONS[contentType] : undefined;
+  if (!extension) {
+    throw new AppError("unsupported_media_type", "Unsupported file type", 415);
+  }
+  return { contentType, extension };
+}
+
 export async function handleVideoUpload(req: AuthedRequest, res: Response): Promise<void> {
   const contentType = req.headers["content-type"] ?? "";
   const buffer = await readRequestBuffer(req);
   const parsed = parseMultipart(buffer, contentType);
   if (!parsed.file) throw new AppError("validation_error", "File required", 400);
-  const storagePath = `videos/${req.userId}/${randomUUID()}${path.extname(parsed.file.filename) || ".bin"}`;
-  const url = await bunnyUpload(storagePath, parsed.file.buffer, parsed.file.contentType);
+  const uploadType = assertUploadType(parsed.file.contentType, "video");
+  const storagePath = `videos/${req.userId}/${randomUUID()}${uploadType.extension}`;
+  const url = await bunnyUpload(storagePath, parsed.file.buffer, uploadType.contentType);
   const caption = parsed.fields.caption ?? "";
   const privacy = parsed.fields.privacy === "private" ? "private" : "public";
   const soundId = parsed.fields.soundId?.trim() || null;
@@ -31,22 +60,24 @@ export async function handleVideoUpload(req: AuthedRequest, res: Response): Prom
 
 export async function handleAvatarUpload(req: AuthedRequest, res: Response): Promise<void> {
   const contentType = req.headers["content-type"] ?? "";
-  const buffer = await readRequestBuffer(req);
+  const buffer = await readRequestBuffer(req, 10 * 1024 * 1024);
   const parsed = parseMultipart(buffer, contentType);
   if (!parsed.file) throw new AppError("validation_error", "File required", 400);
-  const storagePath = `avatars/${req.userId}/${randomUUID()}${path.extname(parsed.file.filename) || ".jpg"}`;
-  const url = await bunnyUpload(storagePath, parsed.file.buffer, parsed.file.contentType);
+  const uploadType = assertUploadType(parsed.file.contentType, "avatar");
+  const storagePath = `avatars/${req.userId}/${randomUUID()}${uploadType.extension}`;
+  const url = await bunnyUpload(storagePath, parsed.file.buffer, uploadType.contentType);
   await getPool().query(`UPDATE users SET avatar_url = $2, updated_at = NOW() WHERE id = $1`, [req.userId, url]);
   res.json({ avatarUrl: url });
 }
 
 export async function handleStoryUpload(req: AuthedRequest, res: Response): Promise<void> {
   const contentType = req.headers["content-type"] ?? "";
-  const buffer = await readRequestBuffer(req);
+  const buffer = await readRequestBuffer(req, 40 * 1024 * 1024);
   const parsed = parseMultipart(buffer, contentType);
   if (!parsed.file) throw new AppError("validation_error", "File required", 400);
-  const storagePath = `stories/${req.userId}/${randomUUID()}${path.extname(parsed.file.filename) || ".bin"}`;
-  const url = await bunnyUpload(storagePath, parsed.file.buffer, parsed.file.contentType);
+  const uploadType = assertUploadType(parsed.file.contentType, "story");
+  const storagePath = `stories/${req.userId}/${randomUUID()}${uploadType.extension}`;
+  const url = await bunnyUpload(storagePath, parsed.file.buffer, uploadType.contentType);
   const inserted = await getPool().query<{ id: string }>(
     `INSERT INTO stories (user_id, media_url, thumbnail, media_type, expires_at)
      VALUES ($1, $2, $3, $4, NOW() + INTERVAL '24 hours')
@@ -55,7 +86,7 @@ export async function handleStoryUpload(req: AuthedRequest, res: Response): Prom
       req.userId,
       url,
       parsed.fields.thumbnail || url,
-      parsed.file.contentType.startsWith("image/") ? "image" : "video",
+      uploadType.contentType.startsWith("image/") ? "image" : "video",
     ],
   );
   res.status(201).json({ id: inserted.rows[0].id, mediaUrl: url });

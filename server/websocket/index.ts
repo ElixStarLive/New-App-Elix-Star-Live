@@ -109,13 +109,24 @@ async function handleConnection(ws: WebSocket, req: IncomingMessage): Promise<vo
     ws.close(1008, "unauthorized");
     return;
   }
-  const { rows } = await getPool().query<{ revoked_at: Date | null; banned_until: Date | null }>(
-    `SELECT s.revoked_at, u.banned_until
+  const { rows } = await getPool().query<{
+    revoked_at: Date | null;
+    expires_at: Date;
+    banned_until: Date | null;
+    deleted_at: Date | null;
+  }>(
+    `SELECT s.revoked_at, s.expires_at, u.banned_until, u.deleted_at
      FROM auth_sessions s JOIN users u ON u.id = s.user_id
      WHERE s.id = $1 AND s.user_id = $2`,
     [claims.sessionId, claims.userId],
   );
-  if (!rows[0] || rows[0].revoked_at || (rows[0].banned_until && rows[0].banned_until > new Date())) {
+  if (
+    !rows[0] ||
+    rows[0].revoked_at ||
+    rows[0].expires_at < new Date() ||
+    rows[0].deleted_at ||
+    (rows[0].banned_until && rows[0].banned_until > new Date())
+  ) {
     ws.close(1008, "unauthorized");
     return;
   }

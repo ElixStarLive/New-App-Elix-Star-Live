@@ -43,7 +43,9 @@ export function getPool(): pg.Pool {
     pool = new pg.Pool({
       connectionString: url,
       max: env().isProduction ? 20 : 5,
-      ssl: needsSsl ? { rejectUnauthorized: process.env.PG_SSL_REJECT_UNAUTHORIZED !== "false" } : undefined,
+      ssl: needsSsl
+        ? { rejectUnauthorized: env().isProduction ? true : process.env.PG_SSL_REJECT_UNAUTHORIZED !== "false" }
+        : undefined,
     });
   }
   return pool;
@@ -70,7 +72,9 @@ export async function applyPendingMigrations(databaseUrl = env().DATABASE_URL): 
   const migratePool = new pg.Pool({
     connectionString: url,
     max: 1,
-    ssl: needsSsl ? { rejectUnauthorized: process.env.PG_SSL_REJECT_UNAUTHORIZED !== "false" } : undefined,
+    ssl: needsSsl
+      ? { rejectUnauthorized: env().isProduction ? true : process.env.PG_SSL_REJECT_UNAUTHORIZED !== "false" }
+      : undefined,
   });
   const applied: string[] = [];
   const client = await migratePool.connect();

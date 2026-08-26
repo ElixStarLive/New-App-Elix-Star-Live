@@ -313,6 +313,14 @@ router.post("/login", async (req: Request, res: Response) => {
       403,
     );
   }
+  try {
+    await assertTotpIfEnabled(user.id, body.totpCode);
+  } catch (error) {
+    if (error instanceof AppError && error.code === "invalid_credentials") {
+      await recordLoginFailure(identifier);
+    }
+    throw error;
+  }
   const session = await issueSession(user);
   await clearLoginFailure(identifier);
   res.json(session);

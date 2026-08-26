@@ -8,6 +8,7 @@ import { applyPendingMigrations, closePool, getPool } from "./infra/postgres.js"
 import { resetEnvCache } from "./infra/env.js";
 import { closeValkey } from "./infra/valkey.js";
 import { sha256 } from "./infra/tokens.js";
+import { totpNow } from "./infra/totp.js";
 import { emailVerifyCallbackUrl, issueEmailVerifyToken } from "./modules/auth/emailVerify.js";
 import { issuePasswordResetToken, passwordResetCallbackUrl } from "./modules/auth/passwordReset.js";
 
@@ -833,4 +834,55 @@ describe("http integration", () => {
       seen.add(row.id);
     }
   }, 60_000);
+
+  it("requires a valid TOTP code after 2FA is enabled", async ({ skip }) => {
+    if (!db || !base) {
+      skip();
+      return;
+    }
+    const unique = `totp${Date.now()}`;
+    const registered = await json("/api/auth/register", {
+      method: "POST",
+      body: JSON.stringify({
+        email: `${unique}@example.com`,
+        username: unique.slice(0, 20),
+        password: "password12",
+        ageConfirmed13Plus: true,
+        consentVersion: "2026-07-21",
+      }),
+    });
+    expect(registered.status).toBe(201);
+    token = String(registered.body.token ?? "");
+
+    const enrolled = await json("/api/auth/2fa/enroll", { method: "POST" });
+    expect(enrolled.status).toBe(200);
+    const secret = String(enrolled.body.secret ?? "");
+    expect(secret).toBeTruthy();
+    const verified = await json("/api/auth/2fa/verify", {
+      method: "POST",
+      body: JSON.stringify({ code: totpNow(secret) }),
+    });
+    expect(verified.status).toBe(200);
+
+    token = "";
+    const missingCode = await json("/api/auth/login", {
+      method: "POST",
+      body: JSON.stringify({ email: `${unique}@example.com`, password: "password12" }),
+    });
+    expect(missingCode.status).toBe(401);
+    expect(missingCode.body.error).toBe("requires_2fa");
+
+    const wrongCode = await json("/api/auth/login", {
+      method: "POST",
+      body: JSON.stringify({ email: `${unique}@example.com`, password: "password12", totpCode: "000000" }),
+    });
+    expect(wrongCode.status).toBe(401);
+    expect(wrongCode.body.error).toBe("invalid_credentials");
+
+    const validCode = await json("/api/auth/login", {
+      method: "POST",
+      body: JSON.stringify({ email: `${unique}@example.com`, password: "password12", totpCode: totpNow(secret) }),
+    });
+    expect(validCode.status).toBe(200);
+  });
 });

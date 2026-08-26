@@ -7,6 +7,7 @@ import { logger } from "../../infra/logger.js";
 import { AppError } from "../../middleware/errors.js";
 import { reverseIapPurchase } from "../iap/reverse.js";
 import { verifyAppleSignedJws } from "../../infra/iapVerify.js";
+import { secretsMatch } from "../../infra/tokens.js";
 
 export async function handleStripeWebhook(req: Request, res: Response): Promise<void> {
   const secret = env().STRIPE_WEBHOOK_SECRET;
@@ -75,8 +76,11 @@ export async function handleAppleNotification(req: Request, res: Response): Prom
   if (env().isProduction && !secret) {
     throw new AppError("unavailable", "Apple IAP notifications are not configured", 503);
   }
-  if (secret && req.query.token !== secret) {
-    throw new AppError("forbidden", "Invalid Apple notification token", 403);
+  if (secret) {
+    const token = req.query.token;
+    if (typeof token !== "string" || !secretsMatch(token, secret)) {
+      throw new AppError("forbidden", "Invalid Apple notification token", 403);
+    }
   }
   const signedPayload = typeof req.body?.signedPayload === "string" ? req.body.signedPayload : "";
   if (!signedPayload) {
@@ -116,8 +120,11 @@ export async function handleGoogleRtdn(req: Request, res: Response): Promise<voi
   if (env().isProduction && !secret) {
     throw new AppError("unavailable", "Google Play notifications are not configured", 503);
   }
-  if (secret && req.query.token !== secret) {
-    throw new AppError("forbidden", "Invalid Google notification token", 403);
+  if (secret) {
+    const token = req.query.token;
+    if (typeof token !== "string" || !secretsMatch(token, secret)) {
+      throw new AppError("forbidden", "Invalid Google notification token", 403);
+    }
   }
   const encoded = typeof req.body?.message?.data === "string" ? req.body.message.data : "";
   if (!encoded) {

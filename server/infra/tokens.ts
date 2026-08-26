@@ -6,6 +6,12 @@ export function sha256(value: string): string {
   return createHash("sha256").update(value).digest("hex");
 }
 
+export function secretsMatch(provided: string, expected: string): boolean {
+  const left = createHash("sha256").update(provided).digest();
+  const right = createHash("sha256").update(expected).digest();
+  return left.equals(right);
+}
+
 export function randomToken(): string {
   return randomBytes(32).toString("hex");
 }

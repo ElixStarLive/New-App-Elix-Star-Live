@@ -88,6 +88,7 @@ export const registerBodySchema = z.object({
 export const loginBodySchema = z.object({
   email: z.string().trim().min(1),
   password: z.string().min(1),
+  totpCode: z.string().regex(/^\d{6}$/).optional(),
 });
 
 /** Login identifier: `email` may be a username (PAGE-001 / OLD contract). */
