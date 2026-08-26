@@ -59,7 +59,9 @@ describe("PAGE-046 Report ownership", () => {
     expect(player).toMatch(/<ReportModal/);
     expect(profile).toMatch(/<ReportModal/);
     expect(sheet).toMatch(/<ReportModal/);
-    expect(liveOverlay).toMatch(/<ReportModal/);
+    // Live profile overlay keeps LiveKit/watch mounted and reuses Profile's ReportModal.
+    expect(liveOverlay).toMatch(/from "@\/pages\/Profile"|<Profile\s*\/>/);
+    expect(liveOverlay).not.toMatch(/<ReportModal|\/api\/report|apiCreateReport/);
     expect(liveOverlay).not.toMatch(/navigate\("\/report"/);
     expect(adminPage).toMatch(/apiAdminListReports|apiAdminResolveReport/);
     expect(clientRoutes).toMatch(/extraAdminRouter\.get\("\/reports"/);

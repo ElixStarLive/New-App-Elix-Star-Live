@@ -41,4 +41,23 @@ describe("PAGE-046 report body contract", () => {
       }),
     ).toThrow(AppError);
   });
+
+  it("ignores injected admin status fields in the parse contract", () => {
+    const parsed = parseReportBody({
+      targetType: "user",
+      targetId: "22222222-2222-4222-8222-222222222222",
+      reason: "spam",
+      details: "note",
+      status: "resolved",
+      adminNote: "ban",
+      reviewedBy: "admin",
+    });
+    expect(parsed).toEqual({
+      targetType: "user",
+      targetId: "22222222-2222-4222-8222-222222222222",
+      reason: "spam",
+      details: "note",
+    });
+    expect(parsed).not.toHaveProperty("status");
+  });
 });
