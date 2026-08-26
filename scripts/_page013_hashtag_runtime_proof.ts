@@ -90,35 +90,40 @@ try {
   const blockedUser = await register("b");
   const pool = getPool();
 
+  // Unique tags so leftover Neon rows from prior proofs cannot inflate useCount.
+  const tagExact = `car${unique}`.slice(0, 24).toLowerCase();
+  const tagPrefix = `carpet${unique}`.slice(0, 24).toLowerCase();
+  const tagExactHash = `#${tagExact.slice(0, 1).toUpperCase()}${tagExact.slice(1)}`;
+
   const car = await pool.query<{ id: string }>(
     `INSERT INTO videos (user_id, bunny_path, caption, privacy, hashtags)
-     VALUES ($1, $2, 'car clip ${unique}', 'public', ARRAY['car']) RETURNING id`,
-    [creator.id, `https://cdn.example/${unique}-car.mp4`],
+     VALUES ($1, $2, 'car clip ${unique}', 'public', ARRAY[$3]) RETURNING id`,
+    [creator.id, `https://cdn.example/${unique}-car.mp4`, tagExact],
   );
   const carpet = await pool.query<{ id: string }>(
     `INSERT INTO videos (user_id, bunny_path, caption, privacy, hashtags)
-     VALUES ($1, $2, 'carpet clip ${unique}', 'public', ARRAY['carpet']) RETURNING id`,
-    [creator.id, `https://cdn.example/${unique}-carpet.mp4`],
+     VALUES ($1, $2, 'carpet clip ${unique}', 'public', ARRAY[$3]) RETURNING id`,
+    [creator.id, `https://cdn.example/${unique}-carpet.mp4`, tagPrefix],
   );
   const hashed = await pool.query<{ id: string }>(
     `INSERT INTO videos (user_id, bunny_path, caption, privacy, hashtags)
-     VALUES ($1, $2, 'hashed car ${unique}', 'public', ARRAY['#Car']) RETURNING id`,
-    [creator.id, `https://cdn.example/${unique}-hash.mp4`],
+     VALUES ($1, $2, 'hashed car ${unique}', 'public', ARRAY[$3]) RETURNING id`,
+    [creator.id, `https://cdn.example/${unique}-hash.mp4`, tagExactHash],
   );
   const privateVid = await pool.query<{ id: string }>(
     `INSERT INTO videos (user_id, bunny_path, caption, privacy, hashtags)
-     VALUES ($1, $2, 'private car ${unique}', 'private', ARRAY['car']) RETURNING id`,
-    [creator.id, `https://cdn.example/${unique}-priv.mp4`],
+     VALUES ($1, $2, 'private car ${unique}', 'private', ARRAY[$3]) RETURNING id`,
+    [creator.id, `https://cdn.example/${unique}-priv.mp4`, tagExact],
   );
   const blockedVid = await pool.query<{ id: string }>(
     `INSERT INTO videos (user_id, bunny_path, caption, privacy, hashtags)
-     VALUES ($1, $2, 'blocked car ${unique}', 'public', ARRAY['car']) RETURNING id`,
-    [blockedUser.id, `https://cdn.example/${unique}-blk.mp4`],
+     VALUES ($1, $2, 'blocked car ${unique}', 'public', ARRAY[$3]) RETURNING id`,
+    [blockedUser.id, `https://cdn.example/${unique}-blk.mp4`, tagExact],
   );
   await pool.query(
     `INSERT INTO videos (user_id, bunny_path, caption, privacy, hashtags, deleted_at)
-     VALUES ($1, $2, 'deleted car ${unique}', 'public', ARRAY['car'], NOW())`,
-    [creator.id, `https://cdn.example/${unique}-del.mp4`],
+     VALUES ($1, $2, 'deleted car ${unique}', 'public', ARRAY[$3], NOW())`,
+    [creator.id, `https://cdn.example/${unique}-del.mp4`, tagExact],
   );
 
   await pool.query(`INSERT INTO blocks (blocker_id, blocked_id) VALUES ($1, $2) ON CONFLICT DO NOTHING`, [
@@ -134,10 +139,10 @@ try {
     creator.id,
   ]);
 
-  const page = await json("/api/hashtags/Car", {}, viewer.token);
+  const page = await json(`/api/hashtags/${encodeURIComponent(tagExact)}`, {}, viewer.token);
   if (page.status !== 200) throw new Error(`hashtag ${page.status}`);
   const body = asRecord(page.body);
-  if (body.tag !== "car") throw new Error(`tag normalize wrong: ${String(body.tag)}`);
+  if (body.tag !== tagExact) throw new Error(`tag normalize wrong: ${String(body.tag)}`);
   if (Number(body.useCount) !== 2) throw new Error(`useCount want 2 got ${String(body.useCount)}`);
   const videos = (body.videos as unknown[]) || [];
   const ids = videos.map((row) => String(asRecord(row).id));
@@ -148,17 +153,17 @@ try {
   if (ids.includes(blockedVid.rows[0].id)) throw new Error("blocked creator leaked");
   if (ids[0] !== car.rows[0].id) throw new Error("views ordering wrong — car should rank first");
 
-  const hashRoute = await json("/api/hashtags/%23car", {}, viewer.token);
-  if (asRecord(hashRoute.body).tag !== "car") throw new Error("encoded #car failed");
+  const hashRoute = await json(`/api/hashtags/${encodeURIComponent(`#${tagExact}`)}`, {}, viewer.token);
+  if (asRecord(hashRoute.body).tag !== tagExact) throw new Error("encoded #tag failed");
 
-  const missing = await json("/api/hashtags/nopezzzz", {}, viewer.token);
+  const missing = await json(`/api/hashtags/nopezzzz${unique}`, {}, viewer.token);
   if (Number(asRecord(missing.body).useCount) !== 0) throw new Error("unknown tag should be empty count");
   if (((asRecord(missing.body).videos as unknown[]) || []).length !== 0) {
     throw new Error("unknown tag should return empty videos");
   }
 
   const outsider = await register("x");
-  const outsiderPage = await json("/api/hashtags/car", {}, outsider.token);
+  const outsiderPage = await json(`/api/hashtags/${encodeURIComponent(tagExact)}`, {}, outsider.token);
   const outsiderIds = ((asRecord(outsiderPage.body).videos as unknown[]) || []).map((row) =>
     String(asRecord(row).id),
   );
@@ -171,7 +176,7 @@ try {
       {
         ok: true,
         page: "PAGE-013",
-        tag: "car",
+        tag: tagExact,
         useCount: body.useCount,
         topVideoId: ids[0],
         carId: car.rows[0].id,
