@@ -18,6 +18,7 @@ describe("PAGE-057 Terms ownership", () => {
   it("has one public /terms owner and the frozen in-app document", () => {
     expect(app.match(/path="\/terms"/g)?.length).toBe(1);
     expect(app).toMatch(/<Route path="\/terms" element=\{<Terms \/>\} \/>/);
+    expect(app.indexOf('path="/terms"')).toBeLessThan(app.indexOf("<Route element={<RequireAuth"));
     expect(app).not.toMatch(/path="\/legal\/terms"|path="\/terms-of-service"|path="\/tos"/);
     expect(shell).toMatch(/pathname === "\/terms"/);
     expect(LEGAL_TERMS_TITLE).toBe("Terms of Service");
