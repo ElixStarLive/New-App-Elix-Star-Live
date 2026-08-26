@@ -2179,6 +2179,14 @@ describe("http integration", () => {
     expect(status.status).toBe(200);
     expect(status.body.configured).toBe(false);
 
+    const global = await json("/api/music/global");
+    expect(global.status).toBe(200);
+    expect(global.body.configured).toBe(false);
+    expect(global.body.playlist).toBeNull();
+
+    const collections = await json("/api/music/collections");
+    expect(collections.status).toBe(503);
+
     const playlists = await json("/api/music/playlists");
     expect(playlists.status).toBe(200);
     expect(playlists.body.configured).toBe(false);

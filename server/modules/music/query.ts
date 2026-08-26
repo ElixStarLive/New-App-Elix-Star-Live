@@ -1,13 +1,18 @@
+import { env } from "../../infra/env.js";
+import { logger } from "../../infra/logger.js";
 import { getPool } from "../../infra/postgres.js";
+import { valkeyGet, valkeySet } from "../../infra/valkey.js";
 import { AppError } from "../../middleware/errors.js";
 import {
   fetchEpidemicCollections,
   fetchEpidemicHighlights,
+  fetchEpidemicPickerTracks,
   isEpidemicConfigured,
   resolveEpidemicPreviewUrl,
   searchEpidemicTracks,
   type EpidemicTrack,
 } from "./epidemic.js";
+import { MUSIC_CACHE_TTL_MS, musicCacheKey } from "./musicCache.js";
 
 export const LICENSED_CLIP_MAX_SECONDS = 60;
 
@@ -36,6 +41,25 @@ export type LocalSoundRow = {
   audio_url: string;
   cover_url: string | null;
 };
+
+async function musicCacheGet(key: string): Promise<string | null> {
+  if (!env().valkeyUrl) return null;
+  try {
+    return await valkeyGet(key);
+  } catch (error) {
+    logger.warn({ err: error, key }, "music query cache read failed");
+    return null;
+  }
+}
+
+async function musicCacheSet(key: string, value: string, ttlMs: number): Promise<void> {
+  if (!env().valkeyUrl) return;
+  try {
+    await valkeySet(key, value, ttlMs);
+  } catch (error) {
+    logger.warn({ err: error, key }, "music query cache write failed");
+  }
+}
 
 export function formatClipLabel(startSeconds: number, endSeconds: number): string {
   const total = Math.max(0, Math.floor(endSeconds - startSeconds));
@@ -93,20 +117,103 @@ export async function queryMusicStatus(): Promise<{ configured: boolean; provide
   return { configured, provider: configured ? "epidemic_sound" : null };
 }
 
-export async function queryMusicPlaylists(): Promise<{
+async function buildGlobalLicensedPlaylist(
+  limit = 80,
+  clipMaxSec = LICENSED_CLIP_MAX_SECONDS,
+): Promise<MusicPlaylist> {
+  const cacheKey = musicCacheKey("global_playlist", `${limit}:${clipMaxSec}`);
+  const cached = await musicCacheGet(cacheKey);
+  if (cached) {
+    try {
+      return JSON.parse(cached) as MusicPlaylist;
+    } catch {
+      /* rebuild */
+    }
+  }
+
+  const pickerTracks = await fetchEpidemicPickerTracks(limit);
+  const tracks = await Promise.all(pickerTracks.map(licensedTrack));
+  const playlist: MusicPlaylist = {
+    id: "global",
+    name: "For You",
+    coverUrl: tracks[0]?.coverUrl ?? null,
+    tracks,
+  };
+  await musicCacheSet(cacheKey, JSON.stringify(playlist), MUSIC_CACHE_TTL_MS.globalPlaylist);
+  return playlist;
+}
+
+export async function queryMusicGlobal(): Promise<{
+  playlist: MusicPlaylist | null;
+  configured: boolean;
+  licensed?: boolean;
+  clipMaxSeconds: number;
+}> {
+  if (!isEpidemicConfigured()) {
+    return { playlist: null, configured: false, clipMaxSeconds: LICENSED_CLIP_MAX_SECONDS };
+  }
+  try {
+    const playlist = await buildGlobalLicensedPlaylist(80, LICENSED_CLIP_MAX_SECONDS);
+    return {
+      playlist,
+      configured: true,
+      licensed: true,
+      clipMaxSeconds: LICENSED_CLIP_MAX_SECONDS,
+    };
+  } catch (error) {
+    logger.error({ err: error }, "queryMusicGlobal failed");
+    throw new AppError("unavailable", "MUSIC_PROVIDER_ERROR", 502);
+  }
+}
+
+export async function queryMusicPlaylists(opts?: {
+  limit?: number;
+  perPlaylist?: number;
+}): Promise<{
   playlists: MusicPlaylist[];
   configured: boolean;
   clipMaxSeconds: number;
+  licensed?: boolean;
 }> {
   if (!isEpidemicConfigured()) {
     return { playlists: [], configured: false, clipMaxSeconds: LICENSED_CLIP_MAX_SECONDS };
   }
+
+  const playlistLimit = Math.min(15, Math.max(1, opts?.limit ?? 10));
+  const tracksPerPlaylist = Math.min(40, Math.max(5, opts?.perPlaylist ?? 30));
+  const cacheKey = musicCacheKey(
+    "playlists_bundle",
+    `${playlistLimit}:${tracksPerPlaylist}:${LICENSED_CLIP_MAX_SECONDS}`,
+  );
+  const cached = await musicCacheGet(cacheKey);
+  if (cached) {
+    try {
+      const playlists = JSON.parse(cached) as MusicPlaylist[];
+      return {
+        playlists,
+        configured: true,
+        clipMaxSeconds: LICENSED_CLIP_MAX_SECONDS,
+        licensed: true,
+      };
+    } catch {
+      /* rebuild */
+    }
+  }
+
   try {
-    const collections = await fetchEpidemicCollections(10, 0);
-    const playlists: MusicPlaylist[] = [];
+    const global = await buildGlobalLicensedPlaylist(
+      Math.min(80, tracksPerPlaylist * 2),
+      LICENSED_CLIP_MAX_SECONDS,
+    );
+    const collections = await fetchEpidemicCollections(playlistLimit, 0);
+    const playlists: MusicPlaylist[] = [global];
+
     for (const collection of collections) {
+      if (collection.name.toLowerCase() === "for you") continue;
       if (collection.tracks.length === 0) continue;
-      const tracks = await Promise.all(collection.tracks.slice(0, 30).map(licensedTrack));
+      const tracks = await Promise.all(
+        collection.tracks.slice(0, tracksPerPlaylist).map(licensedTrack),
+      );
       playlists.push({
         id: collection.id || tracks[0]?.id || collection.name,
         name: collection.name,
@@ -114,9 +221,48 @@ export async function queryMusicPlaylists(): Promise<{
         tracks,
       });
     }
-    return { playlists, configured: true, clipMaxSeconds: LICENSED_CLIP_MAX_SECONDS };
-  } catch {
+
+    await musicCacheSet(cacheKey, JSON.stringify(playlists), MUSIC_CACHE_TTL_MS.playlistsBundle);
+    return {
+      playlists,
+      configured: true,
+      clipMaxSeconds: LICENSED_CLIP_MAX_SECONDS,
+      licensed: true,
+    };
+  } catch (error) {
+    logger.error({ err: error }, "queryMusicPlaylists failed");
     throw new AppError("unavailable", "Music playlists are unavailable", 502);
+  }
+}
+
+export async function queryMusicCollections(limit = 10, offset = 0): Promise<{
+  collections: Array<{
+    id: string;
+    name: string;
+    coverUrl: string | null;
+    tracks: MusicTrack[];
+  }>;
+}> {
+  if (!isEpidemicConfigured()) {
+    throw new AppError("unavailable", "MUSIC_PROVIDER_NOT_CONFIGURED", 503);
+  }
+  try {
+    const collections = await fetchEpidemicCollections(limit, offset);
+    const mapped = [];
+    for (const collection of collections) {
+      const tracks = await Promise.all(collection.tracks.slice(0, 30).map(licensedTrack));
+      mapped.push({
+        id: collection.id,
+        name: collection.name,
+        coverUrl: collection.coverUrl,
+        tracks,
+      });
+    }
+    return { collections: mapped };
+  } catch (error) {
+    if (error instanceof AppError) throw error;
+    logger.error({ err: error }, "queryMusicCollections failed");
+    throw new AppError("unavailable", "MUSIC_PROVIDER_ERROR", 502);
   }
 }
 
@@ -172,10 +318,14 @@ export async function queryMusicPreview(trackId: string): Promise<{ url: string;
 
   try {
     const preview = await resolveEpidemicPreviewUrl(id);
-    if (!preview.url) throw new AppError("not_found", "Preview is not available", 404);
+    if (!preview.url) throw new AppError("unavailable", "MUSIC_PREVIEW_UNAVAILABLE", 502);
     return { url: preview.url, configured: true };
   } catch (error) {
     if (error instanceof AppError) throw error;
-    throw new AppError("not_found", "Track not found", 404);
+    const message = error instanceof Error ? error.message : "";
+    if (/404|not found|Non-UUID/i.test(message)) {
+      throw new AppError("not_found", "Track not found", 404);
+    }
+    throw new AppError("unavailable", "MUSIC_PREVIEW_UNAVAILABLE", 502);
   }
 }

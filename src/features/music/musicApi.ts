@@ -104,3 +104,82 @@ export async function apiMusicTrackPreview(trackId: string): Promise<{
   }
   return { url: data.url, error: null };
 }
+
+export async function apiFetchMusicStatus(): Promise<{
+  configured: boolean;
+  provider: string | null;
+  error: string | null;
+}> {
+  const { data, error } = await apiRequest<unknown>("/api/music/status");
+  if (error) return { configured: false, provider: null, error: error.message };
+  if (!isRecord(data)) return { configured: false, provider: null, error: "Invalid music status" };
+  return {
+    configured: data.configured === true,
+    provider: typeof data.provider === "string" ? data.provider : null,
+    error: null,
+  };
+}
+
+export async function apiFetchMusicGlobal(): Promise<{
+  playlist: MusicPlaylist | null;
+  configured: boolean;
+  error: string | null;
+  status?: number;
+}> {
+  const { data, error } = await apiRequest<unknown>("/api/music/global");
+  if (error) {
+    return { playlist: null, configured: false, error: error.message, status: error.status };
+  }
+  if (!isRecord(data)) return { playlist: null, configured: false, error: "Invalid music global" };
+  const raw = data.playlist;
+  if (!raw || !isRecord(raw) || typeof raw.id !== "string") {
+    return { playlist: null, configured: data.configured === true, error: null };
+  }
+  const tracks: MusicTrack[] = [];
+  if (Array.isArray(raw.tracks)) {
+    for (const row of raw.tracks) {
+      const track = parseTrack(row);
+      if (track) tracks.push(track);
+    }
+  }
+  return {
+    playlist: {
+      id: raw.id,
+      name: typeof raw.name === "string" && raw.name ? raw.name : "For You",
+      coverUrl: typeof raw.coverUrl === "string" ? raw.coverUrl : null,
+      tracks,
+    },
+    configured: data.configured === true,
+    error: null,
+  };
+}
+
+export async function apiFetchMusicCollections(): Promise<{
+  collections: MusicPlaylist[];
+  error: string | null;
+  status?: number;
+}> {
+  const { data, error } = await apiRequest<unknown>("/api/music/collections");
+  if (error) return { collections: [], error: error.message, status: error.status };
+  if (!isRecord(data) || !Array.isArray(data.collections)) {
+    return { collections: [], error: "Invalid music collections" };
+  }
+  const collections: MusicPlaylist[] = [];
+  for (const raw of data.collections) {
+    if (!isRecord(raw) || typeof raw.id !== "string") continue;
+    const tracks: MusicTrack[] = [];
+    if (Array.isArray(raw.tracks)) {
+      for (const row of raw.tracks) {
+        const track = parseTrack(row);
+        if (track) tracks.push(track);
+      }
+    }
+    collections.push({
+      id: raw.id,
+      name: typeof raw.name === "string" && raw.name ? raw.name : "Collection",
+      coverUrl: typeof raw.coverUrl === "string" ? raw.coverUrl : null,
+      tracks,
+    });
+  }
+  return { collections, error: null };
+}

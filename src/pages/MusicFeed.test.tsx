@@ -27,6 +27,12 @@ const preview = vi.hoisted(() => {
 vi.mock("@/features/music/musicApi", () => musicApi);
 vi.mock("@/features/music/previewPlayer", () => preview);
 vi.mock("@/lib/toast", () => ({ showToast: vi.fn() }));
+vi.mock("@/store/useAuthStore", () => ({
+  useAuthStore: (selector?: (state: { user: { id: string } | null }) => unknown) => {
+    const state = { user: { id: "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa" } };
+    return selector ? selector(state) : state;
+  },
+}));
 
 import { showToast } from "@/lib/toast";
 
@@ -247,7 +253,7 @@ describe("PAGE-016 Music / Sound", () => {
     expect(showToast).toHaveBeenCalled();
   });
 
-  it("returns a canonical soundId to PAGE-021 from Use this sound", async () => {
+  it("returns a canonical soundId to PAGE-021 when a catalog row is tapped in pick mode", async () => {
     musicApi.apiFetchMusicPlaylists.mockResolvedValue({
       playlists: [{ id: "pl-1", name: "For You", coverUrl: null, tracks: [track] }],
       configured: true,
@@ -257,12 +263,13 @@ describe("PAGE-016 Music / Sound", () => {
     root = mounted.root;
     container = mounted.container;
     await flush();
-    const useSound = Array.from(container.querySelectorAll("button")).find((el) =>
-      (el.textContent || "").includes("Use this sound"),
+    expect(container.textContent).toContain("Original Sound");
+    const row = Array.from(container.querySelectorAll("button")).find((el) =>
+      (el.textContent || "").includes("Night Drive"),
     ) as HTMLButtonElement;
-    expect(useSound).toBeTruthy();
+    expect(row).toBeTruthy();
     await act(async () => {
-      useSound.click();
+      row.click();
       await Promise.resolve();
     });
     expect(container.textContent).toContain("CREATE PAGE epidemic-1");

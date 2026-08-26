@@ -23,6 +23,18 @@ import {
   exitToFromLocationState,
 } from "@/lib/settingsNav";
 import { showToast } from "@/lib/toast";
+import { useAuthStore } from "@/store/useAuthStore";
+
+/** Create/Upload pick row — mic audio from the clip (not a licensed track). */
+const ORIGINAL_SOUND_TRACK: MusicTrack = {
+  id: "original",
+  title: "Original Sound",
+  artist: "Your recording",
+  duration: "0:00",
+  coverUrl: null,
+  clipStartSeconds: 0,
+  clipEndSeconds: 0,
+};
 
 function formatClip(start: number, end: number): string {
   const total = Math.max(0, Math.floor(end - start));
@@ -35,6 +47,7 @@ export default function MusicFeed() {
   const { songId } = useParams();
   const navigate = useNavigate();
   const location = useLocation();
+  const viewerId = useAuthStore((state) => state.user?.id) ?? null;
   const searchInputRef = useRef<HTMLInputElement | null>(null);
   const playlistSeq = useRef(0);
   const searchSeq = useRef(0);
@@ -54,9 +67,13 @@ export default function MusicFeed() {
   useEffect(() => attachMusicPreviewLifecycle(), []);
 
   useEffect(() => {
+    stopMusicPreview();
+  }, [viewerId]);
+
+  useEffect(() => {
     const seq = ++playlistSeq.current;
     setLoading(true);
-    void apiFetchMusicPlaylists().then(async (res) => {
+    void apiFetchMusicPlaylists().then((res) => {
       if (seq !== playlistSeq.current) return;
       if (res.error) {
         setPlaylists([]);
@@ -65,26 +82,9 @@ export default function MusicFeed() {
         if (res.status && res.status >= 500) showToast("Couldn't load sounds.");
         return;
       }
-      let nextPlaylists = res.playlists;
-      let nextConfigured = res.configured;
-      if (!res.configured || res.playlists.length === 0) {
-        const local = await apiSearchMusicTracks("");
-        if (seq !== playlistSeq.current) return;
-        if (!local.error && local.tracks.length > 0) {
-          nextPlaylists = [
-            {
-              id: "local-sounds",
-              name: "Sounds",
-              coverUrl: local.tracks[0]?.coverUrl ?? null,
-              tracks: local.tracks,
-            },
-          ];
-          nextConfigured = false;
-        }
-      }
-      setPlaylists(nextPlaylists);
-      setConfigured(nextConfigured);
-      setActivePlaylistId((prev) => prev || nextPlaylists[0]?.id || null);
+      setPlaylists(res.playlists);
+      setConfigured(res.configured);
+      setActivePlaylistId((prev) => prev || res.playlists[0]?.id || null);
       setLoading(false);
     });
     return () => {
@@ -128,7 +128,7 @@ export default function MusicFeed() {
 
   const featuredTrack = useMemo(() => {
     const id = featuredTrackId || preview.playingId;
-    if (id) {
+    if (id && id !== ORIGINAL_SOUND_TRACK.id) {
       const found =
         allTracks.find((track) => track.id === id) ||
         searchResults.find((track) => track.id === id) ||
@@ -167,33 +167,24 @@ export default function MusicFeed() {
   }, [navigate, location.pathname, location.search]);
 
   const openTrack = useCallback(
-    (trackId: string) => {
+    (track: MusicTrack) => {
       if (pickForCreate) {
-        const found =
-          allTracks.find((track) => track.id === trackId) ||
-          searchResults.find((track) => track.id === trackId) ||
-          visibleTracks.find((track) => track.id === trackId) ||
-          featuredTrack;
-        if (!found || found.id !== trackId) return;
         stopMusicPreview();
-        const dest = createPathWithSound(found.id, found.title);
+        if (track.id === ORIGINAL_SOUND_TRACK.id) {
+          navigate("/create", { replace: true });
+          return;
+        }
+        const dest = createPathWithSound(track.id, track.title);
         navigate(`${dest.pathname}${dest.search}`, { replace: true, state: dest.state });
         return;
       }
-      navigate(`/music/${encodeURIComponent(trackId)}`);
+      navigate(`/music/${encodeURIComponent(track.id)}`);
     },
-    [allTracks, featuredTrack, navigate, pickForCreate, searchResults, visibleTracks],
+    [navigate, pickForCreate],
   );
 
-  const useThisSound = useCallback(() => {
-    if (!featuredTrack) return;
-    stopMusicPreview();
-    const dest = createPathWithSound(featuredTrack.id, featuredTrack.title);
-    navigate(`${dest.pathname}${dest.search}`, { replace: true, state: dest.state });
-  }, [featuredTrack, navigate]);
-
   const toggleSaveTrack = useCallback(() => {
-    if (!featuredTrack) {
+    if (!featuredTrack || featuredTrack.id === ORIGINAL_SOUND_TRACK.id) {
       showToast("No track to save");
       return;
     }
@@ -236,7 +227,14 @@ export default function MusicFeed() {
 
           <header className="w-full shrink-0 bg-transparent z-10 border-b border-white/[0.06]">
             <div className="px-3 pt-page-header pb-3 flex items-center justify-between relative">
-              <button type="button" onClick={goSearch} className="p-1 z-10" aria-label="Search">
+              <button
+                type="button"
+                onClick={() => {
+                  goSearch();
+                }}
+                className="p-1 z-10"
+                aria-label="Search"
+              >
                 <Search className="w-4 h-4 text-[#F5F5F7]" />
               </button>
               <h1 className="text-sm font-bold text-gold-metallic absolute left-1/2 -translate-x-1/2">Sound</h1>
@@ -257,10 +255,9 @@ export default function MusicFeed() {
                 <div className="flex-1 min-w-0">
                   <h2 className="text-sm font-semibold mb-0.5 truncate">{headerTitle}</h2>
                   <p className="text-white/60 text-xs mb-2 truncate">{headerArtist}</p>
-                  <div className="flex items-center gap-2">
                   <button
                     type="button"
-                    disabled={!featuredTrack}
+                    disabled={!featuredTrack || featuredTrack.id === ORIGINAL_SOUND_TRACK.id}
                     onClick={toggleSaveTrack}
                     title={trackIsSaved ? "Saved" : "Save"}
                     aria-label={trackIsSaved ? "Saved" : "Save"}
@@ -277,17 +274,6 @@ export default function MusicFeed() {
                       }
                     />
                   </button>
-                  {pickForCreate ? (
-                    <button
-                      type="button"
-                      disabled={!featuredTrack}
-                      onClick={useThisSound}
-                      className="h-7 px-5 rounded-full flex items-center justify-center bg-white/10 text-[#F5F5F7] text-[11px] font-semibold disabled:opacity-50"
-                    >
-                      Use this sound
-                    </button>
-                  ) : null}
-                  </div>
                 </div>
               </div>
             </div>
@@ -328,6 +314,23 @@ export default function MusicFeed() {
 
           <div className="flex-1 min-h-0 overflow-y-auto w-full bg-transparent">
             <div className="px-2 pb-6">
+              {pickForCreate && !search.trim() ? (
+                <div className="w-full px-2 py-2 flex items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={() => openTrack(ORIGINAL_SOUND_TRACK)}
+                    className="flex items-center gap-2 flex-1 min-w-0 text-left"
+                  >
+                    <div className="w-12 h-12 rounded-full flex-shrink-0 bg-[rgba(255,255,255,0.06)] border border-[#D8D9DD]/20 flex items-center justify-center">
+                      <Music className="w-4 h-4 text-[#F5F5F7]" />
+                    </div>
+                    <div className="min-w-0">
+                      <p className="text-white text-sm font-medium truncate">Original Sound</p>
+                      <p className="text-white/50 text-xs truncate">Use mic audio from your clip</p>
+                    </div>
+                  </button>
+                </div>
+              ) : null}
               {loading || searching ? (
                 <p className="px-3 py-8 text-center text-white/40 text-xs">Loading tracks…</p>
               ) : null}
@@ -349,7 +352,7 @@ export default function MusicFeed() {
                   >
                     <button
                       type="button"
-                      onClick={() => openTrack(track.id)}
+                      onClick={() => openTrack(track)}
                       className="flex items-center gap-2 flex-1 min-w-0 text-left"
                     >
                       <div className="w-12 h-12 rounded-full overflow-hidden flex-shrink-0 bg-[rgba(255,255,255,0.06)] border border-[#D8D9DD]/20">
@@ -364,7 +367,7 @@ export default function MusicFeed() {
                       <div className="min-w-0">
                         <p className="text-white text-sm font-medium truncate">{track.title}</p>
                         <p className="text-white/50 text-xs truncate">
-                          {track.artist} • {track.duration || formatClip(track.clipStartSeconds, track.clipEndSeconds)}
+                          {track.artist} • {formatClip(track.clipStartSeconds, track.clipEndSeconds)}
                         </p>
                       </div>
                     </button>
