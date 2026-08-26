@@ -29,4 +29,9 @@ describe("PAGE-024 own-profile ownership", () => {
     expect(page).not.toMatch(/ProfileOld|ProfileNew|ProfileFixed|ProfileV2/);
     expect(session).not.toMatch(/isLive/);
   });
+
+  it("syncs saved/liked tabs via the shared collection bus", () => {
+    expect(page).toMatch(/subscribeVideoCollection/);
+    expect(session).toMatch(/applyCollectionEvent/);
+  });
 });

@@ -2831,7 +2831,8 @@ describe("http integration", () => {
   });
 
   it("PAGE-024 own profile is session-derived, unique views, and private videos are owner-only", async ({ skip }) => {
-    if (!db || !base || !token) {
+    // Session-owned: registers its own users; do not require suite-level `token` from an earlier test.
+    if (!db || !base) {
       skip();
       return;
     }

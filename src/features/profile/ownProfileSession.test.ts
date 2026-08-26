@@ -152,4 +152,21 @@ describe("PAGE-024 own profile session", () => {
     expect(session.getSnapshot().profile).toBeNull();
     expect(session.getSnapshot().items).toEqual([]);
   });
+
+  it("removes an unsaved video from the saved tab without inventing rows", async () => {
+    api.apiFetchOwnProfile.mockResolvedValue({ profile: me, error: null });
+    api.apiFetchOwnTabPage.mockImplementation((tab: string) => {
+      if (tab === "saved") return Promise.resolve({ page: page(["s1", "s2"]), error: null });
+      return Promise.resolve({ page: page(["v1"]), error: null });
+    });
+    const session = createOwnProfileSession();
+    await session.load();
+    session.setTab("saved");
+    for (let i = 0; i < 40 && session.getSnapshot().items.map((x) => x.id).join(",") !== "s1,s2"; i += 1) {
+      await Promise.resolve();
+    }
+    expect(session.getSnapshot().items.map((i) => i.id)).toEqual(["s1", "s2"]);
+    session.applyCollectionEvent({ type: "saved", videoId: "s1", saved: false });
+    expect(session.getSnapshot().items.map((i) => i.id)).toEqual(["s2"]);
+  });
 });

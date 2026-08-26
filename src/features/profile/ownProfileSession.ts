@@ -177,6 +177,41 @@ export function createOwnProfileSession() {
     async refresh() {
       await this.load();
     },
+    applyCollectionEvent(ev: {
+      type: "saved" | "liked" | "refresh";
+      videoId?: string;
+      saved?: boolean;
+      liked?: boolean;
+      collection?: "saved" | "liked" | "all";
+    }) {
+      if (ev.type === "refresh") {
+        if (
+          ev.collection === "all" ||
+          (ev.collection === "saved" && tab === "saved") ||
+          (ev.collection === "liked" && tab === "liked")
+        ) {
+          void loadTab(tab, null, false);
+        }
+        return;
+      }
+      if (ev.type === "saved" && tab === "saved") {
+        if (ev.saved === false && ev.videoId) {
+          items = items.filter((v) => v.id !== ev.videoId);
+          notify();
+          return;
+        }
+        void loadTab("saved", null, false);
+        return;
+      }
+      if (ev.type === "liked" && tab === "liked") {
+        if (ev.liked === false && ev.videoId) {
+          items = items.filter((v) => v.id !== ev.videoId);
+          notify();
+          return;
+        }
+        void loadTab("liked", null, false);
+      }
+    },
     setShareOpen(open: boolean) {
       shareOpen = open;
       notify();

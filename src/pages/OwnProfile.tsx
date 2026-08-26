@@ -26,6 +26,7 @@ import { formatCompactNumber } from "@/lib/formatCompactNumber";
 import { getPublicWebOrigin } from "@/lib/api";
 import { nativeShareUrl, openExternalLink } from "@/lib/platform";
 import { showToast } from "@/lib/toast";
+import { subscribeVideoCollection } from "@/lib/videoCollectionEvents";
 import { useAuthStore } from "@/store/useAuthStore";
 
 const TABS: { id: OwnProfileTab; label: string; icon: ReactNode }[] = [
@@ -78,8 +79,15 @@ export default function OwnProfile() {
     if (accountRef.current === (me?.id ?? null)) return;
     accountRef.current = me?.id ?? null;
     sessionRef.current.dispose();
+    if (!me?.id) return;
     void sessionRef.current.load();
   }, [me?.id]);
+
+  useEffect(() => {
+    return subscribeVideoCollection((ev) => {
+      sessionRef.current.applyCollectionEvent(ev);
+    });
+  }, []);
 
   const profile = snap.profile;
   const profileUrl = profile ? `${getPublicWebOrigin()}/profile/${profile.id}` : "";
@@ -194,7 +202,7 @@ export default function OwnProfile() {
                 </div>
                 <div className="mt-1 flex items-center gap-2">
                   {emailLine ? <span className="text-[13px] text-[#C8CDD5] font-medium">{emailLine}</span> : null}
-                  <LevelBadge level={1} hideCircle />
+                  <LevelBadge level={profile.level ?? 1} hideCircle />
                 </div>
               </div>
 

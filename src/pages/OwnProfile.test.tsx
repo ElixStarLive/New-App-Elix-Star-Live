@@ -278,6 +278,21 @@ describe("PAGE-024 Own Profile page", () => {
     expect(namedHardwareBackTarget("/profile")).toBeNull();
   });
 
+  it("hands Followers and Following to named list routes", async () => {
+    const view = renderOwn();
+    root = view.root;
+    container = view.container;
+    await act(async () => {
+      await Promise.resolve();
+      await Promise.resolve();
+    });
+    const followers = [...container.querySelectorAll("button")].find((b) => b.textContent?.includes("Followers"));
+    await act(async () => {
+      followers?.click();
+    });
+    expect(container.textContent).toContain(`LOC /profile/${me.id}/followers`);
+  });
+
   it("shows a visible error when own profile fails", async () => {
     api.apiFetchOwnProfile.mockResolvedValue({ profile: null, error: "session_expired", status: 401 });
     const view = renderOwn();
