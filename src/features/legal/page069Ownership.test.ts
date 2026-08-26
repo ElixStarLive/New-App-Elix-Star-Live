@@ -38,6 +38,7 @@ describe("PAGE-069 Support ownership", () => {
   it("has one public /support owner and the frozen in-app document", () => {
     expect(app.match(/path="\/support"/g)?.length).toBe(1);
     expect(app).toMatch(/<Route path="\/support" element=\{<Support \/>\} \/>/);
+    expect(app.indexOf('path="/support"')).toBeLessThan(app.indexOf("<Route element={<RequireAuth"));
     expect(app).not.toMatch(/path="\/help"|path="\/contact"|path="\/help-center"|path="\/support-center"/);
     expect(shell).toMatch(/pathname === "\/support"/);
     expect(SUPPORT_TITLE).toBe("Help & Support");
