@@ -108,6 +108,9 @@ export default function AdminProgression() {
   const reload = async () => {
     if (!userId || !isAdmin) {
       setReady(false);
+      setListLoading(false);
+      setError(null);
+      setBusy(false);
       setConfig(null);
       setLevels(null);
       setEngagementFlags(null);
@@ -117,6 +120,11 @@ export default function AdminProgression() {
       setDailyPolicy(null);
       setEnergyCaps(null);
       setAuditEntries(null);
+      setLookupUserId("");
+      setUserProgression(null);
+      setXpHistory([]);
+      setStarterHistory([]);
+      setAdjustment({ amount: "", reason: "" });
       return;
     }
     const ownerId = userId;
@@ -131,15 +139,32 @@ export default function AdminProgression() {
     if (useAuthStore.getState().user?.id !== ownerId || useAuthStore.getState().user?.isAdmin !== true) {
       setReady(false);
       setListLoading(false);
+      setConfig(null);
+      setLevels(null);
+      setEngagementFlags(null);
+      setFlagRows(null);
+      setMissions(null);
+      setDailyRewards(null);
+      setDailyPolicy(null);
+      setEnergyCaps(null);
+      setAuditEntries(null);
+      setLookupUserId("");
+      setUserProgression(null);
+      setXpHistory([]);
+      setStarterHistory([]);
+      setAdjustment({ amount: "", reason: "" });
       return;
     }
     if (configResult.error || !configResult.config || !configResult.levels) {
       const message = configResult.error || ADMIN_PROGRESSION_ERROR;
-      setError(message);
-      setConfig(null);
-      setLevels(null);
       showToast(message);
+      setConfig((prev) => {
+        if (!prev || prev.length === 0) setError(message);
+        return prev;
+      });
+      setLevels((prev) => prev);
       setListLoading(false);
+      setReady((prev) => prev);
       return;
     }
     if (
@@ -153,16 +178,19 @@ export default function AdminProgression() {
       !engagement.entries
     ) {
       const message = engagement.error || ADMIN_PROGRESSION_ERROR;
-      setError(message);
-      setEngagementFlags(null);
-      setFlagRows(null);
-      setMissions(null);
-      setDailyRewards(null);
-      setDailyPolicy(null);
-      setEnergyCaps(null);
-      setAuditEntries(null);
       showToast(message);
+      setEngagementFlags((prev) => {
+        if (!prev) setError(message);
+        return prev;
+      });
+      setFlagRows((prev) => prev);
+      setMissions((prev) => prev);
+      setDailyRewards((prev) => prev);
+      setDailyPolicy((prev) => prev);
+      setEnergyCaps((prev) => prev);
+      setAuditEntries((prev) => prev);
       setListLoading(false);
+      setReady((prev) => prev);
       return;
     }
     setConfig(configResult.config);

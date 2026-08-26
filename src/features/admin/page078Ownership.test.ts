@@ -72,6 +72,8 @@ describe("PAGE-078 Admin Progression ownership", () => {
     expect(fan).toMatch(/xp_level_requirements/);
     expect(ws).toMatch(/class WsClient/);
     expect(page).not.toMatch(/new WebSocket|reconnectOnForeground/);
+    expect(page).toMatch(/prev\.length === 0|!prev \|\| prev\.length === 0/);
+    expect(app.indexOf("<Route element={<RequireAdmin")).toBeGreaterThan(app.indexOf("<Route element={<RequireAuth"));
   });
 
   it("does not take user engagement pages or later admin money owners", () => {

@@ -8,6 +8,7 @@ import {
   ADMIN_PROGRESSION_FLAGS_TITLE,
   ADMIN_PROGRESSION_LOADING,
   ADMIN_PROGRESSION_MISSIONS_TITLE,
+  ADMIN_PROGRESSION_SAVE,
   ADMIN_PROGRESSION_TITLE,
 } from "@/content/adminProgression";
 import { namedHardwareBackTarget } from "@/lib/settingsNav";
@@ -219,5 +220,26 @@ describe("PAGE-078 Admin Progression", () => {
     expect(container.textContent).toContain(ADMIN_PROGRESSION_ERROR);
     expect(container.textContent).not.toContain("daily_like");
     expect(container.textContent).not.toContain("liveQuestsEnabled");
+  });
+
+  it("keeps prior XP config when a later reload fails", async () => {
+    const view = renderPage();
+    root = view.root;
+    container = view.container;
+    await waitUntil(() => (container?.textContent || "").includes("daily_activity"));
+    progressionApi.config.error = ADMIN_PROGRESSION_ERROR;
+    progressionApi.config.config = null as never;
+    progressionApi.config.levels = null as never;
+    const xpSave = [...container.querySelectorAll("button")].find(
+      (button) => button.textContent === ADMIN_PROGRESSION_SAVE && button.closest("section")?.textContent?.includes("daily_activity"),
+    );
+    await act(async () => {
+      xpSave?.click();
+      await Promise.resolve();
+      await Promise.resolve();
+      await Promise.resolve();
+    });
+    expect(container.textContent).toContain("daily_activity");
+    expect(container.textContent).toContain("Eligible daily activity");
   });
 });
