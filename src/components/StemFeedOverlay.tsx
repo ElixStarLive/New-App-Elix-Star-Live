@@ -5,10 +5,10 @@ import { apiFetchStories, apiLiveStreams, apiFetchProfiles } from "@/features/fe
 import { StoryGoldRingAvatar } from "@/components/StoryGoldRingAvatar";
 import { usePullRevealStrip } from "@/hooks/usePullRevealStrip";
 import { FEED_HOME, containerReturnState } from "@/lib/settingsNav";
+import { isGenuineAppUser, storyCirclePhotoUrl } from "@/lib/genuineUser";
 import { wsClient } from "@/lib/wsClient";
 import { useAuthStore } from "@/store/useAuthStore";
 
-const DEFAULT_AVATAR = "/royce/default-avatar.svg";
 const STORY_IMAGE_MS = 5000;
 
 type StoryGroup = {
@@ -78,7 +78,9 @@ export function StemFeedOverlay({
           avatar_url: p.avatarUrl || "",
           is_live: liveHosts.has(p.id),
         }))
-        .filter((p) => Boolean(p.id) && p.id !== user?.id);
+        .filter((p) => Boolean(p.id) && p.id !== user?.id)
+        .filter((p) => isGenuineAppUser(p.username, p.id, p.name))
+        .filter((p) => Boolean(storyCirclePhotoUrl(p.avatar_url)));
       mapped.sort((a, b) => {
         if (a.is_live === b.is_live) return 0;
         return a.is_live ? -1 : 1;
@@ -195,7 +197,11 @@ export function StemFeedOverlay({
                 title="Add story"
               >
                 <div className="relative overflow-visible" style={{ width: 58, height: 58 }}>
-                  <StoryGoldRingAvatar size={58} src={user?.avatarUrl || DEFAULT_AVATAR} alt={user?.username || "You"} />
+                  <StoryGoldRingAvatar
+                    size={58}
+                    src={storyCirclePhotoUrl(user?.avatarUrl, ownStory?.avatarUrl, ownStory?.stories[0]?.thumbnailUrl)}
+                    alt={user?.username || "You"}
+                  />
                   <span
                     role="button"
                     tabIndex={0}
@@ -219,7 +225,12 @@ export function StemFeedOverlay({
                 </div>
               </button>
               {groups
-                .filter((g) => g.userId !== user?.id && g.stories.length > 0)
+                .filter(
+                  (g) =>
+                    g.userId !== user?.id &&
+                    g.stories.length > 0 &&
+                    isGenuineAppUser(g.username, g.userId, g.displayName),
+                )
                 .map((g) => {
                   const roomId = liveByHost.get(g.userId);
                   return (
@@ -238,7 +249,7 @@ export function StemFeedOverlay({
                         size={58}
                         live={Boolean(roomId)}
                         data-avatar-circle={roomId ? "live" : undefined}
-                        src={g.avatarUrl || DEFAULT_AVATAR}
+                        src={storyCirclePhotoUrl(g.avatarUrl, g.stories[0]?.thumbnailUrl, g.stories[0]?.mediaUrl)}
                         alt={g.displayName || g.username}
                       />
                       <div className="elix-silver-red-text text-[10px] truncate w-full text-center leading-tight">
@@ -267,7 +278,7 @@ export function StemFeedOverlay({
                         size={58}
                         live={isLive}
                         data-avatar-circle={isLive ? "live" : undefined}
-                        src={u.avatar_url || DEFAULT_AVATAR}
+                        src={storyCirclePhotoUrl(u.avatar_url)}
                         alt={u.name || u.username}
                       />
                       <div className="elix-silver-red-text text-[10px] truncate w-full text-center leading-tight">
@@ -314,7 +325,11 @@ export function StemFeedOverlay({
           <div className="absolute top-3 left-3 right-12 z-10 flex items-center gap-2 pointer-events-none">
             <StoryGoldRingAvatar
               size={36}
-              src={storyViewer.group.avatarUrl || DEFAULT_AVATAR}
+              src={storyCirclePhotoUrl(
+                storyViewer.group.avatarUrl,
+                storyItem?.thumbnailUrl,
+                storyItem?.mediaUrl,
+              )}
               alt={storyViewer.group.displayName}
             />
             <div className="min-w-0">
