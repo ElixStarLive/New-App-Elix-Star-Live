@@ -201,6 +201,44 @@ describe("PAGE-075 Admin Purchases", () => {
     expect(container.textContent).not.toContain("coins100");
   });
 
+  it("keeps prior Coin IAP rows when a later tab reload fails", async () => {
+    const view = renderPage();
+    root = view.root;
+    container = view.container;
+    await waitUntil(() => (container?.textContent || "").includes("coins100"));
+    purchaseApi.shop = {
+      data: [
+        {
+          id: "shop-1",
+          userId: "shop-user",
+          stripeSessionId: "cs_test_1",
+          itemId: "item-1",
+          quantity: 1,
+          amountPence: 1999,
+          status: "paid",
+          createdAt: "2026-08-22T00:00:00.000Z",
+        },
+      ],
+      error: null,
+    };
+    const shopTab = [...container.querySelectorAll("button")].find((button) => button.textContent === ADMIN_PURCHASES_TAB_SHOP);
+    await act(async () => {
+      shopTab?.click();
+      await Promise.resolve();
+    });
+    await waitUntil(() => (container?.textContent || "").includes("£19.99"));
+    purchaseApi.iap = { data: null as never, error: ADMIN_PURCHASES_ERROR };
+    const iapTab = [...container.querySelectorAll("button")].find((button) => button.textContent === ADMIN_PURCHASES_TAB_IAP);
+    await act(async () => {
+      iapTab?.click();
+      await Promise.resolve();
+    });
+    await waitUntil(() => purchaseApi.iapCount >= 2);
+    expect(container.textContent).toContain("coins100");
+    expect(container.textContent).not.toContain(ADMIN_PURCHASES_EMPTY);
+    expect(toast).toHaveBeenCalled();
+  });
+
   it("switches to Shop without mixing IAP coin amounts", async () => {
     const view = renderPage();
     root = view.root;

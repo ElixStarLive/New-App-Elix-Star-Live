@@ -54,11 +54,14 @@ describe("PAGE-075 Admin Purchases ownership", () => {
     expect(extra).not.toMatch(/SELECT \* FROM processed_purchases/);
     expect(auth).toMatch(/SELECT is_admin FROM users/);
     expect(dashboard).toMatch(/path: "\/admin\/purchases"/);
+    expect(app.indexOf("<Route element={<RequireAdmin")).toBeGreaterThan(app.indexOf("<Route element={<RequireAuth"));
     expect(credit).toMatch(/processed_purchases/);
     expect(reverse).toMatch(/status = 'reversed'/);
     expect(fulfill).toMatch(/shop_purchases/);
     expect(ws).toMatch(/class WsClient/);
     expect(page).not.toMatch(/new WebSocket|reconnectOnForeground/);
+    expect(purchases).toMatch(/source: "iap"/);
+    expect(purchases).toMatch(/source: "shop"/);
   });
 
   it("does not take later admin pages or invent money mutations", () => {

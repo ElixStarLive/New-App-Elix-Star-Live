@@ -68,21 +68,27 @@ export default function AdminPurchases() {
         return;
       }
       if (result.error || !result.data) {
-        if (source === "iap") setIapRows(null);
-        else setShopRows(null);
         const message = result.error || ADMIN_PURCHASES_ERROR;
-        setError(message);
         showToast(message);
+        if (source === "iap") {
+          setIapRows((prev) => {
+            if (!prev || prev.length === 0) setError(message);
+            return prev;
+          });
+        } else {
+          setShopRows((prev) => {
+            if (!prev || prev.length === 0) setError(message);
+            return prev;
+          });
+        }
         setListLoading(false);
         setReady(true);
         return;
       }
       if (source === "iap") {
         setIapRows(result.data as AdminIapPurchase[]);
-        setShopRows(null);
       } else {
         setShopRows(result.data as AdminShopPurchase[]);
-        setIapRows(null);
       }
       setError(null);
       setListLoading(false);
