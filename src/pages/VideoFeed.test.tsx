@@ -185,8 +185,8 @@ describe("PAGE-007 For You", () => {
     await flush();
     expect(mounted.container.textContent).toContain("Creator");
     expect(feedApi.apiFetchForYouFeed).toHaveBeenCalledTimes(1);
-    expect(feedApi.apiFetchStories).toHaveBeenCalled();
-    expect(mounted.container.textContent).toMatch(/Add story|Your story/);
+    expect(feedApi.apiFetchStories).not.toHaveBeenCalled();
+    expect(mounted.container.textContent).not.toMatch(/Add story|Your story/);
   });
 
   it("shows empty feed copy and refresh", async () => {
@@ -415,15 +415,15 @@ describe("PAGE-007 For You", () => {
     expect(mounted.container.textContent).not.toContain("MUSIC CATALOG");
   });
 
-  it("renders For You story rings under TopNav without a second feed chrome row", async () => {
+  it("does not mount Friends story rings on For You", async () => {
     feedApi.apiFetchForYouFeed.mockResolvedValue({ page: { videos: [videoItem], mutualUserIds: [], page: 1, limit: 20, hasMore: false, total: 1, source: "postgres" }, error: null });
     feedApi.apiLiveStreams.mockResolvedValue({ streams: [], error: null });
     const mounted = renderFeed();
     root = mounted.root;
     container = mounted.container;
     await flush();
-    expect(feedApi.apiFetchStories).toHaveBeenCalled();
-    expect(mounted.container.textContent).toMatch(/Add story|Your story/);
+    expect(feedApi.apiFetchStories).not.toHaveBeenCalled();
+    expect(mounted.container.textContent).not.toMatch(/Add story|Your story/);
     expect(mounted.container.textContent).not.toContain("Following");
     expect(mounted.container.querySelector("h1")).toBeNull();
   });

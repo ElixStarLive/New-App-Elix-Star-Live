@@ -17,9 +17,10 @@ describe("PAGE-001 Login ownership", () => {
     expect(login).toMatch(/navigate\("\/register"/);
     expect(login).toMatch(/to="\/forgot-password"/);
     expect(login).toMatch(/login_saved_email/);
+    expect(login).toMatch(/login_saved_password/);
     expect(login).toMatch(/login_save_details/);
-    expect(login).toMatch(/removeItem\("login_saved_password"\)/);
-    expect(login).not.toMatch(/elix-page-glass/);
+    expect(login).toMatch(/writeRememberedLogin/);
+    expect(login).toMatch(/Remember password/);
     expect(login).not.toMatch(/LoginV2|LoginOld|LoginFixed|LoginBackup|history\.back|navigate\(-1\)/);
     expect(session).toMatch(/\/api\/auth\/login/);
     expect(session).toMatch(/\/api\/auth\/me/);

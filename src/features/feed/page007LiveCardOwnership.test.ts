@@ -29,10 +29,10 @@ describe("PAGE-007 ForYouLiveCard battle/cohost/offline", () => {
     expect(geometry).toMatch(/LIVE_COHOST_STAGE_HEIGHT/);
   });
 
-  it("owns For You story rings and drops prior viewer slides on account switch", () => {
-    expect(videoFeed).toMatch(/FollowingFeedOverlay/);
-    expect(videoFeed).toMatch(/sitBelowTopNav/);
-    expect(videoFeed).toMatch(/showPageChrome=\{false\}/);
+  it("owns For You snap feed without Friends story rings, and drops prior viewer slides on account switch", () => {
+    expect(videoFeed).not.toMatch(/FollowingFeedOverlay/);
+    expect(videoFeed).not.toMatch(/Add story|apiFetchStories/);
+    expect(videoFeed).toMatch(/ForYouLiveCard|ForYouPlayer/);
     expect(feedHook).toMatch(/viewerId/);
     expect(feedHook).toMatch(/setVideos\(\[\]\)/);
     expect(feedHook).toMatch(/setLives\(\[\]\)/);

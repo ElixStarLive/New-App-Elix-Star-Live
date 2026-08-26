@@ -8,26 +8,37 @@ import { AuthPasswordField } from "@/components/AuthPasswordField";
 import { isAbortLike } from "@/features/auth/abortLike";
 
 const REMEMBER_EMAIL_KEY = "login_saved_email";
+const REMEMBER_PASSWORD_KEY = "login_saved_password";
 const REMEMBER_FLAG_KEY = "login_save_details";
 
-function readRememberedEmail(): { save: boolean; email: string } {
+function readRememberedLogin(): { save: boolean; email: string; password: string } {
   try {
-    const save = window.localStorage.getItem(REMEMBER_FLAG_KEY) === "true";
+    const flagRaw = window.localStorage.getItem(REMEMBER_FLAG_KEY);
+    // Default Remember on so password stays unless the user turns it off.
+    const save = flagRaw === null ? true : flagRaw === "true";
     const email = window.localStorage.getItem(REMEMBER_EMAIL_KEY) || "";
-    return { save, email: save ? email : "" };
+    const password = window.localStorage.getItem(REMEMBER_PASSWORD_KEY) || "";
+    return { save, email, password };
   } catch {
-    return { save: false, email: "" };
+    return { save: true, email: "", password: "" };
   }
 }
 
-function writeRememberedEmail(save: boolean, email: string): void {
+/** Username always persists. Password stays when Remember is checked. */
+function writeRememberedLogin(save: boolean, email: string, password: string): void {
   try {
-    if (save) {
-      window.localStorage.setItem(REMEMBER_EMAIL_KEY, email);
+    const trimmed = email.trim();
+    if (trimmed) {
+      window.localStorage.setItem(REMEMBER_EMAIL_KEY, trimmed);
+    }
+    if (save && password) {
+      window.localStorage.setItem(REMEMBER_FLAG_KEY, "true");
+      window.localStorage.setItem(REMEMBER_PASSWORD_KEY, password);
+    } else if (save) {
       window.localStorage.setItem(REMEMBER_FLAG_KEY, "true");
     } else {
-      window.localStorage.removeItem(REMEMBER_EMAIL_KEY);
       window.localStorage.setItem(REMEMBER_FLAG_KEY, "false");
+      window.localStorage.removeItem(REMEMBER_PASSWORD_KEY);
     }
   } catch {
     /* storage may be unavailable */
@@ -41,7 +52,7 @@ export default function Login() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
-  const [saveDetails, setSaveDetails] = useState(false);
+  const [saveDetails, setSaveDetails] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const from = (location.state as { from?: string } | null)?.from ?? "/";
@@ -55,15 +66,10 @@ export default function Login() {
   }, [navigate, from]);
 
   useEffect(() => {
-    const remembered = readRememberedEmail();
+    const remembered = readRememberedLogin();
     setSaveDetails(remembered.save);
     if (remembered.email) setEmail(remembered.email);
-    // Frozen OLD: never keep a legacy password in storage.
-    try {
-      window.localStorage.removeItem("login_saved_password");
-    } catch {
-      /* storage may be unavailable */
-    }
+    if (remembered.password) setPassword(remembered.password);
   }, []);
 
   const unlockSubmit = useCallback(() => {
@@ -99,13 +105,8 @@ export default function Login() {
         unlockSubmit();
         return;
       }
-      // Persist email on success even if this screen unmounts before navigation.
-      writeRememberedEmail(saveDetails, email.trim());
-      try {
-        window.localStorage.removeItem("login_saved_password");
-      } catch {
-        /* storage may be unavailable */
-      }
+      // Username always saved; password stays when Remember is checked.
+      writeRememberedLogin(saveDetails, email.trim(), password);
       goAfterAuth();
     } catch (err) {
       if (isAbortLike(err)) {
@@ -132,7 +133,7 @@ export default function Login() {
         unlockSubmit();
         return;
       }
-      writeRememberedEmail(saveDetails, email.trim());
+      writeRememberedLogin(saveDetails, email.trim(), "");
       goAfterAuth();
     } catch {
       if (isMounted.current) {
@@ -192,7 +193,7 @@ export default function Login() {
                 {saveDetails && <Check className="w-3.5 h-3.5 xs:w-3 xs:h-3 text-black stroke-[3]" />}
               </div>
             </div>
-            <span className="text-fluid-sm text-white/70 select-none">Remember email</span>
+            <span className="text-fluid-sm text-white/70 select-none">Remember password</span>
           </label>
 
           {error ? (

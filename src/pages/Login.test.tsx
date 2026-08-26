@@ -87,7 +87,7 @@ describe("PAGE-001 Login", () => {
     expect(container.querySelector("h1")?.textContent).toBe("Login");
     expect(container.querySelector('img[alt="Elix Star Live"]')).toBeTruthy();
     expect(container.firstElementChild?.className).not.toContain("elix-page-glass");
-    expect(container.textContent).toContain("Remember email");
+    expect(container.textContent).toContain("Remember password");
     expect(container.textContent).toContain("Sign up");
     expect(container.textContent).toContain("Sign in with Apple");
     expect(container.textContent).toContain("Forgot your password?");
@@ -97,14 +97,30 @@ describe("PAGE-001 Login", () => {
     expect(container.textContent).not.toContain("Google");
   });
 
-  it("prefills remembered email only", () => {
+  it("prefills saved username and remembered password", () => {
     window.localStorage.setItem("login_save_details", "true");
     window.localStorage.setItem("login_saved_email", "saved-user");
+    window.localStorage.setItem("login_saved_password", "saved-secret");
     const mounted = renderLogin();
     root = mounted.root;
     container = mounted.container;
     const emailInput = container.querySelector('input[autocomplete="email"]') as HTMLInputElement;
+    const passwordInput = container.querySelector('input[autocomplete="current-password"]') as HTMLInputElement;
     expect(emailInput.value).toBe("saved-user");
+    expect(passwordInput.value).toBe("saved-secret");
+  });
+
+  it("prefills username even when Remember password is off", () => {
+    window.localStorage.setItem("login_save_details", "false");
+    window.localStorage.setItem("login_saved_email", "always-user");
+    window.localStorage.removeItem("login_saved_password");
+    const mounted = renderLogin();
+    root = mounted.root;
+    container = mounted.container;
+    const emailInput = container.querySelector('input[autocomplete="email"]') as HTMLInputElement;
+    const passwordInput = container.querySelector('input[autocomplete="current-password"]') as HTMLInputElement;
+    expect(emailInput.value).toBe("always-user");
+    expect(passwordInput.value).toBe("");
   });
 
   it("blocks duplicate submit and surfaces wrong credentials", async () => {
@@ -164,17 +180,20 @@ describe("PAGE-001 Login", () => {
     const page = mounted.container;
     fillCredentials(page, "keep-after-unmount", "secret-password");
     const remember = page.querySelector('input[type="checkbox"]') as HTMLInputElement;
-    act(() => {
-      remember.click();
-    });
+    if (!remember.checked) {
+      act(() => {
+        remember.click();
+      });
+    }
     await act(async () => {
       submitForm(page);
     });
     expect(window.localStorage.getItem("login_saved_email")).toBe("keep-after-unmount");
+    expect(window.localStorage.getItem("login_saved_password")).toBe("secret-password");
     expect(window.localStorage.getItem("login_save_details")).toBe("true");
   });
 
-  it("stores only email when remember is checked after success", async () => {
+  it("stores username and password when Remember is checked after success", async () => {
     signInWithPassword.mockResolvedValue({ error: null });
     const mounted = renderLogin();
     root = mounted.root;
@@ -182,16 +201,57 @@ describe("PAGE-001 Login", () => {
     const page = mounted.container;
     fillCredentials(page, "keep-me", "secret-password");
     const remember = page.querySelector('input[type="checkbox"]') as HTMLInputElement;
-    act(() => {
-      remember.click();
-    });
+    if (!remember.checked) {
+      act(() => {
+        remember.click();
+      });
+    }
     await act(async () => {
       submitForm(page);
     });
     expect(window.localStorage.getItem("login_saved_email")).toBe("keep-me");
+    expect(window.localStorage.getItem("login_saved_password")).toBe("secret-password");
     expect(window.localStorage.getItem("login_save_details")).toBe("true");
   });
 
+  it("saves username and password by default without toggling Remember", async () => {
+    signInWithPassword.mockResolvedValue({ error: null });
+    const mounted = renderLogin();
+    root = mounted.root;
+    container = mounted.container;
+    const page = mounted.container;
+    fillCredentials(page, "default-save", "secret-password");
+    await act(async () => {
+      submitForm(page);
+    });
+    expect(window.localStorage.getItem("login_saved_email")).toBe("default-save");
+    expect(window.localStorage.getItem("login_saved_password")).toBe("secret-password");
+    expect(window.localStorage.getItem("login_save_details")).toBe("true");
+  });
+
+  it("always stores username and clears password when Remember is off after success", async () => {
+    window.localStorage.setItem("login_saved_email", "old-user");
+    window.localStorage.setItem("login_saved_password", "old-secret");
+    window.localStorage.setItem("login_save_details", "true");
+    signInWithPassword.mockResolvedValue({ error: null });
+    const mounted = renderLogin();
+    root = mounted.root;
+    container = mounted.container;
+    const page = mounted.container;
+    const remember = page.querySelector('input[type="checkbox"]') as HTMLInputElement;
+    if (remember.checked) {
+      act(() => {
+        remember.click();
+      });
+    }
+    fillCredentials(page, "forget-pass", "secret-password");
+    await act(async () => {
+      submitForm(page);
+    });
+    expect(window.localStorage.getItem("login_saved_email")).toBe("forget-pass");
+    expect(window.localStorage.getItem("login_saved_password")).toBeNull();
+    expect(window.localStorage.getItem("login_save_details")).toBe("false");
+  });
   it("navigates to from after a successful login", async () => {
     signInWithPassword.mockResolvedValue({ error: null });
     const mounted = renderLogin("/inbox");
@@ -244,28 +304,6 @@ describe("PAGE-001 Login", () => {
       signUp?.click();
     });
     expect(container.textContent).toContain("register-destination");
-  });
-
-  it("does not store email when remember is off after success", async () => {
-    window.localStorage.setItem("login_saved_email", "old-user");
-    window.localStorage.setItem("login_save_details", "true");
-    signInWithPassword.mockResolvedValue({ error: null });
-    const mounted = renderLogin();
-    root = mounted.root;
-    container = mounted.container;
-    const page = mounted.container;
-    const remember = page.querySelector('input[type="checkbox"]') as HTMLInputElement;
-    if (remember.checked) {
-      act(() => {
-        remember.click();
-      });
-    }
-    fillCredentials(page, "forget-me", "secret-password");
-    await act(async () => {
-      submitForm(page);
-    });
-    expect(window.localStorage.getItem("login_saved_email")).toBeNull();
-    expect(window.localStorage.getItem("login_save_details")).toBe("false");
   });
 
   it("toggles password visibility", () => {

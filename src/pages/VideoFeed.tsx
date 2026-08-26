@@ -1,14 +1,15 @@
-import { useEffect, useRef, useState, type CSSProperties } from "react";
+import { useEffect, useRef, type CSSProperties } from "react";
 import { useForYouFeed } from "@/features/feed/useForYouFeed";
 import { ForYouPlayer } from "@/components/ForYouPlayer";
 import { ForYouLiveCard } from "@/components/ForYouLiveCard";
-import { FollowingFeedOverlay } from "@/components/FollowingFeedOverlay";
 import { platform } from "@/lib/platform";
 
+/**
+ * PAGE-007 For You — video/live snap feed only.
+ * Story circles belong on Friends / Following / STEM (not here).
+ */
 export default function VideoFeed() {
-  const pageRef = useRef<HTMLDivElement | null>(null);
   const containerRef = useRef<HTMLDivElement | null>(null);
-  const [storyOpen, setStoryOpen] = useState(false);
   const {
     slides,
     activeIndex,
@@ -21,7 +22,6 @@ export default function VideoFeed() {
     loadMore,
     updateVideo,
     liveHostIds,
-    liveByHost,
   } = useForYouFeed();
 
   useEffect(() => {
@@ -74,15 +74,7 @@ export default function VideoFeed() {
   }, [slides, setActiveIndex]);
 
   return (
-    <div ref={pageRef} className="h-full min-h-0 w-full flex flex-col bg-transparent relative">
-      <FollowingFeedOverlay
-        pageRef={pageRef}
-        onStoryOpenChange={setStoryOpen}
-        showPageChrome={false}
-        sitBelowTopNav
-        returnPath="/feed"
-        liveByHost={liveByHost}
-      />
+    <div className="h-full min-h-0 w-full flex flex-col bg-transparent relative">
       <div
         ref={containerRef}
         className="flex-1 min-h-0 w-full overflow-y-scroll snap-y snap-mandatory relative"
@@ -109,11 +101,11 @@ export default function VideoFeed() {
             >
               <div className="w-full flex-1 min-h-0 relative overflow-hidden bg-transparent">
                 {slide.kind === "live" ? (
-                  nearby ? <ForYouLiveCard stream={slide.stream} isActive={activeIndex === index && !storyOpen} /> : <div className="w-full h-full bg-[#080A0E]" />
+                  nearby ? <ForYouLiveCard stream={slide.stream} isActive={activeIndex === index} /> : <div className="w-full h-full bg-[#080A0E]" />
                 ) : nearby ? (
                   <ForYouPlayer
                     item={slide.item}
-                    isActive={activeIndex === index && !storyOpen}
+                    isActive={activeIndex === index}
                     creatorLive={liveHostIds.has(slide.item.user.id)}
                     onPatch={(patch) => updateVideo(slide.item.id, patch)}
                   />
