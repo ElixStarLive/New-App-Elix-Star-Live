@@ -6,11 +6,13 @@ const walletApi = readFileSync(resolve(process.cwd(), "src/features/wallet/walle
 const testApi = readFileSync(resolve(process.cwd(), "src/features/wallet/testCoinsApi.ts"), "utf8");
 const store = readFileSync(resolve(process.cwd(), "src/store/useWalletStore.ts"), "utf8");
 const testStore = readFileSync(resolve(process.cwd(), "src/store/useTestCoinsStore.ts"), "utf8");
+const bar = readFileSync(resolve(process.cwd(), "src/features/wallet/LiveWalletBalanceBar.tsx"), "utf8");
 const walletRouter = readFileSync(resolve(process.cwd(), "server/modules/wallet/router.ts"), "utf8");
 const ledger = readFileSync(resolve(process.cwd(), "server/modules/wallet/ledger.ts"), "utf8");
 const iapCredit = readFileSync(resolve(process.cwd(), "server/modules/iap/credit.ts"), "utf8");
 const index = readFileSync(resolve(process.cwd(), "server/index.ts"), "utf8");
 const live = readFileSync(resolve(process.cwd(), "src/features/live/LiveRoomScreen.tsx"), "utf8");
+const app = readFileSync(resolve(process.cwd(), "src/App.tsx"), "utf8");
 const hub = readFileSync(resolve(process.cwd(), "src/pages/engagement/EngagementHub.tsx"), "utf8");
 const iapApi = readFileSync(resolve(process.cwd(), "src/features/iap/iapApi.ts"), "utf8");
 const gifts = readFileSync(resolve(process.cwd(), "server/modules/gifts/router.ts"), "utf8");
@@ -28,6 +30,11 @@ describe("PAGE-039 wallet ownership", () => {
     expect(store).toMatch(/status: "error"/);
     expect(store).not.toMatch(/paidCoins: 0/);
     expect(testStore).toMatch(/\/api\/test-coins|apiFetchTestCoinsBalance/);
+    expect(bar).toMatch(/LiveWalletBalanceBar/);
+    expect(bar).toMatch(/Starter/);
+    expect(bar).toMatch(/Promo/);
+    expect(bar).toMatch(/Top Up/);
+    expect(bar).toMatch(/not wallet money/);
     expect(walletRouter).toMatch(/coin_balance|walletApiFromRow/);
     expect(walletRouter).not.toMatch(/test-coins|testCoins|test_coins/);
     expect(ledger).toMatch(/Test coins are not wallet money/);
@@ -36,8 +43,12 @@ describe("PAGE-039 wallet ownership", () => {
     expect(iapCredit).not.toMatch(/testCoins/);
     expect(index).toMatch(/\/api\/test-coins/);
     expect(index).not.toMatch(/WalletV2|walletFixed/);
+    expect(live).toMatch(/LiveWalletBalanceBar/);
     expect(live).toMatch(/useWalletStore/);
     expect(live).toMatch(/useTestCoinsStore/);
+    expect(live).toMatch(/starterCoins/);
+    expect(live).toMatch(/giftSourceToBucket/);
+    expect(app).toMatch(/fetchWallet/);
     expect(hub).toMatch(/apiEngagementHub/);
     expect(hub).not.toMatch(/useWalletStore|\/api\/wallet/);
     expect(hub).not.toMatch(/paidCoins \+|starterCoins \+|promoCoins \+/);

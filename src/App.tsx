@@ -25,6 +25,7 @@ import { getSessionToken } from "@/lib/sessionToken";
 import { bindVideoCallSignals, endActiveCall, isolateVideoCallAccount } from "@/features/calls/videoCallSession";
 import { registerPushToken } from "@/lib/pushRegister";
 import { initializeCoinIap, reconcileOwnedCoinPurchases } from "@/features/iap/iapApi";
+import { useWalletStore } from "@/store/useWalletStore";
 
 const VideoFeed = lazy(() => import("@/pages/VideoFeed"));
 const StemFeed = lazy(() => import("@/pages/StemFeed"));
@@ -209,6 +210,7 @@ function App() {
     }
     void registerPushToken();
     void reconcileOwnedCoinPurchases().catch(() => undefined);
+    void useWalletStore.getState().fetchWallet().catch(() => undefined);
     const onForceDisconnect = () => {
       endActiveCall();
       isolateVideoCallAccount();
@@ -240,6 +242,7 @@ function App() {
         void useAuthStore.getState().checkUser();
         if (useAuthStore.getState().user?.id) {
           void reconcileOwnedCoinPurchases().catch(() => undefined);
+          void useWalletStore.getState().fetchWallet().catch(() => undefined);
         }
       }
     };

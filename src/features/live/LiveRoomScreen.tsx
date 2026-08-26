@@ -4,7 +4,6 @@ import {
   AlertTriangle,
   BarChart2,
   ChevronLeft,
-  Coins,
   Gift,
   Mic,
   MicOff,
@@ -22,7 +21,11 @@ import type { BattleState, CohostSeat, GiftCatalogItem, GiftGoal } from "@shared
 import { battleStateSchema, cohostLayoutSchema, giftGoalSchema } from "@shared/contracts";
 import { wsClient } from "@/lib/wsClient";
 import { useAuthStore } from "@/store/useAuthStore";
-import { formatWalletCount } from "@/features/wallet/formatWalletCount";
+import {
+  giftSourceToBucket,
+  LiveWalletBalanceBar,
+  type LiveGiftMoneySource,
+} from "@/features/wallet/LiveWalletBalanceBar";
 import { useTestCoinsStore } from "@/store/useTestCoinsStore";
 import { useWalletStore } from "@/store/useWalletStore";
 import { apiFetchProfile, apiFollow, apiUnfollow } from "@/features/feed/feedApi";
@@ -124,11 +127,13 @@ export function LiveRoomScreen({
   const user = useAuthStore((s) => s.user);
   const paidCoins = useWalletStore((s) => s.paidCoins);
   const promoCoins = useWalletStore((s) => s.promoCoins);
+  const starterCoins = useWalletStore((s) => s.starterCoins);
   const walletStatus = useWalletStore((s) => s.status);
   const fetchWallet = useWalletStore((s) => s.fetchWallet);
   const testCoins = useTestCoinsStore((s) => s.testCoins);
   const testStatus = useTestCoinsStore((s) => s.status);
   const fetchTestCoins = useTestCoinsStore((s) => s.fetchTestCoins);
+  const [giftSource, setGiftSource] = useState<LiveGiftMoneySource>("paid_coins");
   const hostSession = useLiveHostSession(role === "host", user?.displayName || user?.username || "LIVE");
   const spectatorSession = useSpectatorSession(role === "spectator", streamIdProp);
 
@@ -373,7 +378,7 @@ export function LiveRoomScreen({
     wsClient.send("heart_sent", { roomId });
   };
 
-  const sendGift = async (gift: GiftCatalogItem, bucket: "paid" | "promo" | "test") => {
+  const sendGift = async (gift: GiftCatalogItem, bucket: "paid" | "promo" | "starter" | "test") => {
     if (!hostId) {
       showToast("Host is not ready");
       return;
@@ -388,17 +393,23 @@ export function LiveRoomScreen({
         return;
       }
     } else {
-      if (walletStatus !== "ready" || (bucket === "promo" ? promoCoins : paidCoins) == null) {
+      if (walletStatus !== "ready") {
         showToast(walletStatus === "error" ? "Wallet unavailable" : "Wallet loading");
         return;
       }
-      if (bucket === "promo" && (promoCoins ?? 0) < gift.coinCost) {
-        showToast("Not enough promo coins");
+      const balance =
+        bucket === "promo" ? promoCoins : bucket === "starter" ? starterCoins : paidCoins;
+      if (balance == null) {
+        showToast("Wallet unavailable");
         return;
       }
-      if (bucket === "paid" && (paidCoins ?? 0) < gift.coinCost) {
-        showToast("Not enough coins");
-        setBuyCoinsOpen(true);
+      if (balance < gift.coinCost) {
+        if (bucket === "promo") showToast("Not enough promo coins");
+        else if (bucket === "starter") showToast("Not enough starter coins");
+        else {
+          showToast("Not enough coins");
+          setBuyCoinsOpen(true);
+        }
         return;
       }
     }
@@ -913,30 +924,28 @@ export function LiveRoomScreen({
         <div className="absolute inset-x-0 bottom-0 z-50 mx-auto max-w-[480px] rounded-t-2xl border border-[#D8D9DD]/30 bg-black/80 p-3">
           <div className="flex justify-between items-center mb-2">
             <p className="text-sm font-bold">Gifts</p>
-            <div className="flex items-center gap-2">
-              <button
-                type="button"
-                onClick={() => setBuyCoinsOpen(true)}
-                className="flex items-center gap-1 flex-shrink-0 rounded-full px-2 py-0.5 border border-[#D8D9DD]/40 bg-transparent active:scale-95 transition-transform"
-              >
-                <Coins className="w-2.5 h-2.5 text-[#F5F5F7] flex-shrink-0" />
-                <span className="text-[#F5F5F7] text-[8px] font-bold whitespace-nowrap">Top Up</span>
-              </button>
-              <button type="button" onClick={() => setGiftOpen(false)} aria-label="Close gifts">
-                <X size={16} />
-              </button>
-            </div>
+            <button type="button" onClick={() => setGiftOpen(false)} aria-label="Close gifts">
+              <X size={16} />
+            </button>
           </div>
-          <p className="text-[11px] text-white/50 mb-2">
-            Paid coins {formatWalletCount(paidCoins, walletStatus)} · Promo {formatWalletCount(promoCoins, walletStatus)} · Test coins {formatWalletCount(testCoins, testStatus)} (battle score only)
-          </p>
+          <LiveWalletBalanceBar
+            paidCoins={paidCoins}
+            starterCoins={starterCoins}
+            promoCoins={promoCoins}
+            walletStatus={walletStatus}
+            giftSource={giftSource}
+            onGiftSourceChange={setGiftSource}
+            onTopUp={() => setBuyCoinsOpen(true)}
+            testCoins={testCoins}
+            testStatus={testStatus}
+          />
           <div className="grid grid-cols-4 gap-2 max-h-[40vh] overflow-y-auto">
             {gifts.map((g) => (
               <div key={g.id} className="border border-white/10 rounded-xl p-2 text-center">
                 <button
                   type="button"
                   className="w-full"
-                  onClick={() => void sendGift(g, "paid")}
+                  onClick={() => void sendGift(g, giftSourceToBucket(giftSource))}
                 >
                   <p className="text-[11px] truncate">{g.name}</p>
                   <p className="text-[10px] text-white/60">{g.coinCost}</p>
@@ -948,15 +957,6 @@ export function LiveRoomScreen({
                 >
                   Test
                 </button>
-                {walletStatus === "ready" && (promoCoins ?? 0) > 0 ? (
-                  <button
-                    type="button"
-                    className="text-[10px] text-white/50 mt-1"
-                    onClick={() => void sendGift(g, "promo")}
-                  >
-                    Promo
-                  </button>
-                ) : null}
                 {role === "host" ? (
                   <button
                     type="button"
