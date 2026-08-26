@@ -31,7 +31,7 @@ import { useSpectatorSession } from "@/features/live/useSpectatorSession";
 import { getPublicWebOrigin } from "@/lib/api";
 import { nativeShareUrl } from "@/lib/platform";
 import { watchLiveProfilePath } from "@/lib/liveProfileNav";
-import { namedExitForLocation } from "@/lib/settingsNav";
+import { liveReturnState, namedExitForLocation } from "@/lib/settingsNav";
 import { LiveHostProfileHeader, LiveMarkedSubHeaderBar } from "@/components/LiveMarkedTopUi";
 import { formatCompactNumber } from "@/lib/formatCompactNumber";
 import { GiftOverlay } from "@/components/GiftOverlay";
@@ -509,7 +509,7 @@ export function LiveRoomScreen({
                 onAvatarClick={() => {
                   const path = watchLiveProfilePath(streamIdProp, hostId);
                   if (!path) return;
-                  navigate(path);
+                  navigate(path, { state: liveReturnState(location.pathname, location.search) });
                 }}
                 onFollow={(e) => {
                   e.stopPropagation();

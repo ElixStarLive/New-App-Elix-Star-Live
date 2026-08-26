@@ -22,7 +22,8 @@ import { createPublicProfileSession } from "@/features/profile/publicProfileSess
 import { type PublicProfileTab } from "@/features/profile/publicProfileApi";
 import { usePublicProfileSession } from "@/features/profile/usePublicProfileSession";
 import { PROFILE_PAGE_AVATAR_PX } from "@/lib/profileFrame";
-import { containerReturnState, exitToFromLocationState, PROFILE_EXIT_TO } from "@/lib/settingsNav";
+import { containerReturnState, FEED_HOME, namedExitForLocation } from "@/lib/settingsNav";
+import { watchSessionPathFromOverlay } from "@/lib/liveProfileNav";
 import { formatCompactNumber } from "@/lib/formatCompactNumber";
 import { getPublicWebOrigin } from "@/lib/api";
 import { nativeShareUrl, openExternalLink } from "@/lib/platform";
@@ -53,12 +54,14 @@ function requestedTab(raw: string | null): PublicProfileTab {
 }
 
 export default function Profile() {
-  const { userId } = useParams();
+  const { userId, streamId } = useParams<{ userId?: string; streamId?: string }>();
   const navigate = useNavigate();
   const location = useLocation();
   const [params] = useSearchParams();
   const me = useAuthStore((s) => s.user);
   const targetKey = (userId || "").trim();
+  const isLiveProfileOverlay = /^\/watch\/[^/]+\/profile\//.test(location.pathname);
+  const isSelf = Boolean(me?.id && targetKey && me.id === targetKey);
   const sessionRef = useRef(createPublicProfileSession());
   const session = sessionRef.current;
   const snap = usePublicProfileSession(session);
@@ -68,23 +71,27 @@ export default function Profile() {
   const tabQuery = params.get("tab");
 
   useEffect(() => {
-    if (!targetKey || (me?.id && targetKey === me.id)) return;
+    if (!targetKey) return;
+    if (isSelf && !isLiveProfileOverlay) return;
     void session.load(targetKey, me?.id ?? null, requestedTab(tabQuery));
     return () => {
       session.dispose();
     };
-  }, [session, targetKey, me?.id, tabQuery]);
+  }, [session, targetKey, me?.id, tabQuery, isSelf, isLiveProfileOverlay]);
 
-  if (targetKey && me?.id && targetKey === me.id) {
+  if (isSelf && !isLiveProfileOverlay) {
     return <Navigate to="/profile" replace />;
   }
 
-  if (profile && me?.id && profile.id === me.id) {
+  if (profile && me?.id && profile.id === me.id && !isLiveProfileOverlay) {
     return <Navigate to="/profile" replace />;
   }
 
-  const close = () => navigate(exitToFromLocationState(location.state, PROFILE_EXIT_TO), { replace: true });
-  const nested = () => containerReturnState(`${location.pathname}${location.search}`);
+  const close = () => navigate(namedExitForLocation(location.pathname, location.state), { replace: true });
+  const nested = () =>
+    containerReturnState(
+      watchSessionPathFromOverlay(location.pathname, location.search) || `${location.pathname}${location.search}`,
+    );
   const profileUrl = profile ? `${getPublicWebOrigin()}/profile/${profile.id}` : "";
 
   const copyLink = () => {
@@ -192,6 +199,7 @@ export default function Profile() {
 
               {profile.bio ? <p className="text-center text-[13px] text-white/70 mt-3 px-8 leading-relaxed">{profile.bio}</p> : null}
 
+              {!isSelf ? (
               <div className="flex items-center justify-center gap-2 mt-4 px-6">
                 <button
                   type="button"
@@ -230,6 +238,7 @@ export default function Profile() {
                   </span>
                 </button>
               </div>
+              ) : null}
 
               <div className="mt-2">
                 <div className="flex justify-center overflow-x-auto no-scrollbar">
@@ -369,21 +378,32 @@ export default function Profile() {
                   name: "Share",
                   action: () => void nativeShareUrl({ title: profile.displayName, url: profileUrl }),
                 },
-                {
-                  name: "Report",
-                  action: () => {
-                    session.setShareOpen(false);
-                    setReportOpen(true);
-                  },
-                },
-                {
-                  name: "Block",
-                  action: () => {
-                    void session.blockTarget().then((r) => {
-                      if (!r.ok) showToast(r.error);
-                    });
-                  },
-                },
+                ...(!isSelf
+                  ? [
+                      {
+                        name: "Report",
+                        action: () => {
+                          session.setShareOpen(false);
+                          setReportOpen(true);
+                        },
+                      },
+                      {
+                        name: "Block",
+                        action: () => {
+                          void session.blockTarget().then((r) => {
+                            if (!r.ok) {
+                              showToast(r.error);
+                              return;
+                            }
+                            session.setShareOpen(false);
+                            if (isLiveProfileOverlay && streamId && profile.id === streamId.trim()) {
+                              navigate(FEED_HOME, { replace: true });
+                            }
+                          });
+                        },
+                      },
+                    ]
+                  : []),
               ].map((item) => (
                 <button key={item.name} type="button" onClick={item.action} className="flex flex-col items-center gap-1 active:scale-95">
                   <span className="royce-glow-disc" style={{ width: 44, height: 44 }} aria-hidden>

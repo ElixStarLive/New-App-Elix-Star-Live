@@ -1,5 +1,6 @@
 import type { UserPublic } from "@shared/contracts";
 import { apiFetchProfile, apiFollow, apiUnfollow } from "@/features/feed/feedApi";
+import { apiBlockUser } from "@/features/profile/publicProfileApi";
 
 export function liveProfileErrorCopy(message: string): string {
   const m = message.toLowerCase();
@@ -45,4 +46,14 @@ export async function toggleLiveProfileFollow(args: {
   const result = await (next ? follow(args.userId) : unfollow(args.userId));
   if (!result.ok) return { ok: false, error: result.error, following: args.following };
   return { ok: true, following: next };
+}
+
+export async function blockLiveProfileUser(args: {
+  userId: string;
+  isSelf: boolean;
+  block?: (userId: string) => Promise<{ ok: true } | { ok: false; error: string }>;
+}): Promise<{ ok: true } | { ok: false; error: string }> {
+  if (args.isSelf) return { ok: false, error: "Cannot block yourself" };
+  const block = args.block ?? apiBlockUser;
+  return block(args.userId);
 }

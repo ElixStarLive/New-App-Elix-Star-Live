@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { loadLiveProfile, toggleLiveProfileFollow } from "./useLiveProfileOverlay";
+import { blockLiveProfileUser, loadLiveProfile, toggleLiveProfileFollow } from "./useLiveProfileOverlay";
 
 const profile = {
   id: "22222222-2222-4222-8222-222222222222",
@@ -73,5 +73,17 @@ describe("toggleLiveProfileFollow", () => {
     });
     expect(followed).toEqual({ ok: true, following: true });
     expect(follow).toHaveBeenCalledWith(profile.id);
+  });
+});
+
+describe("blockLiveProfileUser", () => {
+  it("uses the shared block API and blocks self-block", async () => {
+    const block = vi.fn(async () => ({ ok: true as const }));
+    const self = await blockLiveProfileUser({ userId: profile.id, isSelf: true, block });
+    expect(self.ok).toBe(false);
+    expect(block).not.toHaveBeenCalled();
+    const blocked = await blockLiveProfileUser({ userId: profile.id, isSelf: false, block });
+    expect(blocked).toEqual({ ok: true });
+    expect(block).toHaveBeenCalledWith(profile.id);
   });
 });
