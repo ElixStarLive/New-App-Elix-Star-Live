@@ -103,10 +103,39 @@ export default function AdminRisingStars() {
       setSeasons(null);
       setChallenges(null);
       setAudit(null);
+      setSelectedSeasonId("");
       setError(null);
       setChallengeError(null);
+      setBusy(false);
       setReady(false);
       setListLoading(false);
+      setChallengesLoading(false);
+      setSeasonForm({
+        slug: "",
+        title: "",
+        description: "",
+        startsAt: "",
+        endsAt: "",
+        status: "draft",
+      });
+      setCategoryForm({
+        slug: ADMIN_RISING_STARS_DEFAULT_CATEGORY.slug,
+        title: ADMIN_RISING_STARS_DEFAULT_CATEGORY.title,
+      });
+      setRegionForm({
+        slug: ADMIN_RISING_STARS_DEFAULT_REGION.slug,
+        title: ADMIN_RISING_STARS_DEFAULT_REGION.title,
+      });
+      setChallengeForm({
+        categoryId: "",
+        regionId: "",
+        weekIndex: 1,
+        title: "",
+        soundTrackId: "",
+        opensAt: "",
+        closesAt: "",
+        status: "scheduled",
+      });
       return;
     }
     const requestId = requestIdRef.current + 1;
@@ -120,18 +149,21 @@ export default function AdminRisingStars() {
       if (useAuthStore.getState().user?.isAdmin !== true) {
         setSeasons(null);
         setAudit(null);
+        setChallenges(null);
+        setSelectedSeasonId("");
         setError(null);
         setListLoading(false);
         setReady(false);
         return;
       }
       if (result.error || !result.seasons || !result.audit) {
-        setSeasons(null);
-        setAudit(null);
-        setChallenges(null);
         const message = result.error || ADMIN_RISING_STARS_ERROR;
-        setError(message);
         showToast(message);
+        setSeasons((prev) => {
+          if (!prev || prev.length === 0) setError(message);
+          return prev;
+        });
+        setAudit((prev) => prev);
         setListLoading(false);
         setReady(true);
         return;
@@ -168,10 +200,12 @@ export default function AdminRisingStars() {
         return;
       }
       if (result.error || !result.challenges) {
-        setChallenges(null);
         const message = result.error || ADMIN_RISING_STARS_CHALLENGES_ERROR;
-        setChallengeError(message);
         showToast(message);
+        setChallenges((prev) => {
+          if (!prev || prev.length === 0) setChallengeError(message);
+          return prev;
+        });
         setChallengesLoading(false);
         return;
       }
@@ -209,11 +243,13 @@ export default function AdminRisingStars() {
       return;
     }
     if (result.error || !result.seasons || !result.audit) {
-      setSeasons(null);
-      setAudit(null);
       const message = result.error || ADMIN_RISING_STARS_ERROR;
-      setError(message);
       showToast(message);
+      setSeasons((prev) => {
+        if (!prev || prev.length === 0) setError(message);
+        return prev;
+      });
+      setAudit((prev) => prev);
       return;
     }
     setSeasons(result.seasons);
@@ -238,10 +274,12 @@ export default function AdminRisingStars() {
       return;
     }
     if (result.error || !result.challenges) {
-      setChallenges(null);
       const message = result.error || ADMIN_RISING_STARS_CHALLENGES_ERROR;
-      setChallengeError(message);
       showToast(message);
+      setChallenges((prev) => {
+        if (!prev || prev.length === 0) setChallengeError(message);
+        return prev;
+      });
       setChallengesLoading(false);
       return;
     }

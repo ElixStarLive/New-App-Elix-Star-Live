@@ -243,6 +243,23 @@ describe("PAGE-077 Admin Rising Stars", () => {
     expect(container.textContent).not.toContain("UK Rising (draft)");
   });
 
+  it("keeps prior challenges when a later challenge reload fails", async () => {
+    const view = renderPage();
+    root = view.root;
+    container = view.container;
+    await waitUntil(() => (container?.textContent || "").includes("<script>alert(1)</script>"));
+    risingApi.challenges = { challenges: null as never, error: ADMIN_RISING_STARS_ERROR };
+    const open = [...container.querySelectorAll("button")].find((button) => button.textContent === ADMIN_RISING_STARS_OPEN);
+    await act(async () => {
+      open?.click();
+      await Promise.resolve();
+    });
+    await waitUntil(() => risingApi.challengeCount >= 2);
+    expect(container.textContent).toContain("<script>alert(1)</script>");
+    expect(container.textContent).not.toContain(ADMIN_RISING_STARS_EMPTY_CHALLENGES);
+    expect(toast).toHaveBeenCalled();
+  });
+
   it("renders zero challenges only after a successful empty response", async () => {
     risingApi.challenges.challenges = [];
     const view = renderPage();

@@ -74,6 +74,8 @@ describe("PAGE-077 Admin Rising Stars ownership", () => {
     expect(challenge).toMatch(/ORDER BY e.vote_count DESC, e.created_at ASC|ORDER BY vote_count DESC, created_at ASC/);
     expect(ws).toMatch(/class WsClient/);
     expect(page).not.toMatch(/new WebSocket|reconnectOnForeground/);
+    expect(page).toMatch(/prev\.length === 0|!prev \|\| prev\.length === 0/);
+    expect(app.indexOf("<Route element={<RequireAdmin")).toBeGreaterThan(app.indexOf("<Route element={<RequireAuth"));
   });
 
   it("does not take public Rising Stars, later Progression, or money-domain ownership", () => {
