@@ -94,9 +94,11 @@ async function otherMember(threadId: string, viewerId: string): Promise<OtherMem
   
   
   const { rows } = await getPool().query<OtherMemberRow>(
-    `SELECT u.id, u.username, u.display_name, u.avatar_url, u.deleted_at, u.banned_until, NULL::int AS level
+    `SELECT u.id, u.username, u.display_name, u.avatar_url, u.deleted_at, u.banned_until,
+            COALESCE(NULLIF(ue.fan_level, 0), 1)::int AS level
      FROM chat_thread_members m
      JOIN users u ON u.id = m.user_id
+     LEFT JOIN user_engagement ue ON ue.user_id = u.id
      WHERE m.thread_id = $1 AND m.user_id <> $2
      LIMIT 1`,
     [threadId, viewerId],

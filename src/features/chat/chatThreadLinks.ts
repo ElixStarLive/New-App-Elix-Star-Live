@@ -26,6 +26,16 @@ function safeHttpUrl(value: string): string | null {
   }
 }
 
+export function firstAppShare(text: string): { type: "video" | "live" | "profile"; id: string } | null {
+  const match = text.match(/https?:\/\/[^\s]+\/(video|watch|live|profile)\/([a-zA-Z0-9_-]+)/i);
+  if (!match) return null;
+  const kind = match[1].toLowerCase();
+  const id = match[2];
+  if (kind === "video") return { type: "video", id };
+  if (kind === "profile") return { type: "profile", id };
+  return { type: "live", id };
+}
+
 export function splitChatBody(text: string): ChatLinkPart[] {
   const parts: ChatLinkPart[] = [];
   const splitter = new RegExp(URL_SPLIT.source, "gi");

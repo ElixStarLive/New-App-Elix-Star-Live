@@ -176,6 +176,8 @@ export function createChatThreadSession() {
       if (sent.error || !sent.message) {
         draft = text;
         sendError = sent.error || "Could not send";
+        const meta = await apiGetChatThread(threadId);
+        if (gen === loadGen && meta.thread) thread = meta.thread;
         notify();
         return;
       }

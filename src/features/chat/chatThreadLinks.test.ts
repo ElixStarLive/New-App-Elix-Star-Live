@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { splitChatBody } from "./chatThreadLinks";
+import { firstAppShare, splitChatBody } from "./chatThreadLinks";
 
 describe("PAGE-033 message body parts", () => {
   it("keeps script text as plain text", () => {
@@ -16,5 +16,11 @@ describe("PAGE-033 message body parts", () => {
       { kind: "text", text: " and " },
       { kind: "url", href: "https://example.com/x" },
     ]);
+  });
+
+  it("detects the first app share for preview cards", () => {
+    expect(firstAppShare("https://app.example/profile/u1 hello")).toEqual({ type: "profile", id: "u1" });
+    expect(firstAppShare("watch https://app.example/live/room1")).toEqual({ type: "live", id: "room1" });
+    expect(firstAppShare("no links")).toBeNull();
   });
 });

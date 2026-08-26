@@ -34,6 +34,11 @@ vi.mock("@/features/chat/chatApi", async () => {
 vi.mock("@/features/calls/videoCallSession", () => ({
   startOutgoingCall: (...args: unknown[]) => api.startOutgoingCall(...args),
 }));
+vi.mock("@/features/feed/feedApi", () => ({
+  apiLiveStreams: vi.fn(async () => ({ streams: [], error: null })),
+  apiFetchProfile: vi.fn(async () => ({ profile: null, error: null })),
+  apiFetchVideoById: vi.fn(async () => ({ video: null, error: null })),
+}));
 vi.mock("@/store/useAuthStore", () => ({
   useAuthStore: (selector?: (state: { user: { id: string; displayName: string; username: string; avatarUrl: string } }) => unknown) => {
     const state = {
