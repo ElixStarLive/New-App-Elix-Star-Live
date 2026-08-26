@@ -34,6 +34,7 @@ import { liveEndedKeys, parseLiveStartedCard } from "@/features/feed/livePresenc
 import { nativeShareUrl, openExternalLink } from "@/lib/platform";
 import { showToast } from "@/lib/toast";
 import { subscribeVideoCollection } from "@/lib/videoCollectionEvents";
+import { subscribeFollowRelationship } from "@/lib/followRelationshipEvents";
 import { wsClient } from "@/lib/wsClient";
 import { useAuthStore } from "@/store/useAuthStore";
 
@@ -89,6 +90,12 @@ export default function Profile() {
   useEffect(() => {
     return subscribeVideoCollection((ev) => {
       sessionRef.current.applyCollectionEvent(ev);
+    });
+  }, []);
+
+  useEffect(() => {
+    return subscribeFollowRelationship((ev) => {
+      sessionRef.current.applyFollowEvent(ev);
     });
   }, []);
 

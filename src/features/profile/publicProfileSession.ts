@@ -301,6 +301,10 @@ export function createPublicProfileSession() {
       notify();
       return { ok: true };
     },
+    applyFollowEvent(ev: { targetId: string; following: boolean }) {
+      if (!profile || profile.id !== ev.targetId) return;
+      void this.refresh();
+    },
     async blockTarget(): Promise<{ ok: true } | { ok: false; error: string }> {
       if (blockBusy || !profile) return { ok: false, error: "busy" };
       if (!viewerId || viewerId === profile.id) return { ok: false, error: "Cannot block yourself" };

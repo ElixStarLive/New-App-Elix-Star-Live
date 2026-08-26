@@ -96,6 +96,18 @@ export function createFollowersSession() {
       notify();
       return { ok: true as const };
     },
+    applyFollowEvent(ev: { targetId: string; following: boolean }) {
+      if (!ownerUserId) return;
+      // Membership of this list changes when the viewer follows/unfollows the list owner.
+      if (ev.targetId === ownerUserId) {
+        void this.load(ownerUserId);
+        return;
+      }
+      const row = users.find((user) => user.id === ev.targetId);
+      if (!row || Boolean(row.isFollowing) === ev.following) return;
+      users = users.map((user) => (user.id === ev.targetId ? { ...user, isFollowing: ev.following } : user));
+      notify();
+    },
     dispose() {
       loadGen += 1;
       phase = "idle";

@@ -28,4 +28,12 @@ describe("PAGE-027 followers ownership", () => {
     expect(router).toMatch(/JOIN users u ON u\.id = f\.follower_id/);
     expect(router).toMatch(/ORDER BY f\.created_at DESC/);
   });
+
+  it("syncs via the shared follow relationship bus and shared follow writers", () => {
+    expect(page).toMatch(/subscribeFollowRelationship/);
+    expect(session).toMatch(/applyFollowEvent/);
+    expect(api).toMatch(/apiFollow\(/);
+    expect(api).toMatch(/apiUnfollow\(/);
+    expect(page).not.toMatch(/Follow Back/);
+  });
 });

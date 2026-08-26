@@ -321,6 +321,8 @@ export async function apiFollow(userId: string): Promise<{ ok: true } | { ok: fa
     method: "POST",
   });
   if (error) return { ok: false, error: error.message };
+  const { publishFollowRelationship } = await import("@/lib/followRelationshipEvents");
+  publishFollowRelationship({ type: "follow", targetId: userId, following: true });
   return { ok: true };
 }
 
@@ -329,6 +331,8 @@ export async function apiUnfollow(userId: string): Promise<{ ok: true } | { ok: 
     method: "POST",
   });
   if (error) return { ok: false, error: error.message };
+  const { publishFollowRelationship } = await import("@/lib/followRelationshipEvents");
+  publishFollowRelationship({ type: "follow", targetId: userId, following: false });
   return { ok: true };
 }
 

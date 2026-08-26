@@ -41,6 +41,9 @@ vi.mock("@/features/chat/chatApi", () => chat);
 vi.mock("@/lib/videoCollectionEvents", () => ({
   subscribeVideoCollection: () => () => undefined,
 }));
+vi.mock("@/lib/followRelationshipEvents", () => ({
+  subscribeFollowRelationship: () => () => undefined,
+}));
 vi.mock("@/lib/wsClient", () => ({
   wsClient: { on: vi.fn(), off: vi.fn() },
 }));

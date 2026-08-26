@@ -121,4 +121,31 @@ describe("PAGE-027 followers session", () => {
     expect(snap.phase).toBe("ready");
     expect(snap.error).toBe("Could not load list");
   });
+
+  it("updates row follow state from the shared relationship bus", async () => {
+    api.apiFetchFollowers.mockResolvedValue({ users: [fan], error: null });
+    const session = createFollowersSession();
+    await session.load("owner");
+    session.applyFollowEvent({ targetId: fan.id, following: true });
+    expect(session.getSnapshot().users[0]?.isFollowing).toBe(true);
+    session.applyFollowEvent({ targetId: fan.id, following: false });
+    expect(session.getSnapshot().users[0]?.isFollowing).toBe(false);
+  });
+
+  it("reloads membership when the viewer follows the list owner", async () => {
+    api.apiFetchFollowers
+      .mockResolvedValueOnce({ users: [fan], error: null })
+      .mockResolvedValueOnce({
+        users: [{ ...fan, id: "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa", username: "me" }],
+        error: null,
+      });
+    const session = createFollowersSession();
+    await session.load("owner");
+    expect(session.getSnapshot().users).toHaveLength(1);
+    session.applyFollowEvent({ targetId: "owner", following: true });
+    for (let i = 0; i < 20 && api.apiFetchFollowers.mock.calls.length < 2; i += 1) {
+      await Promise.resolve();
+    }
+    expect(api.apiFetchFollowers).toHaveBeenCalledTimes(2);
+  });
 });

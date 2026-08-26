@@ -27,6 +27,7 @@ import { getPublicWebOrigin } from "@/lib/api";
 import { nativeShareUrl, openExternalLink } from "@/lib/platform";
 import { showToast } from "@/lib/toast";
 import { subscribeVideoCollection } from "@/lib/videoCollectionEvents";
+import { subscribeFollowRelationship } from "@/lib/followRelationshipEvents";
 import { useAuthStore } from "@/store/useAuthStore";
 
 const TABS: { id: OwnProfileTab; label: string; icon: ReactNode }[] = [
@@ -86,6 +87,14 @@ export default function OwnProfile() {
   useEffect(() => {
     return subscribeVideoCollection((ev) => {
       sessionRef.current.applyCollectionEvent(ev);
+    });
+  }, []);
+
+  useEffect(() => {
+    return subscribeFollowRelationship((ev) => {
+      const id = sessionRef.current.getSnapshot().profile?.id;
+      if (!id || ev.targetId !== id) return;
+      void sessionRef.current.refresh();
     });
   }, []);
 

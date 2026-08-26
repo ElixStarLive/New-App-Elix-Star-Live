@@ -4,6 +4,7 @@ import { AvatarRing } from "@/components/AvatarRing";
 import { RoyceBackIcon } from "@/components/royce";
 import { createFollowersSession } from "@/features/profile/followersSession";
 import { useFollowersSession } from "@/features/profile/useFollowersSession";
+import { subscribeFollowRelationship } from "@/lib/followRelationshipEvents";
 import { containerReturnState, exitToFromLocationState, FOLLOW_LIST_EXIT_TO } from "@/lib/settingsNav";
 import { showToast } from "@/lib/toast";
 import { useAuthStore } from "@/store/useAuthStore";
@@ -29,6 +30,12 @@ export default function Followers() {
       session.dispose();
     };
   }, [session, ownerId, me?.id]);
+
+  useEffect(() => {
+    return subscribeFollowRelationship((ev) => {
+      sessionRef.current.applyFollowEvent(ev);
+    });
+  }, []);
 
   const goBack = () => navigate(exitToFromLocationState(location.state, listFallback), { replace: true });
 
