@@ -6,6 +6,7 @@ import { getSessionToken } from "@/lib/sessionToken";
 import { wsClient } from "@/lib/wsClient";
 import { Track, type RemoteTrack } from "livekit-client";
 import { useCallback, useEffect, useRef, useState } from "react";
+import { sameUserId, userIdFromLiveKitIdentity } from "@/features/live/utils/ids";
 
 export const SPECTATOR_WS_OWNER = "live-spectator";
 
@@ -109,14 +110,71 @@ export async function runSpectatorJoin(args: {
   }
 }
 
+export async function syncSpectatorCohostPublish(args: {
+  roomId: string;
+  sessionToken: string | null;
+  session: LiveKitSession;
+  shouldPublish: boolean;
+  requestToken?: typeof apiLiveToken;
+}): Promise<{ ok: true; publishing: boolean } | { ok: false; error: string }> {
+  if (!args.sessionToken) return { ok: false, error: "Sign in required" };
+  const requestToken = args.requestToken ?? apiLiveToken;
+  if (args.shouldPublish) {
+    const publisher = await requestToken(args.roomId, "cohost");
+    if (!publisher.token) {
+      return { ok: false, error: publisher.error || "Co-host publish unavailable" };
+    }
+    if (!publisher.token.canPublish) {
+      return { ok: false, error: "Server did not grant co-host publish permission" };
+    }
+    await args.session.connect(publisher.token.url, publisher.token.token);
+    await args.session.publishCamera({ audio: true, video: true });
+    return { ok: true, publishing: true };
+  }
+  await args.session.setCameraEnabled(false).catch(() => undefined);
+  await args.session.setMicrophoneEnabled(false).catch(() => undefined);
+  const viewer = await requestToken(args.roomId, "spectator");
+  if (!viewer.token) {
+    return { ok: false, error: viewer.error || "Could not restore spectator connection" };
+  }
+  if (viewer.token.canPublish) {
+    return { ok: false, error: "Spectator credentials must not include publish permission" };
+  }
+  await args.session.connect(viewer.token.url, viewer.token.token);
+  return { ok: true, publishing: false };
+}
+
 export function useSpectatorSession(enabled: boolean, roomId: string) {
   const [phase, setPhase] = useState<SpectatorPhase>(enabled ? "connecting" : "failed");
   const [error, setError] = useState<string | null>(enabled ? null : "Missing room");
   const [creds, setCreds] = useState<LiveTokenResponse | null>(null);
+  const [isPublishing, setIsPublishing] = useState(false);
   const sessionRef = useRef<LiveKitSession | null>(null);
   const remoteEls = useRef<Map<string, HTMLVideoElement>>(new Map());
   const tracks = useRef<Map<string, RemoteTrack>>(new Map());
   const generationRef = useRef(0);
+  const cohostSyncLock = useRef(false);
+  const localVideoRef = useRef<HTMLVideoElement | null>(null);
+
+  const attachLocal = useCallback((el: HTMLVideoElement | null) => {
+    localVideoRef.current = el;
+    if (el) sessionRef.current?.attachLocalVideo(el);
+  }, []);
+
+  const storeRemoteTrack = useCallback((identity: string, track: RemoteTrack) => {
+    tracks.current.set(identity, track);
+    const canonical = userIdFromLiveKitIdentity(identity);
+    if (canonical !== identity) tracks.current.set(canonical, track);
+    for (const [key, el] of remoteEls.current.entries()) {
+      if (sameUserId(key, identity)) track.attach(el);
+    }
+  }, []);
+
+  const removeRemoteTrack = useCallback((identity: string) => {
+    tracks.current.delete(identity);
+    const canonical = userIdFromLiveKitIdentity(identity);
+    if (canonical !== identity) tracks.current.delete(canonical);
+  }, []);
 
   const attachRemote = useCallback((identity: string) => (el: HTMLVideoElement | null) => {
     if (!el) {
@@ -124,8 +182,17 @@ export function useSpectatorSession(enabled: boolean, roomId: string) {
       return;
     }
     remoteEls.current.set(identity, el);
-    const track = tracks.current.get(identity);
-    if (track) track.attach(el);
+    const direct = tracks.current.get(identity);
+    if (direct) {
+      direct.attach(el);
+      return;
+    }
+    for (const [trackIdentity, track] of tracks.current.entries()) {
+      if (sameUserId(trackIdentity, identity)) {
+        track.attach(el);
+        return;
+      }
+    }
   }, []);
 
   useEffect(() => {
@@ -148,12 +215,10 @@ export function useSpectatorSession(enabled: boolean, roomId: string) {
         generation,
         isCurrent: (ticket) => ticket === generationRef.current && !cancelled,
         attachVideo: (identity, track) => {
-          tracks.current.set(identity, track);
-          const el = remoteEls.current.get(identity);
-          if (el) track.attach(el);
+          storeRemoteTrack(identity, track);
         },
         detachVideo: (identity) => {
-          tracks.current.delete(identity);
+          removeRemoteTrack(identity);
         },
         createSession: () =>
           new LiveKitSession({
@@ -179,16 +244,14 @@ export function useSpectatorSession(enabled: boolean, roomId: string) {
                 }
               }
               if (track.kind === Track.Kind.Video) {
-                tracks.current.set(participant.identity, track);
-                const el = remoteEls.current.get(participant.identity);
-                if (el) track.attach(el);
+                storeRemoteTrack(participant.identity, track);
               }
             },
             onTrackUnsubscribed: ({ participant }) => {
-              tracks.current.delete(participant.identity);
+              removeRemoteTrack(participant.identity);
             },
             onParticipantDisconnected: (participant) => {
-              tracks.current.delete(participant.identity);
+              removeRemoteTrack(participant.identity);
             },
           }),
       });
@@ -212,15 +275,41 @@ export function useSpectatorSession(enabled: boolean, roomId: string) {
       void sessionRef.current?.disconnect();
       sessionRef.current = null;
       ownedTracks.clear();
+      setIsPublishing(false);
       wsClient.disconnect(SPECTATOR_WS_OWNER);
     };
-  }, [enabled, roomId]);
+  }, [enabled, removeRemoteTrack, roomId, storeRemoteTrack]);
+
+  const syncCohostPublish = useCallback(
+    async (shouldPublish: boolean) => {
+      const session = sessionRef.current;
+      if (!session || phase !== "live" || cohostSyncLock.current) return;
+      if (shouldPublish === isPublishing) return;
+      cohostSyncLock.current = true;
+      try {
+        const result = await syncSpectatorCohostPublish({
+          roomId,
+          sessionToken: getSessionToken(),
+          session,
+          shouldPublish,
+        });
+        if (result.ok) {
+          setIsPublishing(result.publishing);
+          if (result.publishing && localVideoRef.current) session.attachLocalVideo(localVideoRef.current);
+        }
+      } finally {
+        cohostSyncLock.current = false;
+      }
+    },
+    [isPublishing, phase, roomId],
+  );
 
   const leave = useCallback(async () => {
     generationRef.current += 1;
     void sessionRef.current?.disconnect();
     sessionRef.current = null;
     tracks.current.clear();
+    setIsPublishing(false);
     wsClient.disconnect(SPECTATOR_WS_OWNER);
   }, []);
 
@@ -245,9 +334,12 @@ export function useSpectatorSession(enabled: boolean, roomId: string) {
     phase,
     error,
     creds,
+    isPublishing,
     sessionRef,
+    attachLocal,
     attachRemote,
     leave,
     markEnded,
+    syncCohostPublish,
   };
 }

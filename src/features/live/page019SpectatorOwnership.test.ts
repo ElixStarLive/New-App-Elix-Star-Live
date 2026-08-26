@@ -18,8 +18,12 @@ describe("PAGE-019 spectator ownership", () => {
     expect(screen).not.toMatch(/new LiveKitSession/);
     expect(screen).not.toMatch(/apiLiveEnd/);
     expect(screen).not.toMatch(/hostId \|\| roomId/);
+    expect(screen).toContain("syncCohostPublish");
+    expect(screen).toContain("cohost_invite_accept");
     expect(screen).toContain('role === "spectator" && Boolean(hostId) && hostId !== user?.id');
     expect(session).toContain('requestToken(args.roomId, "spectator")');
+    expect(session).toContain("syncSpectatorCohostPublish");
+    expect(session).toContain("syncCohostPublish");
     expect(session).toContain("SPECTATOR_WS_OWNER");
     expect(session).toContain("canPublish");
     expect(session).not.toMatch(/setTimeout/);

@@ -165,10 +165,13 @@ export function LiveRoomScreen({
 
   const hostAttachRef = useRef(hostSession.attachLocal);
   hostAttachRef.current = hostSession.attachLocal;
+  const spectatorAttachLocalRef = useRef(spectatorSession.attachLocal);
+  spectatorAttachLocalRef.current = spectatorSession.attachLocal;
 
   const attachLocal = useCallback((el: HTMLVideoElement | null) => {
     hostVideoRef.current = el;
     if (role === "host") hostAttachRef.current(el);
+    else spectatorAttachLocalRef.current(el);
   }, [role]);
 
   useEffect(() => {
@@ -328,6 +331,17 @@ export function LiveRoomScreen({
       if (result.hasSent) setJoinSent(true);
     });
   }, [hostId]);
+
+  useEffect(() => {
+    if (role !== "spectator" || !user?.id || spectatorSession.phase !== "live" || !roomId) return;
+    const mine = seats.find((seat) => seat?.userId === user.id);
+    if (mine?.status === "invited") {
+      wsClient.send("cohost_invite_accept", { roomId });
+      return;
+    }
+    const shouldPublish = Boolean(mine && (mine.status === "live" || mine.status === "accepted"));
+    void spectatorSession.syncCohostPublish(shouldPublish);
+  }, [role, roomId, seats, spectatorSession.phase, spectatorSession.syncCohostPublish, user?.id]);
 
   useEffect(() => {
     if (role !== "host" || !roomId) return;

@@ -1,5 +1,10 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { classifySpectatorJoinError, runSpectatorJoin, spectatorJoinErrorCopy } from "./useSpectatorSession";
+import {
+  classifySpectatorJoinError,
+  runSpectatorJoin,
+  spectatorJoinErrorCopy,
+  syncSpectatorCohostPublish,
+} from "./useSpectatorSession";
 
 const requestToken = vi.fn();
 const connectWs = vi.fn();
@@ -98,5 +103,52 @@ describe("runSpectatorJoin", () => {
     });
     expect(classifySpectatorJoinError("websocket 429 resource exhausted")).toBe("failed");
     expect(classifySpectatorJoinError("Live has ended")).toBe("ended");
+  });
+});
+
+describe("syncSpectatorCohostPublish", () => {
+  const requestToken = vi.fn();
+  const connect = vi.fn();
+  const publishCamera = vi.fn();
+  const setCameraEnabled = vi.fn();
+  const setMicrophoneEnabled = vi.fn();
+
+  afterEach(() => vi.clearAllMocks());
+
+  it("promotes to co-host publish when the server grants permission", async () => {
+    requestToken.mockResolvedValueOnce({
+      token: { ...creds, canPublish: true, token: "pub-jwt", url: "wss://livekit.example" },
+      error: null,
+    });
+    connect.mockResolvedValue(undefined);
+    publishCamera.mockResolvedValue(undefined);
+    const session = { connect, publishCamera, setCameraEnabled, setMicrophoneEnabled } as never;
+    const result = await syncSpectatorCohostPublish({
+      roomId: creds.roomId,
+      sessionToken: "session-token",
+      session,
+      shouldPublish: true,
+      requestToken,
+    });
+    expect(result).toEqual({ ok: true, publishing: true });
+    expect(requestToken).toHaveBeenCalledWith(creds.roomId, "cohost");
+    expect(publishCamera).toHaveBeenCalledWith({ audio: true, video: true });
+  });
+
+  it("demotes back to subscribe-only spectator credentials", async () => {
+    setCameraEnabled.mockResolvedValue(undefined);
+    setMicrophoneEnabled.mockResolvedValue(undefined);
+    requestToken.mockResolvedValueOnce({ token: creds, error: null });
+    connect.mockResolvedValue(undefined);
+    const session = { connect, publishCamera, setCameraEnabled, setMicrophoneEnabled } as never;
+    const result = await syncSpectatorCohostPublish({
+      roomId: creds.roomId,
+      sessionToken: "session-token",
+      session,
+      shouldPublish: false,
+      requestToken,
+    });
+    expect(result).toEqual({ ok: true, publishing: false });
+    expect(requestToken).toHaveBeenCalledWith(creds.roomId, "spectator");
   });
 });
