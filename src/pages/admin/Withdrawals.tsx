@@ -48,6 +48,8 @@ export default function AdminWithdrawals() {
     if (!isAdmin || !userId) {
       setRows(null);
       setError(null);
+      setNote("");
+      setBusyId(null);
       setReady(false);
       setListLoading(false);
       return;
@@ -63,15 +65,19 @@ export default function AdminWithdrawals() {
       if (useAuthStore.getState().user?.isAdmin !== true) {
         setRows(null);
         setError(null);
+        setNote("");
+        setBusyId(null);
         setListLoading(false);
         setReady(false);
         return;
       }
       if (result.error || !result.data) {
-        setRows(null);
         const message = result.error || ADMIN_WITHDRAWALS_ERROR;
-        setError(message);
         showToast(message);
+        setRows((prev) => {
+          if (!prev || prev.length === 0) setError(message);
+          return prev;
+        });
         setListLoading(false);
         setReady(true);
         return;
@@ -128,10 +134,12 @@ export default function AdminWithdrawals() {
       return;
     }
     if (refreshed.error || !refreshed.data) {
-      setRows(null);
       const message = refreshed.error || ADMIN_WITHDRAWALS_ERROR;
-      setError(message);
       showToast(message);
+      setRows((prev) => {
+        if (!prev || prev.length === 0) setError(message);
+        return prev;
+      });
       setListLoading(false);
       return;
     }

@@ -62,9 +62,12 @@ describe("PAGE-076 Admin Withdrawals ownership", () => {
     expect(auth).toMatch(/SELECT is_admin FROM users/);
     expect(dashboard).toMatch(/path: "\/admin\/withdrawals"/);
     expect(service).toMatch(/held_pence = held_pence \+ \$2/);
+    expect(service).toMatch(/withdrawal_hold:/);
     expect(connect).toMatch(/payouts_enabled/);
     expect(ws).toMatch(/class WsClient/);
     expect(page).not.toMatch(/new WebSocket|reconnectOnForeground/);
+    expect(page).toMatch(/prev\.length === 0|!prev \|\| prev\.length === 0/);
+    expect(app.indexOf("<Route element={<RequireAdmin")).toBeGreaterThan(app.indexOf("<Route element={<RequireAuth"));
   });
 
   it("does not take later admin pages or invent a second payout rail", () => {

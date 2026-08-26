@@ -8745,6 +8745,13 @@ describe("http integration", () => {
          SET available_pence = 0, held_pence = 900, withdrawn_pence = 0, pending_pence = 0, updated_at = NOW()`,
       [unfreezeCreator.id],
     );
+    const reservedUnfreeze = await seedCreatorWithdrawal("p76g", 2000);
+    await getPool().query(
+      `UPDATE creator_wallet_gbp
+          SET held_pence = held_pence + 500, updated_at = NOW()
+        WHERE user_id = $1`,
+      [reservedUnfreeze.creator.id],
+    );
 
     try {
       const loggedOutList = await authJson("/api/admin/withdrawals", null);
@@ -8954,6 +8961,31 @@ describe("http integration", () => {
       expect(unfrozenAgain.body).toMatchObject({ released: 0, stillReserved: 0 });
       expect(await walletOf(unfreezeCreator.id)).toMatchObject({ available: 900, held: 0 });
 
+      expect(await walletOf(reservedUnfreeze.creator.id)).toMatchObject({ available: 0, held: 2500, withdrawn: 0 });
+      const unfreezeReserved = await authJson(`/api/admin/unfreeze/${reservedUnfreeze.creator.id}`, admin.token, {
+        method: "POST",
+      });
+      expect(unfreezeReserved.status).toBe(200);
+      expect(unfreezeReserved.body).toMatchObject({
+        ok: true,
+        userId: reservedUnfreeze.creator.id,
+        released: 500,
+        stillReserved: 2000,
+      });
+      expect(await walletOf(reservedUnfreeze.creator.id)).toMatchObject({ available: 500, held: 2000, withdrawn: 0 });
+      const listedStillPending = await authJson("/api/admin/withdrawals?status=pending", admin.token);
+      expect(listedStillPending.status).toBe(200);
+      const stillOpen = (listedStillPending.body.withdrawals as Array<{ id?: string; status?: string }>).find(
+        (row) => row.id === reservedUnfreeze.withdrawalId,
+      );
+      expect(stillOpen?.status).toBe("pending");
+      const unfreezeReservedAgain = await authJson(`/api/admin/unfreeze/${reservedUnfreeze.creator.id}`, admin.token, {
+        method: "POST",
+      });
+      expect(unfreezeReservedAgain.status).toBe(200);
+      expect(unfreezeReservedAgain.body).toMatchObject({ released: 0, stillReserved: 2000 });
+      expect(await walletOf(reservedUnfreeze.creator.id)).toMatchObject({ available: 500, held: 2000, withdrawn: 0 });
+
       const monetisationStill = await authJson("/api/admin/monetisation", admin.token);
       expect(monetisationStill.status).toBe(200);
       expect(monetisationStill.body).toHaveProperty("config");
@@ -8976,6 +9008,7 @@ describe("http integration", () => {
           rejectFixture.withdrawalId,
           cancelFixture.withdrawalId,
           concurrentFixture.withdrawalId,
+          reservedUnfreeze.withdrawalId,
           earningId,
         ],
       ]);
@@ -8985,6 +9018,7 @@ describe("http integration", () => {
           rejectFixture.withdrawalId,
           cancelFixture.withdrawalId,
           concurrentFixture.withdrawalId,
+          reservedUnfreeze.withdrawalId,
         ],
       ]);
       await getPool().query(`DELETE FROM creator_earnings WHERE id = $1`, [earningId]);

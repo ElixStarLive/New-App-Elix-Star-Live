@@ -227,6 +227,23 @@ describe("PAGE-076 Admin Withdrawals", () => {
     expect(container.textContent).not.toContain("£50.00");
   });
 
+  it("keeps prior rows when a later status reload fails", async () => {
+    const view = renderPage();
+    root = view.root;
+    container = view.container;
+    await waitUntil(() => (container?.textContent || "").includes("£50.00"));
+    withdrawalApi.list = { data: null as never, error: ADMIN_WITHDRAWALS_ERROR };
+    const approvedTab = [...container.querySelectorAll("button")].find((button) => button.textContent === "Approved");
+    await act(async () => {
+      approvedTab?.click();
+      await Promise.resolve();
+    });
+    await waitUntil(() => withdrawalApi.listCount >= 2);
+    expect(container.textContent).toContain("£50.00");
+    expect(container.textContent).not.toContain(ADMIN_WITHDRAWALS_EMPTY);
+    expect(toast).toHaveBeenCalled();
+  });
+
   it("requires a note for reject and keeps the action button pending until the response", async () => {
     const view = renderPage();
     root = view.root;
