@@ -48,6 +48,7 @@ vi.mock("@/features/notifications/deviceTokenSession", () => ({
 describe("registerPushToken", () => {
   beforeEach(() => {
     vi.resetModules();
+    vi.unstubAllEnvs();
     isNativePlatform.mockReset();
     getPlatform.mockReset();
     register.mockReset();
@@ -62,9 +63,21 @@ describe("registerPushToken", () => {
     register.mockResolvedValue(undefined);
   });
 
-  it("registers Android FCM through Capacitor PushNotifications like OLD", async () => {
+  it("skips Android FCM register when VITE_ANDROID_FCM_ENABLED is not true (no Firebase crash)", async () => {
     isNativePlatform.mockReturnValue(true);
     getPlatform.mockReturnValue("android");
+    vi.stubEnv("VITE_ANDROID_FCM_ENABLED", "");
+    const { registerPushToken, resetPushRegisterForTests } = await import("./pushRegister");
+    resetPushRegisterForTests();
+    await registerPushToken();
+    expect(requestPermissions).not.toHaveBeenCalled();
+    expect(register).not.toHaveBeenCalled();
+  });
+
+  it("registers Android FCM when VITE_ANDROID_FCM_ENABLED=true", async () => {
+    isNativePlatform.mockReturnValue(true);
+    getPlatform.mockReturnValue("android");
+    vi.stubEnv("VITE_ANDROID_FCM_ENABLED", "true");
     const { registerPushToken, resetPushRegisterForTests } = await import("./pushRegister");
     resetPushRegisterForTests();
     await registerPushToken();
@@ -97,6 +110,7 @@ describe("registerPushToken", () => {
   it("does not register a fake token when permission is denied", async () => {
     isNativePlatform.mockReturnValue(true);
     getPlatform.mockReturnValue("android");
+    vi.stubEnv("VITE_ANDROID_FCM_ENABLED", "true");
     requestPermissions.mockResolvedValue({ receive: "denied" });
     const { registerPushToken, resetPushRegisterForTests } = await import("./pushRegister");
     resetPushRegisterForTests();

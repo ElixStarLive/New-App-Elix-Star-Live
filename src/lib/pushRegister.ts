@@ -20,28 +20,41 @@ function isSupportedNativePushPlatform(): boolean {
 
 /** Register FCM (Android) / APNs (iOS) token when local app-notifications preference is on. */
 export async function registerPushToken(): Promise<void> {
-  if (!useSettingsStore.getState().notificationsEnabled) return;
-  if (!useAuthStore.getState().user?.id) return;
-  if (!isSupportedNativePushPlatform()) return;
+  try {
+    if (!useSettingsStore.getState().notificationsEnabled) return;
+    if (!useAuthStore.getState().user?.id) return;
+    if (!isSupportedNativePushPlatform()) return;
 
-  const { PushNotifications } = await import("@capacitor/push-notifications");
-  if (!listenersAttached) {
-    listenersAttached = true;
-    await PushNotifications.addListener("registration", (token) => {
-      if (!useSettingsStore.getState().notificationsEnabled) return;
-      if (!useAuthStore.getState().user?.id) return;
-      void registerCurrentDeviceToken(token.value).then((result) => {
-        if (result.ok === false && result.sessionExpired) {
-          void useAuthStore.getState().checkUser();
-        }
+    // Android FCM requires FirebaseApp (google-services.json). Calling register() without it
+    // hard-crashes the Capacitor plugin thread and kills the process — skip until wired.
+    if (
+      Capacitor.getPlatform() === "android" &&
+      String(import.meta.env.VITE_ANDROID_FCM_ENABLED || "").trim() !== "true"
+    ) {
+      return;
+    }
+
+    const { PushNotifications } = await import("@capacitor/push-notifications");
+    if (!listenersAttached) {
+      listenersAttached = true;
+      await PushNotifications.addListener("registration", (token) => {
+        if (!useSettingsStore.getState().notificationsEnabled) return;
+        if (!useAuthStore.getState().user?.id) return;
+        void registerCurrentDeviceToken(token.value).then((result) => {
+          if (result.ok === false && result.sessionExpired) {
+            void useAuthStore.getState().checkUser();
+          }
+        });
       });
-    });
-    await PushNotifications.addListener("registrationError", () => undefined);
-  }
+      await PushNotifications.addListener("registrationError", () => undefined);
+    }
 
-  const perm = await PushNotifications.requestPermissions();
-  if (perm.receive !== "granted") return;
-  await PushNotifications.register();
+    const perm = await PushNotifications.requestPermissions();
+    if (perm.receive !== "granted") return;
+    await PushNotifications.register();
+  } catch {
+    return;
+  }
 }
 
 /** Remove this device's server token for the current account/platform (disable / logout path). */

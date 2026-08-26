@@ -138,12 +138,11 @@ try {
   if (browseIds.includes(deletedVid.rows[0].id)) throw new Error("deleted video leaked in browse");
 
   const danceCat = await json("/api/search?category=Dance", {}, viewer.token);
-  const danceCaptions = ((asRecord(danceCat.body).videos as unknown[]) || []).map((row) => {
-    const r = asRecord(row);
-    return `${String(r.description ?? "")} ${String(asRecord(r.user).username ?? "")}`;
-  });
-  if (!danceCaptions.some((row) => row.includes("dance night"))) throw new Error("Dance chip missed dance night");
-  if (danceCaptions.some((row) => row.includes("dance blocked"))) throw new Error("Dance chip showed blocked");
+  const danceIds = ((asRecord(danceCat.body).videos as unknown[]) || []).map((row) => String(asRecord(row).id));
+  if (!danceIds.includes(dance.rows[0].id)) throw new Error("Dance chip missed dance night");
+  if (danceIds.includes(blockedVid.rows[0].id)) throw new Error("Dance chip showed blocked creator video");
+  if (danceIds.includes(privateVid.rows[0].id)) throw new Error("Dance chip showed private video");
+  if (danceIds.includes(deletedVid.rows[0].id)) throw new Error("Dance chip showed deleted video");
 
   const found = await json(`/api/search?q=${encodeURIComponent(maya.username.slice(0, 4))}`, {}, viewer.token);
   if (found.status !== 200) throw new Error(`user search ${found.status}`);
