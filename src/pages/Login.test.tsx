@@ -97,7 +97,7 @@ describe("PAGE-001 Login", () => {
     expect(container.textContent).not.toContain("Google");
   });
 
-  it("prefills saved username and remembered password", () => {
+  it("prefills saved username and deletes legacy remembered password", () => {
     window.localStorage.setItem("login_save_details", "true");
     window.localStorage.setItem("login_saved_email", "saved-user");
     window.localStorage.setItem("login_saved_password", "saved-secret");
@@ -107,7 +107,8 @@ describe("PAGE-001 Login", () => {
     const emailInput = container.querySelector('input[autocomplete="email"]') as HTMLInputElement;
     const passwordInput = container.querySelector('input[autocomplete="current-password"]') as HTMLInputElement;
     expect(emailInput.value).toBe("saved-user");
-    expect(passwordInput.value).toBe("saved-secret");
+    expect(passwordInput.value).toBe("");
+    expect(window.localStorage.getItem("login_saved_password")).toBeNull();
   });
 
   it("prefills username even when Remember password is off", () => {
@@ -189,11 +190,11 @@ describe("PAGE-001 Login", () => {
       submitForm(page);
     });
     expect(window.localStorage.getItem("login_saved_email")).toBe("keep-after-unmount");
-    expect(window.localStorage.getItem("login_saved_password")).toBe("secret-password");
+    expect(window.localStorage.getItem("login_saved_password")).toBeNull();
     expect(window.localStorage.getItem("login_save_details")).toBe("true");
   });
 
-  it("stores username and password when Remember is checked after success", async () => {
+  it("stores username only when Remember is checked after success", async () => {
     signInWithPassword.mockResolvedValue({ error: null });
     const mounted = renderLogin();
     root = mounted.root;
@@ -210,11 +211,11 @@ describe("PAGE-001 Login", () => {
       submitForm(page);
     });
     expect(window.localStorage.getItem("login_saved_email")).toBe("keep-me");
-    expect(window.localStorage.getItem("login_saved_password")).toBe("secret-password");
+    expect(window.localStorage.getItem("login_saved_password")).toBeNull();
     expect(window.localStorage.getItem("login_save_details")).toBe("true");
   });
 
-  it("saves username and password by default without toggling Remember", async () => {
+  it("saves username by default without toggling Remember and never stores password", async () => {
     signInWithPassword.mockResolvedValue({ error: null });
     const mounted = renderLogin();
     root = mounted.root;
@@ -225,7 +226,7 @@ describe("PAGE-001 Login", () => {
       submitForm(page);
     });
     expect(window.localStorage.getItem("login_saved_email")).toBe("default-save");
-    expect(window.localStorage.getItem("login_saved_password")).toBe("secret-password");
+    expect(window.localStorage.getItem("login_saved_password")).toBeNull();
     expect(window.localStorage.getItem("login_save_details")).toBe("true");
   });
 

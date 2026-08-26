@@ -8,37 +8,35 @@ import { AuthPasswordField } from "@/components/AuthPasswordField";
 import { isAbortLike } from "@/features/auth/abortLike";
 
 const REMEMBER_EMAIL_KEY = "login_saved_email";
+/** Legacy key only — never write; always delete on read/write. */
 const REMEMBER_PASSWORD_KEY = "login_saved_password";
 const REMEMBER_FLAG_KEY = "login_save_details";
 
-function readRememberedLogin(): { save: boolean; email: string; password: string } {
+function readRememberedLogin(): { save: boolean; email: string } {
   try {
+    // Security: never hydrate a password from localStorage.
+    window.localStorage.removeItem(REMEMBER_PASSWORD_KEY);
     const flagRaw = window.localStorage.getItem(REMEMBER_FLAG_KEY);
-    // Default Remember on so password stays unless the user turns it off.
+    // Default Remember on so email stays unless the user turns it off.
     const save = flagRaw === null ? true : flagRaw === "true";
     const email = window.localStorage.getItem(REMEMBER_EMAIL_KEY) || "";
-    const password = window.localStorage.getItem(REMEMBER_PASSWORD_KEY) || "";
-    return { save, email, password };
+    return { save, email };
   } catch {
-    return { save: true, email: "", password: "" };
+    return { save: true, email: "" };
   }
 }
 
-/** Username always persists. Password stays when Remember is checked. */
-function writeRememberedLogin(save: boolean, email: string, password: string): void {
+/** Email/username may persist. Password is never stored. */
+function writeRememberedLogin(save: boolean, email: string): void {
   try {
+    window.localStorage.removeItem(REMEMBER_PASSWORD_KEY);
     const trimmed = email.trim();
     if (trimmed) {
       window.localStorage.setItem(REMEMBER_EMAIL_KEY, trimmed);
     }
-    if (save && password) {
-      window.localStorage.setItem(REMEMBER_FLAG_KEY, "true");
-      window.localStorage.setItem(REMEMBER_PASSWORD_KEY, password);
-    } else if (save) {
-      window.localStorage.setItem(REMEMBER_FLAG_KEY, "true");
-    } else {
-      window.localStorage.setItem(REMEMBER_FLAG_KEY, "false");
-      window.localStorage.removeItem(REMEMBER_PASSWORD_KEY);
+    window.localStorage.setItem(REMEMBER_FLAG_KEY, save ? "true" : "false");
+    if (!save) {
+      // Flag off still keeps email for convenience when user returns — matches prior email-only path.
     }
   } catch {
     /* storage may be unavailable */
@@ -69,7 +67,6 @@ export default function Login() {
     const remembered = readRememberedLogin();
     setSaveDetails(remembered.save);
     if (remembered.email) setEmail(remembered.email);
-    if (remembered.password) setPassword(remembered.password);
   }, []);
 
   const unlockSubmit = useCallback(() => {
@@ -105,8 +102,8 @@ export default function Login() {
         unlockSubmit();
         return;
       }
-      // Username always saved; password stays when Remember is checked.
-      writeRememberedLogin(saveDetails, email.trim(), password);
+      // Email/username may be remembered; password is never persisted.
+      writeRememberedLogin(saveDetails, email.trim());
       goAfterAuth();
     } catch (err) {
       if (isAbortLike(err)) {
@@ -133,7 +130,7 @@ export default function Login() {
         unlockSubmit();
         return;
       }
-      writeRememberedLogin(saveDetails, email.trim(), "");
+      writeRememberedLogin(saveDetails, email.trim());
       goAfterAuth();
     } catch {
       if (isMounted.current) {

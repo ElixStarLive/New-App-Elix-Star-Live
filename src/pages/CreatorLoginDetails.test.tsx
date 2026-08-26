@@ -174,4 +174,76 @@ describe("PAGE-029 Creator login details", () => {
     expect(container.textContent).toContain("Log in");
     expect(container.textContent).not.toContain("LOC /");
   });
+
+  it("purges legacy password keys on open and removes a saved row without calling account deletion", async () => {
+    window.localStorage.setItem(
+      CREATOR_SAVED_ACCOUNTS_KEY,
+      JSON.stringify([
+        { identifier: "star@example.com", username: "star" },
+        { identifier: "other@example.com", username: "other" },
+      ]),
+    );
+    window.localStorage.setItem("creator_saved_password", "must-die");
+    window.localStorage.setItem("login_saved_password", "must-die-too");
+    auth.user = {
+      id: "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",
+      email: "star@example.com",
+      username: "star",
+      avatarUrl: null,
+    };
+    const view = renderPage();
+    root = view.root;
+    container = view.container;
+    await act(async () => {
+      await Promise.resolve();
+    });
+    expect(window.localStorage.getItem("creator_saved_password")).toBeNull();
+    expect(window.localStorage.getItem("login_saved_password")).toBeNull();
+    const remove = container.querySelector('[aria-label="Remove other"]') as HTMLButtonElement | null;
+    await act(async () => {
+      remove?.click();
+    });
+    const stored = JSON.parse(window.localStorage.getItem(CREATOR_SAVED_ACCOUNTS_KEY) || "[]") as Array<{
+      identifier: string;
+    }>;
+    expect(stored.map((row) => row.identifier)).toEqual(["star@example.com"]);
+    expect(auth.user?.email).toBe("star@example.com");
+  });
+
+  it("switches account by signing out then prefilling the saved identifier without a password", async () => {
+    window.localStorage.setItem(
+      CREATOR_SAVED_ACCOUNTS_KEY,
+      JSON.stringify([
+        { identifier: "a@example.com", username: "alpha" },
+        { identifier: "b@example.com", username: "beta" },
+      ]),
+    );
+    auth.user = {
+      id: "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",
+      email: "a@example.com",
+      username: "alpha",
+      avatarUrl: null,
+    };
+    auth.signOut.mockImplementation(async () => {
+      auth.user = null;
+    });
+    const view = renderPage();
+    root = view.root;
+    container = view.container;
+    await act(async () => {
+      await Promise.resolve();
+    });
+    const betaLabel = Array.from(container.querySelectorAll("p")).find((node) => node.textContent === "beta");
+    await act(async () => {
+      betaLabel?.parentElement?.click();
+      await Promise.resolve();
+      await Promise.resolve();
+    });
+    expect(auth.signOut).toHaveBeenCalled();
+    const email = container.querySelector('input[autocomplete="email"]') as HTMLInputElement;
+    const password = container.querySelector('input[autocomplete="current-password"]') as HTMLInputElement;
+    expect(email.value).toBe("b@example.com");
+    expect(password.value).toBe("");
+    expect(container.textContent).toContain("Log in");
+  });
 });

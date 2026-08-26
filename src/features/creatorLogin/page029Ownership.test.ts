@@ -24,6 +24,12 @@ describe("PAGE-029 creator login details ownership", () => {
     expect(storage).toMatch(/creator_saved_password/);
     expect(storage).toMatch(/clearAllLegacyCreatorLoginKeys/);
     expect(storage).toMatch(/CREATOR_SAVED_ACCOUNT_LIMIT = 5/);
+    expect(storage).toMatch(/login_saved_password/);
+    expect(storage).toMatch(/removeItem\("login_saved_password"\)/);
+    expect(session).toMatch(/clearAllLegacyCreatorLoginKeys/);
+    expect(session).toMatch(/signIn/);
+    expect(page).toMatch(/signInWithPassword/);
+    expect(page).toMatch(/snap\.switching/);
   });
 
   it("stays reachable after sign-out and exits to Settings", () => {

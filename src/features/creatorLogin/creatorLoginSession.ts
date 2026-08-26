@@ -97,14 +97,32 @@ export function createCreatorLoginSession(storage: CreatorAccountStorage = brows
       };
     },
     getSnapshot: snapshot,
-    hydrate(viewerEmail?: string) {
+    hydrate(
+      viewerEmail?: string,
+      viewer?: { username?: string; avatarUrl?: string | null },
+    ) {
       submitGen += 1;
+      clearAllLegacyCreatorLoginKeys(storage);
       accounts = readCreatorSavedAccounts(storage);
       savePref = readCreatorSavePref(storage);
       if (viewerEmail) {
+        const match = accounts.find((row) => row.identifier.toLowerCase() === viewerEmail.toLowerCase());
+        if (match) {
+          const nextUsername = (viewer?.username || match.username || localPart(viewerEmail)).trim();
+          const nextAvatar = viewer?.avatarUrl?.trim() || match.avatar;
+          if (nextUsername !== match.username || nextAvatar !== match.avatar) {
+            accounts = upsertCreatorSavedAccount(storage, {
+              identifier: match.identifier,
+              username: nextUsername,
+              avatar: nextAvatar || undefined,
+            });
+          }
+        }
         email = viewerEmail;
         username =
-          accounts.find((row) => row.identifier === viewerEmail)?.username || localPart(viewerEmail);
+          accounts.find((row) => row.identifier.toLowerCase() === viewerEmail.toLowerCase())?.username ||
+          viewer?.username ||
+          localPart(viewerEmail);
       } else {
         email = accounts[0]?.identifier || "";
         username = accounts[0]?.username || (email ? localPart(email) : "");

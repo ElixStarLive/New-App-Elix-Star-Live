@@ -20,13 +20,31 @@ export default function CreatorLoginDetails() {
   const sessionRef = useRef(createCreatorLoginSession());
   const session = sessionRef.current;
   const snap = useCreatorLoginSession(session);
+  const bootUserRef = useRef(user);
 
   useEffect(() => {
-    session.hydrate(user?.email);
+    const bootUser = bootUserRef.current;
+    session.hydrate(
+      bootUser?.email,
+      bootUser
+        ? {
+            username: bootUser.username,
+            avatarUrl: bootUser.avatarUrl,
+          }
+        : undefined,
+    );
     return () => {
       session.dispose();
     };
-  }, [session, user?.id, user?.email]);
+  }, [session]);
+
+  useEffect(() => {
+    if (!user?.email) return;
+    session.hydrate(user.email, {
+      username: user.username,
+      avatarUrl: user.avatarUrl,
+    });
+  }, [session, user?.id, user?.email, user?.username, user?.avatarUrl]);
 
   const goBack = () => navigate(exitToFromLocationState(location.state, SETTINGS_HOME), { replace: true });
   const goProfile = () => navigate("/profile", { replace: true });
@@ -39,7 +57,7 @@ export default function CreatorLoginDetails() {
   };
 
   const onSwitch = (identifier: string) => {
-    if (user?.email === identifier) return;
+    if (user?.email === identifier || snap.switching || snap.submitting) return;
     void session.signOutAndStay(signOut).then(() => {
       session.selectAccount(identifier);
     }).catch(() => {
@@ -48,6 +66,7 @@ export default function CreatorLoginDetails() {
   };
 
   const onAdd = () => {
+    if (snap.switching || snap.submitting) return;
     void session.signOutAndStay(signOut).then(() => {
       session.clearForAdd();
     }).catch(() => {

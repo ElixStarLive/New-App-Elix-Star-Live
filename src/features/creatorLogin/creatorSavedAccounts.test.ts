@@ -64,13 +64,40 @@ describe("PAGE-029 saved creator identifiers", () => {
       creator_saved_username: "bridge",
       creator_saved_password: "nope",
       creator_save_password: "true",
+      login_saved_password: "login-secret",
     });
     clearAllLegacyCreatorLoginKeys(storage);
     expect(storage.getItem("creator_saved_identifier")).toBeNull();
     expect(storage.getItem("creator_saved_username")).toBeNull();
     expect(storage.getItem("creator_saved_password")).toBeNull();
     expect(storage.getItem("creator_save_password")).toBeNull();
+    expect(storage.getItem("login_saved_password")).toBeNull();
     expect(readCreatorSavedAccounts(storage)).toEqual([]);
+  });
+
+  it("strips password fields and enforces max 5 with case-insensitive dedupe", () => {
+    const storage = memoryStorage({
+      [CREATOR_SAVED_ACCOUNTS_KEY]: JSON.stringify([
+        { identifier: "One@example.com", username: "one", password: "die" },
+        { identifier: "one@example.com", username: "one-dup" },
+        { identifier: "two@example.com", username: "two" },
+        { identifier: "three@example.com", username: "three" },
+        { identifier: "four@example.com", username: "four" },
+        { identifier: "five@example.com", username: "five" },
+        { identifier: "six@example.com", username: "six" },
+      ]),
+    });
+    const listed = readCreatorSavedAccounts(storage);
+    expect(listed).toHaveLength(5);
+    expect(listed.map((row) => row.identifier)).toEqual([
+      "One@example.com",
+      "two@example.com",
+      "three@example.com",
+      "four@example.com",
+      "five@example.com",
+    ]);
+    expect(JSON.stringify(listed)).not.toMatch(/password|die|six@/);
+    expect(storage.getItem(CREATOR_SAVED_ACCOUNTS_KEY)).not.toMatch(/password|die/);
   });
 
   it("recovers corrupt storage to an empty list", () => {

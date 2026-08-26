@@ -37,6 +37,8 @@ export function clearAllLegacyCreatorLoginKeys(storage: CreatorAccountStorage): 
   storage.removeItem(LEGACY_USERNAME_KEY);
   storage.removeItem(LEGACY_PASSWORD_KEY);
   storage.removeItem(LEGACY_SAVE_PASSWORD_KEY);
+  // PAGE-001 legacy remembered password must never remain available to creator login.
+  storage.removeItem("login_saved_password");
 }
 
 function asAccount(value: unknown): SavedCreatorAccount | null {
@@ -47,6 +49,7 @@ function asAccount(value: unknown): SavedCreatorAccount | null {
   const usernameRaw = typeof row.username === "string" ? row.username.trim() : "";
   const username = usernameRaw || identifier.split("@")[0] || identifier;
   const avatar = typeof row.avatar === "string" && row.avatar.trim() ? row.avatar.trim() : undefined;
+  // Never persist password or other secret-shaped fields from malformed legacy rows.
   return avatar ? { identifier, username, avatar } : { identifier, username };
 }
 
@@ -66,12 +69,29 @@ function parseStoredAccounts(storage: CreatorAccountStorage): SavedCreatorAccoun
   }
   const accounts: SavedCreatorAccount[] = [];
   const seen = new Set<string>();
+  let mutated = false;
   for (const item of parsed) {
+    if (item && typeof item === "object" && "password" in (item as object)) mutated = true;
     const account = asAccount(item);
-    if (!account || seen.has(account.identifier)) continue;
-    seen.add(account.identifier);
+    if (!account) {
+      mutated = true;
+      continue;
+    }
+    const dedupeKey = account.identifier.toLowerCase();
+    if (seen.has(dedupeKey)) {
+      mutated = true;
+      continue;
+    }
+    seen.add(dedupeKey);
     accounts.push(account);
-    if (accounts.length >= CREATOR_SAVED_ACCOUNT_LIMIT) break;
+    if (accounts.length >= CREATOR_SAVED_ACCOUNT_LIMIT) {
+      if (parsed.length > accounts.length) mutated = true;
+      break;
+    }
+  }
+  if (parsed.length > CREATOR_SAVED_ACCOUNT_LIMIT) mutated = true;
+  if (mutated || accounts.length !== parsed.length) {
+    return persistAccounts(storage, accounts);
   }
   return accounts;
 }
@@ -108,7 +128,8 @@ export function upsertCreatorSavedAccount(
   account: SavedCreatorAccount,
 ): SavedCreatorAccount[] {
   const previous = readCreatorSavedAccounts(storage);
-  const next = [account, ...previous.filter((row) => row.identifier !== account.identifier)];
+  const key = account.identifier.toLowerCase();
+  const next = [account, ...previous.filter((row) => row.identifier.toLowerCase() !== key)];
   return writeCreatorSavedAccounts(storage, next);
 }
 
@@ -116,7 +137,8 @@ export function removeCreatorSavedAccount(
   storage: CreatorAccountStorage,
   identifier: string,
 ): SavedCreatorAccount[] {
-  const next = readCreatorSavedAccounts(storage).filter((row) => row.identifier !== identifier);
+  const key = identifier.toLowerCase();
+  const next = readCreatorSavedAccounts(storage).filter((row) => row.identifier.toLowerCase() !== key);
   return writeCreatorSavedAccounts(storage, next);
 }
 

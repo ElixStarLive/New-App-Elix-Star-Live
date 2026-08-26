@@ -21,6 +21,8 @@ describe("PAGE-001 Login ownership", () => {
     expect(login).toMatch(/login_save_details/);
     expect(login).toMatch(/writeRememberedLogin/);
     expect(login).toMatch(/Remember password/);
+    expect(login).toMatch(/removeItem\(REMEMBER_PASSWORD_KEY\)/);
+    expect(login).not.toMatch(/setItem\(REMEMBER_PASSWORD_KEY/);
     expect(login).not.toMatch(/LoginV2|LoginOld|LoginFixed|LoginBackup|history\.back|navigate\(-1\)/);
     expect(session).toMatch(/\/api\/auth\/login/);
     expect(session).toMatch(/\/api\/auth\/me/);

@@ -29,15 +29,19 @@ describe("PAGE-029 creator login session", () => {
     vi.mocked(authResendConfirmation).mockReset();
   });
 
-  it("hydrates saved identifiers and clears password on dispose", () => {
+  it("hydrates saved identifiers, purges legacy passwords, and clears password on dispose", () => {
     const storage = memoryStorage({
       [CREATOR_SAVED_ACCOUNTS_KEY]: JSON.stringify([
         { identifier: "star@example.com", username: "star" },
       ]),
+      creator_saved_password: "legacy-secret",
+      login_saved_password: "login-secret",
     });
     const session = createCreatorLoginSession(storage);
     session.hydrate();
     expect(session.getSnapshot().email).toBe("star@example.com");
+    expect(storage.getItem("creator_saved_password")).toBeNull();
+    expect(storage.getItem("login_saved_password")).toBeNull();
     session.setPassword("must-not-keep");
     session.dispose();
     expect(session.getSnapshot().password).toBe("");
@@ -158,5 +162,40 @@ describe("PAGE-029 creator login session", () => {
     expect(session.getSnapshot().username).toBe("b");
     session.hydrate();
     expect(session.getSnapshot().email).toBe("a@example.com");
+  });
+
+  it("updates avatar/username for the matching saved row on hydrate", () => {
+    const storage = memoryStorage({
+      [CREATOR_SAVED_ACCOUNTS_KEY]: JSON.stringify([
+        { identifier: "star@example.com", username: "old", avatar: "https://cdn.example/old.png" },
+      ]),
+    });
+    const session = createCreatorLoginSession(storage);
+    session.hydrate("star@example.com", {
+      username: "star",
+      avatarUrl: "https://cdn.example/new.png",
+    });
+    expect(session.getSnapshot().accounts[0]).toEqual({
+      identifier: "star@example.com",
+      username: "star",
+      avatar: "https://cdn.example/new.png",
+    });
+  });
+
+  it("successful login upserts identifier only and clears password field", async () => {
+    const storage = memoryStorage();
+    const session = createCreatorLoginSession(storage);
+    session.hydrate();
+    session.setEmail("a@example.com");
+    session.setUsername("alpha");
+    session.setPassword("password12");
+    const res = await session.login(async () => ({ error: null }));
+    expect(res).toEqual({ ok: true });
+    expect(session.getSnapshot().password).toBe("");
+    expect(session.getSnapshot().accounts).toEqual([
+      { identifier: "a@example.com", username: "alpha" },
+    ]);
+    expect(storage.getItem(CREATOR_SAVED_ACCOUNTS_KEY)).not.toMatch(/password12/);
+    expect(storage.getItem("login_saved_password")).toBeNull();
   });
 });
