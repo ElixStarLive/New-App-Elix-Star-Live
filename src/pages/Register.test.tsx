@@ -14,7 +14,7 @@ vi.mock("@/store/useAuthStore", () => ({
 }));
 
 vi.mock("@/features/auth/authSession", () => ({
-  authSaveConsent: () => authSaveConsent(),
+  authSaveConsent: (...args: unknown[]) => authSaveConsent(...args),
 }));
 
 vi.mock("@/lib/toast", () => ({
@@ -192,6 +192,7 @@ describe("PAGE-002 Register", () => {
       submitForm(page);
     });
     expect(authSaveConsent).toHaveBeenCalledTimes(1);
+    expect(authSaveConsent).toHaveBeenCalledWith("andrei@example.com");
     expect(showToast).toHaveBeenCalledWith(
       "Welcome! You received 50,000 Starter Coins to explore gifts and support creators.",
     );

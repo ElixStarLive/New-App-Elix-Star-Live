@@ -94,6 +94,10 @@ export default function Register() {
       }
 
       showToast(res.welcomeMessage || REGISTER_WELCOME_STARTER);
+      if (isMounted.current) {
+        submitLock.current = false;
+        setIsSubmitting(false);
+      }
       navigate(from, { replace: true });
     } catch (err) {
       if (!isMounted.current) return;

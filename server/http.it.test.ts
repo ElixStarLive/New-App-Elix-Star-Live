@@ -269,6 +269,14 @@ describe("http integration", () => {
     expect(registered.status).toBe(201);
     expect(registered.body).not.toHaveProperty("token");
     expect(registered.body).not.toHaveProperty("welcomeMessage");
+    expect(registered.body.session).toEqual(
+      expect.objectContaining({
+        access_token: expect.any(String),
+        accessToken: expect.any(String),
+      }),
+    );
+    const registeredSession = registered.body.session as { access_token: string; accessToken: string };
+    expect(registeredSession.access_token).toBe(registeredSession.accessToken);
     token = accessTokenFromLogin(registered.body);
     expect(token).toBeTruthy();
     expect(registered.body.needsEmailConfirmation).toBe(false);
@@ -304,11 +312,31 @@ describe("http integration", () => {
       }),
     });
     expect(consent.status).toBe(200);
-    const consentRow = await getPool().query<{ kind: string }>(
-      `SELECT kind FROM user_consents WHERE user_id = $1`,
+    expect(consent.body).toEqual(
+      expect.objectContaining({
+        ok: true,
+        consent: expect.objectContaining({
+          user_id: userId,
+          consent_type: "terms_privacy_and_age_13_plus",
+          version: "2026-07-21",
+          age_confirmed_13_plus: true,
+        }),
+      }),
+    );
+    const consentRow = await getPool().query<{
+      consent_type: string;
+      version: string;
+      age_confirmed_13_plus: boolean;
+      meta: unknown;
+    }>(
+      `SELECT consent_type, version, age_confirmed_13_plus, meta
+       FROM user_consents WHERE user_id = $1`,
       [userId],
     );
-    expect(consentRow.rows[0]?.kind).toBe("terms_privacy_and_age_13_plus");
+    expect(consentRow.rows[0]?.consent_type).toBe("terms_privacy_and_age_13_plus");
+    expect(consentRow.rows[0]?.version).toBe("2026-07-21");
+    expect(consentRow.rows[0]?.age_confirmed_13_plus).toBe(true);
+    expect(consentRow.rows[0]?.meta).toEqual({});
 
     const dupEmail = await json("/api/auth/register", {
       method: "POST",
@@ -375,7 +403,8 @@ describe("http integration", () => {
         accessToken: expect.any(String),
       }),
     );
-    expect(login.body.session.access_token).toBe(login.body.session.accessToken);
+    const loginSession = login.body.session as { access_token: string; accessToken: string };
+    expect(loginSession.access_token).toBe(loginSession.accessToken);
     expect(login.body.profile_meta).toEqual(
       expect.objectContaining({
         is_admin: false,

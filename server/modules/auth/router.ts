@@ -769,12 +769,19 @@ router.post("/consent", requireAuth, async (req: AuthedRequest, res: Response) =
     throw new AppError("validation_error", "Terms, privacy, and age confirmation are required.", 400);
   }
 
-  
+  const meta =
+    req.body?.meta && typeof req.body.meta === "object" && !Array.isArray(req.body.meta)
+      ? (req.body.meta as Record<string, unknown>)
+      : {};
 
   await getPool().query(
-    `INSERT INTO user_consents (user_id, kind) VALUES ($1, $2)
-     ON CONFLICT (user_id, kind) DO NOTHING`,
-    [req.userId, REGISTER_CONSENT_TYPE],
+    `INSERT INTO user_consents (user_id, consent_type, version, age_confirmed_13_plus, accepted_at, meta)
+     VALUES ($1, $2, $3, TRUE, NOW(), $4::jsonb)
+     ON CONFLICT (user_id, consent_type, version) DO UPDATE SET
+       age_confirmed_13_plus = EXCLUDED.age_confirmed_13_plus,
+       accepted_at = EXCLUDED.accepted_at,
+       meta = EXCLUDED.meta`,
+    [req.userId, REGISTER_CONSENT_TYPE, REGISTER_CONSENT_VERSION, JSON.stringify(meta)],
   );
   res.json({
     ok: true,
