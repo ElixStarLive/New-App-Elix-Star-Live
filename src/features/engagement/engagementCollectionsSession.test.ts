@@ -223,4 +223,32 @@ describe("PAGE-054 collections session", () => {
     });
     expect(deps.toast).toHaveBeenCalledWith("Open failed");
   });
+
+  it("does not let a stale inventory GET resurrect an opened chest", async () => {
+    const deps = createDeps();
+    deps.loadTreasure.mockResolvedValueOnce({ ok: true, treasure: treasure([foundChest]) });
+    deps.loadStickers.mockResolvedValue({ ok: true, stickers: stickers() });
+    deps.loadCards.mockResolvedValue({ ok: true, cards: cards() });
+    await deps.session.load(userA);
+    const stale = deferred<{ ok: true; treasure: EngagementTreasureResponse }>();
+    deps.loadTreasure.mockReturnValueOnce(stale.promise);
+    const pending = deps.session.load(userA);
+    deps.loadTreasure.mockResolvedValueOnce({
+      ok: true,
+      treasure: treasure([{ ...foundChest, status: "opened", opened_at: "2026-08-21T01:00:00.000Z" }]),
+    });
+    await deps.session.load(userA);
+    const ready = deps.session.getSnapshot();
+    expect(ready.kind).toBe("ready");
+    if (ready.kind === "ready") {
+      expect(ready.inventory.treasure.chests[0]?.status).toBe("opened");
+    }
+    stale.resolve({ ok: true, treasure: treasure([foundChest]) });
+    await pending;
+    const after = deps.session.getSnapshot();
+    expect(after.kind).toBe("ready");
+    if (after.kind === "ready") {
+      expect(after.inventory.treasure.chests[0]?.status).toBe("opened");
+    }
+  });
 });

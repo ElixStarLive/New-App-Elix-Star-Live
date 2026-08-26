@@ -69,6 +69,8 @@ describe("PAGE-054 Collections ownership", () => {
     expect(missions).toMatch(/spawnTreasureChest/);
     expect(missions).toMatch(/chest_rare_missions/);
     expect(gifts).toMatch(/recordCreatorGiftProgress/);
+    expect(session).toMatch(/const gen = \+\+generation/);
+    expect(session).toMatch(/const reloadGen = \+\+generation/);
     expect(session).not.toMatch(/localStorage|sessionStorage|setTimeout\(|location\.reload|Math\.random|owned = true/);
     expect(wallet).toMatch(/Test coins are not wallet money/);
     expect(payout).not.toMatch(/openTreasureChestForUser|listChestsForUser|grantStickerForUser/);

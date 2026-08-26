@@ -110,7 +110,8 @@ export function createEngagementCollectionsSession(deps: CollectionsDeps) {
         return;
       }
       accountId = expectedAccountId;
-      const gen = generation;
+      // Bump so an older in-flight inventory GET cannot resurrect an opened chest.
+      const gen = ++generation;
       view = { kind: "loading", inventory: null, error: null, openingChestId: null };
       emit();
       await loadInventory(expectedAccountId, gen);
@@ -120,11 +121,11 @@ export function createEngagementCollectionsSession(deps: CollectionsDeps) {
       if (view.kind !== "ready" || view.openingChestId) return;
       const chest = view.inventory.treasure.chests.find((item) => item.id === chestId);
       if (!chest || chest.status !== "found") return;
-      const gen = generation;
+      const openGen = generation;
       view = { ...view, openingChestId: chestId };
       emit();
       const result = await deps.openChest(chestId);
-      if (gen !== generation || deps.getAccountId() !== expectedAccountId) return;
+      if (openGen !== generation || deps.getAccountId() !== expectedAccountId) return;
       if (!result.ok) {
         view = { ...view, openingChestId: null };
         emit();
@@ -134,7 +135,8 @@ export function createEngagementCollectionsSession(deps: CollectionsDeps) {
         return;
       }
       deps.toast(result.reward.reward_label || "Chest opened");
-      await loadInventory(expectedAccountId, gen);
+      const reloadGen = ++generation;
+      await loadInventory(expectedAccountId, reloadGen);
     },
   };
 }
