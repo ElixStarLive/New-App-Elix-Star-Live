@@ -115,4 +115,36 @@ describe("PAGE-052 reward wallet session", () => {
       promotionalCoins: 0,
     });
   });
+
+  it("does not let a stale wallet GET overwrite a newer same-account settlement", async () => {
+    const deps = createDeps();
+    deps.loadWallet.mockResolvedValueOnce({
+      ok: true,
+      wallet: wallet({ battleEnergy: 10, totalXp: 10, promotionalCoins: 10 }),
+    });
+    await deps.session.load(userA);
+    const stale = deferred<{ ok: true; wallet: EngagementRewardWallet }>();
+    deps.loadWallet.mockReturnValueOnce(stale.promise);
+    const pending = deps.session.load(userA);
+    deps.loadWallet.mockResolvedValueOnce({
+      ok: true,
+      wallet: wallet({ battleEnergy: 20, totalXp: 20, promotionalCoins: 20, totalGiftSpendable: 50024 }),
+    });
+    await deps.session.load(userA);
+    expect(deps.session.getSnapshot().wallet).toMatchObject({
+      battleEnergy: 20,
+      totalXp: 20,
+      promotionalCoins: 20,
+    });
+    stale.resolve({
+      ok: true,
+      wallet: wallet({ battleEnergy: 10, totalXp: 10, promotionalCoins: 10 }),
+    });
+    await pending;
+    expect(deps.session.getSnapshot().wallet).toMatchObject({
+      battleEnergy: 20,
+      totalXp: 20,
+      promotionalCoins: 20,
+    });
+  });
 });

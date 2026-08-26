@@ -42,12 +42,13 @@ describe("PAGE-052 Reward Wallet ownership", () => {
     expect(rewardWallet).toMatch(/paid_coins/);
     expect(rewardWallet).toMatch(/getProgressionSnapshot/);
     expect(rewardWallet).not.toMatch(/test_coins|withdraw-gbp|localStorage|new WebSocket/);
+    expect(session).toMatch(/const gen = \+\+generation/);
     expect(session).not.toMatch(/localStorage|sessionStorage|setTimeout\(|location\.reload|paid \+=|promo \+=|xp \+=/);
     expect(wallet).toMatch(/Test coins are not wallet money/);
     expect(payout).not.toMatch(/getRewardWalletForUser|totalGiftSpendable/);
   });
 
-  it("does not take PAGE-047â€“051 or PAGE-053 ownership", () => {
+  it("does not take PAGE-047-051 or PAGE-053 ownership", () => {
     expect(hubPage).toMatch(/SettingsOptionSheet/);
     expect(hubPage).toMatch(/\/engagement\/rewards/);
     expect(hubPage).not.toMatch(/createEngagementRewardWalletSession/);

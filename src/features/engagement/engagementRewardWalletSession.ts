@@ -58,6 +58,7 @@ export function createEngagementRewardWalletSession(deps: RewardWalletDeps) {
         return;
       }
       accountId = expectedAccountId;
+      // Bump so an older in-flight wallet GET cannot overwrite newer reward settlement.
       const gen = ++generation;
       view = { kind: "loading", wallet: null, error: null };
       emit();
