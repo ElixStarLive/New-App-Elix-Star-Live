@@ -617,7 +617,7 @@ export function ForYouPlayer({
                   [
                     { label: "Copy Link", Icon: Copy, run: () => void copyLink(), close: true },
                     { label: "Download", Icon: Download, run: () => void downloadClip(), close: true },
-                    { label: "Duet", Icon: Users2, run: () => navigate("/create"), close: true },
+                    { label: "Duet", Icon: Users2, run: () => navigate(`/upload?duet=${encodeURIComponent(item.id)}`), close: true },
                     { label: "QR Code", Icon: QrCode, run: () => setShowQr((open) => !open), close: false },
                     { label: "Share", Icon: Share2, run: () => setShareOpen(true), close: true },
                     {

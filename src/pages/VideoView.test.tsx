@@ -1,6 +1,6 @@
 import { act } from "react";
 import { createRoot, type Root } from "react-dom/client";
-import { MemoryRouter, Route, Routes } from "react-router-dom";
+import { MemoryRouter, Route, Routes, useNavigate } from "react-router-dom";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import VideoView from "./VideoView";
 
@@ -31,18 +31,34 @@ const item = {
   isFollowing: false,
 };
 
-function renderAt(entry: string | { pathname: string; state?: unknown }) {
+const otherId = "33333333-3333-4333-8333-333333333333";
+
+function Harness({ nextId }: { nextId?: string }) {
+  const navigate = useNavigate();
+  return (
+    <>
+      {nextId ? (
+        <button type="button" onClick={() => navigate(`/video/${nextId}`)}>
+          go-next
+        </button>
+      ) : null}
+      <Routes>
+        <Route path="/video/:videoId" element={<VideoView />} />
+        <Route path="/feed" element={<div>FEED PAGE</div>} />
+        <Route path="/hashtag/:tag" element={<div>HASHTAG PAGE</div>} />
+      </Routes>
+    </>
+  );
+}
+
+function renderAt(entry: string | { pathname: string; state?: unknown }, nextId?: string) {
   const container = document.createElement("div");
   document.body.appendChild(container);
   const root = createRoot(container);
   act(() => {
     root.render(
       <MemoryRouter initialEntries={[typeof entry === "string" ? entry : entry]}>
-        <Routes>
-          <Route path="/video/:videoId" element={<VideoView />} />
-          <Route path="/feed" element={<div>FEED PAGE</div>} />
-          <Route path="/hashtag/:tag" element={<div>HASHTAG PAGE</div>} />
-        </Routes>
+        <Harness nextId={nextId} />
       </MemoryRouter>,
     );
   });
@@ -120,5 +136,37 @@ describe("PAGE-014 Video View", () => {
       (close as HTMLButtonElement).click();
     });
     expect(container.textContent).toContain("HASHTAG PAGE");
+  });
+
+  it("drops a stale slower detail response after route change", async () => {
+    let finishFirst: ((value: { video: typeof item; error: null }) => void) | undefined;
+    feedApi.apiFetchVideoById.mockImplementationOnce(
+      () =>
+        new Promise((resolve) => {
+          finishFirst = resolve;
+        }),
+    );
+    feedApi.apiFetchVideoById.mockResolvedValue({
+      video: { ...item, id: otherId, username: "other" },
+      error: null,
+    });
+    const rendered = renderAt(`/video/${item.id}`, otherId);
+    root = rendered.root;
+    container = rendered.container;
+    await act(async () => {
+      await Promise.resolve();
+    });
+    const goNext = [...container.querySelectorAll("button")].find((btn) => btn.textContent === "go-next");
+    await act(async () => {
+      goNext?.dispatchEvent(new MouseEvent("click", { bubbles: true }));
+      await Promise.resolve();
+      await Promise.resolve();
+    });
+    await act(async () => {
+      finishFirst?.({ video: item, error: null });
+      await Promise.resolve();
+    });
+    expect(container.textContent).toContain(`PLAYER ${otherId}`);
+    expect(container.textContent).not.toContain(`PLAYER ${item.id}`);
   });
 });
