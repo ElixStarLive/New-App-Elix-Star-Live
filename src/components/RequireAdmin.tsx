@@ -11,7 +11,7 @@ export default function RequireAdmin() {
   }
 
   if (user.isAdmin !== true) {
-    return <Navigate to="/feed" replace />;
+    return <Navigate to="/" replace />;
   }
 
   return <Outlet />;

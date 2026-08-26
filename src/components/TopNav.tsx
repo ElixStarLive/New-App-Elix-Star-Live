@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import { Search, Tv } from "lucide-react";
+import { isTopNavVisiblePath } from "@/lib/appShell";
 
 const TABS = [
   { label: "LIVE", path: "/live", color: "#FF2D55", live: true },
@@ -24,7 +25,7 @@ export const TopNav = () => {
     return () => observer.disconnect();
   }, []);
 
-  if (pathname !== "/feed" || profileOpen) return null;
+  if (!isTopNavVisiblePath(pathname) || profileOpen) return null;
 
   return (
     <div className="elix-home-top-bar fixed inset-x-0 top-0 z-[9999] flex justify-center pointer-events-none">

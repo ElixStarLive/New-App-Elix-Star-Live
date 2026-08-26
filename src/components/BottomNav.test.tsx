@@ -82,11 +82,12 @@ describe("PAGE-006 BottomNav", () => {
     expect(mounted.container.querySelector('button[aria-current="page"]')?.getAttribute("aria-label")).toBe("Profile");
   });
 
-  it("does not render on live routes", () => {
+  it("renders when mounted; App shell owns the live hide matrix", () => {
     const mounted = renderNav("/live/broadcast");
     root = mounted.root;
     container = mounted.container;
-    expect(mounted.container.querySelector('nav[aria-label="Main navigation"]')).toBeNull();
+    // BottomNav itself no longer early-returns — PAGE-006 App uses showBottomNavFor.
+    expect(mounted.container.querySelector('nav[aria-label="Main navigation"]')).toBeTruthy();
   });
 
   it("navigates once and ignores a second tap on the current tab", () => {

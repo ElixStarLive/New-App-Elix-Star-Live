@@ -55,7 +55,7 @@ describe("PAGE-006 RequireAdmin", () => {
     const mounted = renderGate("/admin");
     root = mounted.root;
     container = mounted.container;
-    expect(mounted.container.textContent).toBe("feed-destination");
+    expect(mounted.container.textContent).toBe("home-destination");
   });
 
   it("sends logged-out users to login without admin content", () => {
@@ -75,7 +75,7 @@ describe("PAGE-006 RequireAdmin", () => {
     const mounted = renderGate("/admin");
     root = mounted.root;
     container = mounted.container;
-    expect(mounted.container.textContent).toBe("feed-destination");
+    expect(mounted.container.textContent).toBe("home-destination");
   });
 
   it("renders admin content for admins", () => {

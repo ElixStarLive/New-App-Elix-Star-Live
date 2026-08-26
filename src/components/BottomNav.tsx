@@ -45,10 +45,6 @@ export const BottomNav = () => {
     [navigate, location.pathname],
   );
 
-  if (location.pathname === "/live" || location.pathname.startsWith("/live/")) {
-    return null;
-  }
-
   return (
     <nav
       className="fixed inset-x-0 bottom-0 z-[10002] pointer-events-none bg-transparent"
