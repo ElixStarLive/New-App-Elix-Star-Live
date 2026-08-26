@@ -24,6 +24,7 @@ describe("PAGE-063 Legal Affiliate ownership", () => {
   it("has one public /legal/affiliate owner and the frozen in-app document", () => {
     expect(app.match(/path="\/legal\/affiliate"/g)?.length).toBe(1);
     expect(app).toMatch(/<Route path="\/legal\/affiliate" element=\{<LegalAffiliate \/>\} \/>/);
+    expect(app.indexOf('path="/legal/affiliate"')).toBeLessThan(app.indexOf("<Route element={<RequireAuth"));
     expect(app).not.toMatch(/path="\/affiliate"|path="\/affiliate-terms"|path="\/legal\/referrals"/);
     expect(shell).toMatch(/pathname\.startsWith\("\/legal\/"\)/);
     expect(LEGAL_AFFILIATE_TITLE).toBe("Affiliate & Sponsored Content");
