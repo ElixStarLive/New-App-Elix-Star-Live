@@ -259,7 +259,7 @@ export function ForYouPlayer({
       if (!res.ok) {
         onPatch({ isSaved: wasSaved, stats: { ...current.stats, saves: prevCount } });
         showToast(res.error);
-      } else {
+      } else if (!wasSaved) {
         void apiTrackInteraction(current.id, "save");
       }
     } finally {

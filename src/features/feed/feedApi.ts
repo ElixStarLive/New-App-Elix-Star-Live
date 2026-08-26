@@ -63,7 +63,7 @@ function stemFeedCursorQuery(cursor?: string | null): string {
 
 export async function apiFetchForYouFeed(
   page = 1,
-  limit = 20,
+  limit = 50,
 ): Promise<{
   page: ForYouFeedResponse | null;
   error: string | null;

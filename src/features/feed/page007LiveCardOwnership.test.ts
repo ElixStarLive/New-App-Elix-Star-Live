@@ -33,8 +33,16 @@ describe("PAGE-007 ForYouLiveCard battle/cohost/offline", () => {
     expect(videoFeed).not.toMatch(/FollowingFeedOverlay/);
     expect(videoFeed).not.toMatch(/Add story|apiFetchStories/);
     expect(videoFeed).toMatch(/ForYouLiveCard|ForYouPlayer/);
+    expect(videoFeed).toMatch(/Nothing here yet/);
     expect(feedHook).toMatch(/viewerId/);
     expect(feedHook).toMatch(/setVideos\(\[\]\)/);
     expect(feedHook).toMatch(/setLives\(\[\]\)/);
+    expect(feedHook).toMatch(/stream_started/);
+    expect(feedHook).toMatch(/stream_ended/);
+    expect(feedHook).not.toMatch(/wsClient\.connect/);
+    expect(feedApi).toMatch(/limit = 50/);
+    expect(feedApi).toMatch(/\/api\/feed\/foryou/);
+    expect(feedApi).toMatch(/\/api\/feed\/track-view/);
+    expect(feedApi).toMatch(/\/api\/feed\/track-interaction/);
   });
 });

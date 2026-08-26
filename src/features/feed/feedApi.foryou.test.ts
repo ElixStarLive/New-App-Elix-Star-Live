@@ -89,7 +89,27 @@ describe("apiFetchForYouFeed", () => {
     expect(res.error).toBe("Invalid feed response");
   });
 
-  it("loads GET /api/feed/foryou with page/limit query", async () => {
+  it("loads GET /api/feed/foryou with OLD page size 50 by default", async () => {
+    apiRequestMock.mockResolvedValue({
+      data: {
+        videos: [feedVideo],
+        mutualUserIds: [],
+        page: 1,
+        limit: 50,
+        hasMore: false,
+        total: 1,
+        source: "foryou",
+      },
+      error: null,
+    });
+    const res = await apiFetchForYouFeed();
+    expect(apiRequestMock).toHaveBeenCalledWith("/api/feed/foryou?page=1&limit=50");
+    expect(res.error).toBeNull();
+    expect(res.page?.videos[0]?.id).toBe(feedVideo.id);
+    expect(res.page?.hasMore).toBe(false);
+  });
+
+  it("loads GET /api/feed/foryou with an explicit page/limit query", async () => {
     apiRequestMock.mockResolvedValue({
       data: {
         videos: [feedVideo],
@@ -106,9 +126,7 @@ describe("apiFetchForYouFeed", () => {
     expect(apiRequestMock).toHaveBeenCalledWith("/api/feed/foryou?page=1&limit=20");
     expect(res.error).toBeNull();
     expect(res.page?.videos[0]?.id).toBe(feedVideo.id);
-    expect(res.page?.hasMore).toBe(false);
   });
-
   it("rejects items/nextCursor responses", async () => {
     apiRequestMock.mockResolvedValue({
       data: { items: [feedVideo], nextCursor: null },

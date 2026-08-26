@@ -129,22 +129,20 @@ export function useForYouFeed() {
   }, [loadLives, loadVideos]);
 
   useEffect(() => {
-    void reload();
-  }, [reload]);
-
-  useEffect(() => {
-    if (viewerRef.current === viewerId) return;
-    viewerRef.current = viewerId;
-    fetchGen.current += 1;
-    moreLock.current = false;
-    seenVideoIds.current = new Set();
-    endedAtRef.current = new Map();
-    setVideos([]);
-    setLives([]);
-    setActiveIndex(0);
-    setPage(1);
-    setHasMore(false);
-    setError(null);
+    const switched = viewerRef.current !== viewerId;
+    if (switched) {
+      viewerRef.current = viewerId;
+      fetchGen.current += 1;
+      moreLock.current = false;
+      seenVideoIds.current = new Set();
+      endedAtRef.current = new Map();
+      setVideos([]);
+      setLives([]);
+      setActiveIndex(0);
+      setPage(1);
+      setHasMore(false);
+      setError(null);
+    }
     void reload();
   }, [viewerId, reload]);
 
