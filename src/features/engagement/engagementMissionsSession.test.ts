@@ -128,6 +128,24 @@ describe("PAGE-048 engagement missions session", () => {
     });
   });
 
+  it("does not let a stale list GET overwrite a newer same-account claim reload", async () => {
+    const deps = createDeps();
+    deps.loadMissions.mockResolvedValueOnce({ ok: true, missions: [mission()] });
+    await deps.session.load(userA);
+    const stale = deferred<{ ok: true; missions: EngagementMission[] }>();
+    deps.loadMissions.mockReturnValueOnce(stale.promise);
+    const pendingLoad = deps.session.load(userA);
+    deps.loadMissions.mockResolvedValueOnce({
+      ok: true,
+      missions: [mission({ claimed: true, completed: true, progress: 5 })],
+    });
+    await deps.session.load(userA);
+    expect(deps.session.getSnapshot().missions?.[0]?.claimed).toBe(true);
+    stale.resolve({ ok: true, missions: [mission({ claimed: false, progress: 5 })] });
+    await pendingLoad;
+    expect(deps.session.getSnapshot().missions?.[0]?.claimed).toBe(true);
+  });
+
   it("does not claim an incomplete mission from client state", async () => {
     const deps = createDeps();
     deps.loadMissions.mockResolvedValueOnce({

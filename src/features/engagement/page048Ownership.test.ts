@@ -39,6 +39,8 @@ describe("PAGE-048 Missions ownership", () => {
     expect(missions).not.toMatch(/bucket: "paid"|applyWalletDelta\([\s\S]*bucket: "starter"/);
     expect(progress).toMatch(/missionPeriodKey/);
     expect(progress).not.toMatch(/progress \+= 1/);
+    expect(session).toMatch(/const gen = \+\+generation/);
+    expect(session).toMatch(/const reloadGen = \+\+generation/);
     expect(session).not.toMatch(/localStorage|sessionStorage|setTimeout\(|location\.reload/);
     expect(wallet).toMatch(/Test coins are not wallet money/);
     expect(payout).not.toMatch(/claimMissionForUser|listMissionsForUser/);

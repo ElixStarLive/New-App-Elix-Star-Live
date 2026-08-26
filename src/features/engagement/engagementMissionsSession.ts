@@ -71,7 +71,8 @@ export function createEngagementMissionsSession(deps: MissionsDeps) {
         return;
       }
       accountId = expectedAccountId;
-      const gen = generation;
+      // Bump so an older in-flight list GET cannot overwrite newer progress/claim state.
+      const gen = ++generation;
       view = { kind: "loading", missions: null, error: null, claimingId: null };
       emit();
       const result = await deps.loadMissions();
@@ -88,11 +89,11 @@ export function createEngagementMissionsSession(deps: MissionsDeps) {
       if (view.kind !== "ready" || view.claimingId) return;
       const target = view.missions.find((row) => row.id === missionId);
       if (!target || !target.completed || target.claimed) return;
-      const gen = generation;
+      const claimGen = generation;
       view = { ...view, claimingId: missionId };
       emit();
       const result = await deps.claimMission(missionId);
-      if (gen !== generation || deps.getAccountId() !== expectedAccountId) return;
+      if (claimGen !== generation || deps.getAccountId() !== expectedAccountId) return;
       if (!result.ok) {
         view = { ...view, claimingId: null };
         emit();
@@ -102,8 +103,9 @@ export function createEngagementMissionsSession(deps: MissionsDeps) {
         return;
       }
       deps.toast("Reward claimed");
+      const reloadGen = ++generation;
       const next = await deps.loadMissions();
-      if (gen !== generation || deps.getAccountId() !== expectedAccountId) return;
+      if (reloadGen !== generation || deps.getAccountId() !== expectedAccountId) return;
       if (!next.ok) {
         applyFailure(next, ENGAGEMENT_MISSIONS_LOAD_ERROR);
         return;
@@ -113,5 +115,4 @@ export function createEngagementMissionsSession(deps: MissionsDeps) {
     },
   };
 }
-
 export type EngagementMissionsSession = ReturnType<typeof createEngagementMissionsSession>;
