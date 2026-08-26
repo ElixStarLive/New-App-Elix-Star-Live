@@ -59,11 +59,11 @@ describe("PAGE-028 following session", () => {
     expect(session.getSnapshot().users[0]?.username).toBe("b-star");
   });
 
-  it("unfollows without removing the row, then reverts when the server rejects", async () => {
+  it("unfollows on a public list without removing the owner's row", async () => {
     api.apiFetchFollowing.mockResolvedValue({ users: [followee], error: null });
     api.apiUnfollowFollowingRow.mockResolvedValue({ ok: false, error: "forbidden" });
     const session = createFollowingSession();
-    await session.load("owner");
+    await session.load("owner", "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa");
     const res = await session.toggleFollow(followee.id, "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa");
     expect(res.ok).toBe(false);
     expect(session.getSnapshot().users).toHaveLength(1);
@@ -80,7 +80,7 @@ describe("PAGE-028 following session", () => {
         }),
     );
     const session = createFollowingSession();
-    await session.load("owner");
+    await session.load("owner", "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa");
     const first = session.toggleFollow(followee.id, "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa");
     const second = await session.toggleFollow(followee.id, "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa");
     expect(second).toEqual({ ok: false, error: "busy" });
@@ -89,6 +89,35 @@ describe("PAGE-028 following session", () => {
     expect(api.apiUnfollowFollowingRow).toHaveBeenCalledTimes(1);
     expect(session.getSnapshot().users).toHaveLength(1);
     expect(session.getSnapshot().users[0]?.isFollowing).toBe(false);
+  });
+
+  it("removes the row when the owner unfollows from their own Following list", async () => {
+    const ownerId = "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa";
+    api.apiFetchFollowing.mockResolvedValue({ users: [followee], error: null });
+    api.apiUnfollowFollowingRow.mockResolvedValue({ ok: true });
+    const session = createFollowingSession();
+    await session.load(ownerId, ownerId);
+    const res = await session.toggleFollow(followee.id, ownerId);
+    expect(res).toEqual({ ok: true });
+    expect(session.getSnapshot().users).toHaveLength(0);
+  });
+
+  it("updates public-list row state from the shared follow bus without dropping membership", async () => {
+    api.apiFetchFollowing.mockResolvedValue({ users: [{ ...followee, isFollowing: false }], error: null });
+    const session = createFollowingSession();
+    await session.load("owner", "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa");
+    session.applyFollowEvent({ targetId: followee.id, following: true });
+    expect(session.getSnapshot().users).toHaveLength(1);
+    expect(session.getSnapshot().users[0]?.isFollowing).toBe(true);
+  });
+
+  it("drops own-list membership from the shared follow bus on unfollow", async () => {
+    const ownerId = "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa";
+    api.apiFetchFollowing.mockResolvedValue({ users: [followee], error: null });
+    const session = createFollowingSession();
+    await session.load(ownerId, ownerId);
+    session.applyFollowEvent({ targetId: followee.id, following: false });
+    expect(session.getSnapshot().users).toHaveLength(0);
   });
 
   it("keeps prior rows when a later load fails", async () => {

@@ -4,6 +4,7 @@ import { AvatarRing } from "@/components/AvatarRing";
 import { RoyceBackIcon } from "@/components/royce";
 import { createFollowingSession } from "@/features/profile/followingSession";
 import { useFollowingSession } from "@/features/profile/useFollowingSession";
+import { subscribeFollowRelationship } from "@/lib/followRelationshipEvents";
 import { containerReturnState, exitToFromLocationState, FOLLOW_LIST_EXIT_TO } from "@/lib/settingsNav";
 import { showToast } from "@/lib/toast";
 import { useAuthStore } from "@/store/useAuthStore";
@@ -21,7 +22,7 @@ export default function FollowingList() {
 
   useEffect(() => {
     if (!ownerId) return;
-    void session.load(ownerId).then(() => {
+    void session.load(ownerId, me?.id ?? null).then(() => {
       const after = session.getSnapshot();
       if (after.error && after.users.length > 0) showToast("Could not load list");
     });
@@ -29,6 +30,12 @@ export default function FollowingList() {
       session.dispose();
     };
   }, [session, ownerId, me?.id]);
+
+  useEffect(() => {
+    return subscribeFollowRelationship((ev) => {
+      sessionRef.current.applyFollowEvent(ev);
+    });
+  }, []);
 
   const goBack = () => navigate(exitToFromLocationState(location.state, listFallback), { replace: true });
 

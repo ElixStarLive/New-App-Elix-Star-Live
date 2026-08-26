@@ -31,4 +31,13 @@ describe("PAGE-028 following list ownership", () => {
     expect(router).toMatch(/listFollowerUsers/);
     expect(router).toMatch(/JOIN users u ON u\.id = f\.followee_id/);
   });
+
+  it("syncs via the shared follow relationship bus and shared follow writers", () => {
+    expect(page).toMatch(/subscribeFollowRelationship/);
+    expect(session).toMatch(/applyFollowEvent/);
+    expect(session).toMatch(/isOwnList/);
+    expect(api).toMatch(/apiFollow\(/);
+    expect(api).toMatch(/apiUnfollow\(/);
+    expect(page).not.toMatch(/Follow Back/);
+  });
 });

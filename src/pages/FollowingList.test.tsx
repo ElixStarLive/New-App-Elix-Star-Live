@@ -13,6 +13,9 @@ const api = vi.hoisted(() => ({
 
 vi.mock("@/lib/toast", () => ({ showToast: vi.fn() }));
 vi.mock("@/features/profile/followingApi", () => api);
+vi.mock("@/lib/followRelationshipEvents", () => ({
+  subscribeFollowRelationship: () => () => undefined,
+}));
 vi.mock("@/store/useAuthStore", () => ({
   useAuthStore: (selector?: (state: { user: { id: string } }) => unknown) => {
     const state = { user: { id: "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa" } };
@@ -101,8 +104,28 @@ describe("PAGE-028 Following list page", () => {
       await Promise.resolve();
     });
     expect(api.apiUnfollowFollowingRow).toHaveBeenCalledWith(followee.id);
+    // Public list: owner→star remains; only viewer→star flips to Follow.
     expect(container.textContent).toContain("Star Name");
     expect(Array.from(container.querySelectorAll("button")).some((btn) => btn.textContent === "Follow")).toBe(true);
+  });
+
+  it("removes the row when unfollowing from the viewer's own Following list", async () => {
+    const view = renderFollowing("/profile/aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa/following");
+    root = view.root;
+    container = view.container;
+    await act(async () => {
+      await Promise.resolve();
+      await Promise.resolve();
+    });
+    const unfollow = Array.from(container.querySelectorAll("button")).find((btn) => btn.textContent === "Following");
+    await act(async () => {
+      unfollow?.click();
+      await Promise.resolve();
+      await Promise.resolve();
+    });
+    expect(api.apiUnfollowFollowingRow).toHaveBeenCalledWith(followee.id);
+    expect(container.textContent).toContain("Not following anyone yet.");
+    expect(container.textContent).not.toContain("Star Name");
   });
 
   it("shows the empty copy when the owner follows nobody", async () => {
