@@ -30,6 +30,7 @@ describe("PAGE-060 Legal Hub ownership", () => {
   it("has one public /legal owner and the frozen hub inventory", () => {
     expect(app.match(/path="\/legal"/g)?.length).toBe(1);
     expect(app).toMatch(/<Route path="\/legal" element=\{<Legal \/>\} \/>/);
+    expect(app.indexOf('path="/legal"')).toBeLessThan(app.indexOf("<Route element={<RequireAuth"));
     expect(app).not.toMatch(/path="\/legal-hub"|path="\/legal-center"|path="\/policies"/);
     expect(shell).toMatch(/pathname === "\/legal"/);
     expect(LEGAL_HUB_TITLE).toBe("Legal");
