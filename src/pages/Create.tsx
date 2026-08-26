@@ -211,7 +211,8 @@ export default function Create() {
         onAddSound={onAddSound}
         onUpload={() => fileRef.current?.click()}
         onPostTab={() => {
-          setTab("post");
+          session.release();
+          discardCapturedCreateMedia();
           navigate("/upload");
         }}
         onCreateTab={() => setTab("create")}

@@ -52,6 +52,7 @@ vi.mock("@/lib/toast", () => ({ showToast: vi.fn() }));
 
 vi.mock("@/features/camera/capturedMediaCache", () => ({
   setCapturedCreateMedia: vi.fn(),
+  discardCapturedCreateMedia: vi.fn(),
 }));
 
 import Create from "./Create";
@@ -123,6 +124,7 @@ describe("PAGE-021 Create camera page", () => {
     act(() => {
       post.click();
     });
+    expect(camera.session.release).toHaveBeenCalled();
     expect(container.textContent).toContain("UPLOAD PAGE");
   });
 
