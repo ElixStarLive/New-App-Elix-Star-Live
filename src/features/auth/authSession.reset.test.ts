@@ -28,16 +28,26 @@ describe("authResetPassword", () => {
     expect(apiRequestMock).not.toHaveBeenCalled();
   });
 
-  it("posts token and password in the body, never in the URL", async () => {
+  it("posts password then token in the body, never in the URL", async () => {
     apiRequestMock.mockResolvedValue({ data: { ok: true }, error: null });
     const result = await authResetPassword("  fresh-reset-token-value  ", "password12");
     expect(result.ok).toBe(true);
     expect(apiRequestMock).toHaveBeenCalledWith("/api/auth/reset-password", {
       method: "POST",
-      body: JSON.stringify({ token: "fresh-reset-token-value", password: "password12" }),
+      body: JSON.stringify({ password: "password12", token: "fresh-reset-token-value" }),
     });
     expect(apiRequestMock.mock.calls[0]?.[0]).not.toContain("fresh-reset-token-value");
     expect(apiRequestMock.mock.calls[0]?.[0]).not.toContain("password12");
+  });
+
+  it("uses the OLD fallback when the API error has no message", async () => {
+    apiRequestMock.mockResolvedValue({
+      data: null,
+      error: { message: "", status: 500 },
+    });
+    const result = await authResetPassword("fresh-reset-token-value", "password12");
+    expect(result.ok).toBe(false);
+    if (!result.ok) expect(result.error).toBe("Password reset is not available at this time.");
   });
 
   it("does not treat a network failure as a completed reset", async () => {

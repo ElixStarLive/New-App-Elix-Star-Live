@@ -222,9 +222,10 @@ export async function authResetPassword(
   }
   const { error } = await apiRequest<unknown>("/api/auth/reset-password", {
     method: "POST",
-    body: JSON.stringify({ token: trimmed, password }),
+    // Frozen OLD body field order: password then token.
+    body: JSON.stringify({ password, token: trimmed }),
   });
-  if (error) return { ok: false, error: error.message || "Failed to reset password. Please try again." };
+  if (error) return { ok: false, error: error.message || "Password reset is not available at this time." };
   return { ok: true };
 }
 

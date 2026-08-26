@@ -78,9 +78,6 @@ export async function applyPasswordReset(
     throw new AppError("invalid_credentials", "Invalid or expired reset link.", 401);
   }
 
-  
-  
-
   return withTransaction(async (client) => {
     const { rows } = await client.query<{
       id: string;
