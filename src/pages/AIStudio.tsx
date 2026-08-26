@@ -220,6 +220,7 @@ export default function AIStudio() {
       </div>
 
       <AiStudioToolsSheet
+        key={userId ?? "anon"}
         isOpen={snap.toolsOpen}
         onClose={() => session.setToolsOpen(false)}
         videoUrl={snap.videoUrl}
@@ -227,7 +228,9 @@ export default function AIStudio() {
         onFilterChange={(css) => session.setFilterCss(css)}
         onEnhanceChange={(css) => session.setEnhanceCss(css)}
         onBackgroundChange={(opt) => session.setPanelBackground(opt)}
-        onCaptionSelect={() => showToast("Caption ready — copy it from AI Tools")}
+        onCaptionSelect={(caption) => {
+          if (caption) showToast("Caption ready — copy it from AI Tools");
+        }}
         onThumbnailSelect={() => showToast("Thumbnail uses the filtered frame on export")}
         onVoiceEffectChange={() => showToast("Voice preview — AI Studio exports the filtered frame only")}
         onSpeechResult={(count) => showToast(`Captured ${count} subtitle segment${count === 1 ? "" : "s"}`)}

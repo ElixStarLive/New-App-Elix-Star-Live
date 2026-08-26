@@ -172,6 +172,11 @@ export function createAiStudioSession() {
       return videoEl;
     },
     dispose() {
+      try {
+        videoEl?.pause();
+      } catch {
+        /* ignore */
+      }
       revoke(videoUrl);
       revoke(bgUrl);
       videoUrl = null;

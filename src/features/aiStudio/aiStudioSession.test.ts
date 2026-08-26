@@ -42,6 +42,35 @@ describe("PAGE-023 AI Studio session", () => {
     session.dispose();
   });
 
+  it("replaces video blob URL and revokes the previous one", () => {
+    const session = createAiStudioSession();
+    const revoked: string[] = [];
+    const created: string[] = [];
+    const origCreate = URL.createObjectURL.bind(URL);
+    const origRevoke = URL.revokeObjectURL.bind(URL);
+    URL.createObjectURL = (blob: Blob) => {
+      void blob;
+      const url = `blob:ai-${created.length}`;
+      created.push(url);
+      return url;
+    };
+    URL.revokeObjectURL = (url: string) => {
+      revoked.push(url);
+    };
+    try {
+      expect(session.importVideo(new File(["a"], "a.webm", { type: "video/webm" })).ok).toBe(true);
+      expect(session.importVideo(new File(["b"], "b.webm", { type: "video/webm" })).ok).toBe(true);
+      expect(revoked).toContain("blob:ai-0");
+      expect(session.getSnapshot().videoUrl).toBe("blob:ai-1");
+      session.dispose();
+      expect(revoked).toContain("blob:ai-1");
+      expect(session.getSnapshot().videoUrl).toBeNull();
+    } finally {
+      URL.createObjectURL = origCreate;
+      URL.revokeObjectURL = origRevoke;
+    }
+  });
+
   it("resetLooks clears filter and enhance CSS", () => {
     const session = createAiStudioSession();
     session.setFilterCss("sepia(0.2)");

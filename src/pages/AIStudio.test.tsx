@@ -137,4 +137,15 @@ describe("PAGE-023 AI Studio page", () => {
     expect(namedHardwareBackTarget("/ai-studio")).toBe("/feed");
     expect(namedHardwareBackTarget("/ai-studio", { returnTo: "/profile" })).toBe("/profile");
   });
+
+  it("toasts on reset", async () => {
+    const view = renderStudio();
+    root = view.root;
+    container = view.container;
+    const reset = [...container.querySelectorAll("button")].find((b) => b.textContent?.includes("Reset"));
+    await act(async () => {
+      reset?.click();
+    });
+    expect(showToast).toHaveBeenCalledWith("Reset");
+  });
 });

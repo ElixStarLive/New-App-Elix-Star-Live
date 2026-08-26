@@ -90,6 +90,8 @@ export default function AiStudioToolsSheet({
   const [selectedBg, setSelectedBg] = useState("none");
   const speechRef = useRef<StudioSpeechCapture | null>(null);
   const thumbLock = useRef(false);
+  const videoUrlRef = useRef(videoUrl);
+  videoUrlRef.current = videoUrl;
 
   const applyFilter = useCallback(
     (preset: AiFilterPreset, intensity: number) => {
@@ -108,20 +110,31 @@ export default function AiStudioToolsSheet({
   );
 
   const handleExtractThumbnails = useCallback(async () => {
-    if (!videoUrl || thumbLock.current) return;
+    const sourceUrl = videoUrl;
+    if (!sourceUrl || thumbLock.current) return;
     thumbLock.current = true;
     setLoadingThumbs(true);
     try {
-      const rows = await extractThumbnails(videoUrl, 8);
+      const rows = await extractThumbnails(sourceUrl, 8);
+      if (videoUrlRef.current !== sourceUrl) return;
       setThumbnails(rows);
       if (rows.length === 0) onThumbnailFail();
     } catch {
-      onThumbnailFail();
+      if (videoUrlRef.current === sourceUrl) onThumbnailFail();
     } finally {
-      thumbLock.current = false;
-      setLoadingThumbs(false);
+      if (videoUrlRef.current === sourceUrl) {
+        thumbLock.current = false;
+        setLoadingThumbs(false);
+      } else {
+        thumbLock.current = false;
+      }
     }
   }, [videoUrl, onThumbnailFail]);
+
+  useEffect(() => {
+    setThumbnails([]);
+    thumbLock.current = false;
+  }, [videoUrl]);
 
   useEffect(() => {
     if (!isOpen || activeTab !== "thumbnails" || !videoUrl || thumbnails.length > 0 || loadingThumbs) return;
@@ -166,7 +179,10 @@ export default function AiStudioToolsSheet({
   return (
     <div className="fixed inset-0 z-[500] flex items-end justify-center">
       <button type="button" className="absolute inset-0 bg-black/50" aria-label="Close AI tools" onClick={onClose} />
-      <div className="relative w-full max-w-[480px] elix-more-options-sheet rounded-t-2xl overflow-hidden" style={{ maxHeight: "70dvh" }}>
+      <div
+        className="relative w-full max-w-[480px] elix-more-options-sheet rounded-t-2xl overflow-hidden animate-in slide-in-from-bottom duration-300"
+        style={{ maxHeight: "70dvh" }}
+      >
         <div className="flex flex-col px-4 pt-2 pb-3 border-b border-white/10">
           <div className="flex justify-center pb-2" aria-hidden>
             <div className="w-10 h-1 rounded-full bg-white/25" />
