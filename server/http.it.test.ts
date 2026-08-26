@@ -686,6 +686,14 @@ describe("http integration", () => {
     expect(knownForgotAgain.status).toBe(200);
     expect(knownForgotAgain.body).toEqual({ success: true });
 
+    // Valkey per-email limit (PASSWORD_RESET_REQUEST_MAX=3). Prior: unconfirmed + known + again.
+    const rateLimitedForgot = await json("/api/auth/forgot-password", {
+      method: "POST",
+      body: JSON.stringify({ email: `${unique}@example.com` }),
+    });
+    expect(rateLimitedForgot.status).toBe(429);
+    expect(rateLimitedForgot.body.error).toBe("Too many reset requests. Please try again later.");
+
     const sessionsAfterForgot = await getPool().query<{ n: number }>(
       `SELECT COUNT(*)::int AS n FROM auth_sessions WHERE user_id = $1`,
       [userId],

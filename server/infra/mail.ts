@@ -7,7 +7,12 @@ export async function sendMail(to: string, subject: string, text: string): Promi
     logger.info({ to, subject }, "mail skipped because SMTP_URL is not set");
     return;
   }
-  const transporter = nodemailer.createTransport(url);
+  const transporter = nodemailer.createTransport({
+    url,
+    connectionTimeout: 5_000,
+    greetingTimeout: 5_000,
+    socketTimeout: 5_000,
+  });
   await transporter.sendMail({
     from: process.env.MAIL_FROM?.trim() || "noreply@elixstarlive.app",
     to,

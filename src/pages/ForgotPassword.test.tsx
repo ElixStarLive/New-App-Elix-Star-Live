@@ -83,17 +83,18 @@ describe("PAGE-004 Forgot Password", () => {
   });
 
   it("does not submit while empty", async () => {
+    authForgotPassword.mockResolvedValue({ ok: false, error: "Email is required." });
     const mounted = renderForgot();
     root = mounted.root;
     container = mounted.container;
     const page = mounted.container;
     const form = page.querySelector("form") as HTMLFormElement;
-    act(() => {
+    await act(async () => {
       form.dispatchEvent(new Event("submit", { bubbles: true, cancelable: true }));
     });
-    await act(async () => undefined);
-    expect(authForgotPassword).not.toHaveBeenCalled();
+    expect(authForgotPassword).toHaveBeenCalledWith("");
     expect(page.textContent).toContain("Email is required.");
+    expect(page.textContent).not.toContain("Check your email");
   });
 
   it("shows the check-email state without exposing a token or logging in", async () => {

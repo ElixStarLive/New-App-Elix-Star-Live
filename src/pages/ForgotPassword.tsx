@@ -5,6 +5,7 @@ import { authForgotPassword } from "@/features/auth/authSession";
 import { isAbortLike } from "@/features/auth/abortLike";
 import { isPasswordResetEnabled } from "@/lib/authFeatures";
 import { useIsMountedRef } from "@/hooks/useIsMountedRef";
+import { AuthFormErrorAndSubmit } from "@/components/AuthFormErrorAndSubmit";
 
 export default function ForgotPassword() {
   const [email, setEmail] = useState("");
@@ -24,33 +25,22 @@ export default function ForgotPassword() {
     submitLock.current = true;
     setError(null);
     setIsSubmitting(true);
-    if (!email.trim()) {
-      submitLock.current = false;
-      setError("Email is required.");
-      setIsSubmitting(false);
-      return;
-    }
+
     try {
       const result = await authForgotPassword(email);
       if (!isMounted.current) return;
       if (result.ok === false) {
-        submitLock.current = false;
         setError(result.error);
-        setIsSubmitting(false);
-        return;
+      } else {
+        setSuccess(true);
       }
-      setSuccess(true);
-      setIsSubmitting(false);
     } catch (err) {
       if (!isMounted.current) return;
-      if (isAbortLike(err)) {
-        submitLock.current = false;
-        setIsSubmitting(false);
-        return;
-      }
-      submitLock.current = false;
+      if (isAbortLike(err)) return;
       setError("Network error. Please check your connection and try again.");
-      setIsSubmitting(false);
+    } finally {
+      submitLock.current = false;
+      if (isMounted.current) setIsSubmitting(false);
     }
   };
 
@@ -105,19 +95,12 @@ export default function ForgotPassword() {
             </div>
           </div>
 
-          {error ? (
-            <div className="text-sm text-rose-300 bg-white/20/10 border border-rose-500/20 rounded-xl p-3">
-              {error}
-            </div>
-          ) : null}
-
-          <button
-            type="submit"
-            disabled={isSubmitting}
-            className="w-full bg-transparent border border-[#D8D9DD]/40 text-[#F5F5F7] font-bold rounded-xl py-3 text-sm disabled:opacity-60"
-          >
-            {isSubmitting ? "Sending..." : "Send Reset Link"}
-          </button>
+          <AuthFormErrorAndSubmit
+            error={error}
+            isSubmitting={isSubmitting}
+            submittingLabel="Sending..."
+            idleLabel="Send Reset Link"
+          />
         </form>
       </div>
     </div>

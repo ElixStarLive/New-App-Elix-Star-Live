@@ -1,0 +1,34 @@
+/**
+ * Shared auth form error banner + primary submit button
+ * (ForgotPassword / ResetPassword — frozen OLD structure).
+ */
+
+export function AuthFormErrorAndSubmit({
+  error,
+  isSubmitting,
+  submittingLabel,
+  idleLabel,
+}: {
+  error: string | null;
+  isSubmitting: boolean;
+  submittingLabel: string;
+  idleLabel: string;
+}) {
+  return (
+    <>
+      {error ? (
+        <div className="text-sm text-rose-300 bg-white/20/10 border border-rose-500/20 rounded-xl p-3">
+          {error}
+        </div>
+      ) : null}
+
+      <button
+        type="submit"
+        disabled={isSubmitting}
+        className="w-full bg-transparent border border-[#D8D9DD]/40 text-[#F5F5F7] font-bold rounded-xl py-3 text-sm disabled:opacity-60"
+      >
+        {isSubmitting ? submittingLabel : idleLabel}
+      </button>
+    </>
+  );
+}
