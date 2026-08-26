@@ -1,5 +1,5 @@
 ﻿/**
- * HTTP integration suite ΓÇö TEST-ONLY harness.
+ * HTTP integration suite — TEST-ONLY harness.
  *
  * Intentionally mocks/disables LiveKit, SMTP, and Bunny credentials where unset
  * so unit-style API contract tests can run without real third-party services.
@@ -38,7 +38,7 @@ const TEST_JWT = "integration-test-jwt-secret-key-32chars";
 let httpIntegrationSkipReason = "";
 
 function clearIntegrationSecrets(): void {
-  // Do not strip VALKEY_URL / REDIS_URL / TEST_VALKEY_URL ΓÇö local IT may use real Valkey.
+  // Do not strip VALKEY_URL / REDIS_URL / TEST_VALKEY_URL — local IT may use real Valkey.
   delete process.env.STRIPE_SECRET_KEY;
   delete process.env.STRIPE_WEBHOOK_SECRET;
   delete process.env.FIREBASE_SERVICE_ACCOUNT_JSON;
@@ -465,7 +465,7 @@ describe("http integration", () => {
     });
     expect(mint.status).toBe(404);
 
-    // Canonical store is Valkey (`/api/test-coins/*`). With Valkey present ΓåÆ 200; never Neon wallet.
+    // Canonical store is Valkey (`/api/test-coins/*`). With Valkey present → 200; never Neon wallet.
     const testBalance = await json("/api/test-coins/balance");
     expect(testBalance.status).toBe(200);
     expect(testBalance.body).toEqual(expect.objectContaining({ balance: expect.any(Number) }));
@@ -754,7 +754,7 @@ describe("http integration", () => {
     await getPool().query(`UPDATE users SET banned_until = $2 WHERE id = $1`, [userId, new Date("9999-12-31T00:00:00.000Z")]);
     const bannedMe = await json("/api/auth/me");
     expect(bannedMe.status).toBe(403);
-    // Prior forgot calls in this case already hit PASSWORD_RESET_REQUEST_MAX on Valkey ΓÇö
+    // Prior forgot calls in this case already hit PASSWORD_RESET_REQUEST_MAX on Valkey —
     // clear so the banned-user forgot behaviour is isolated (not rate-limit noise).
     await valkeyDel(passwordResetRequestKey(`${unique}@example.com`));
     const suspendedForgot = await json("/api/auth/forgot-password", {
@@ -3094,7 +3094,7 @@ describe("http integration", () => {
       headers: { Authorization: `Bearer ${owner.token}`, "Content-Type": "application/json" },
       body: JSON.stringify({
         username: owner.username,
-        displayName: "Display Γ£¿",
+        displayName: "Display ✨",
         bio: "Bio line",
         website: "https://elix.example",
         instagram: "@elix",
@@ -3107,7 +3107,7 @@ describe("http integration", () => {
       user?: { id?: string; displayName?: string; bio?: string; website?: string; instagram?: string; isAdmin?: boolean };
     };
     expect(savedBody.user?.id).toBe(owner.id);
-    expect(savedBody.user?.displayName).toBe("Display Γ£¿");
+    expect(savedBody.user?.displayName).toBe("Display ✨");
     expect(savedBody.user?.bio).toBe("Bio line");
     expect(savedBody.user?.website).toBe("https://elix.example");
     expect(savedBody.user?.instagram).toBe("@elix");
@@ -3117,7 +3117,7 @@ describe("http integration", () => {
       headers: { Authorization: `Bearer ${other.token}` },
     });
     const publicAfterBody = (await publicAfter.json()) as { user?: { displayName?: string; bio?: string; website?: unknown } };
-    expect(publicAfterBody.user?.displayName).toBe("Display Γ£¿");
+    expect(publicAfterBody.user?.displayName).toBe("Display ✨");
     expect(publicAfterBody.user?.bio).toBe("Bio line");
     expect(publicAfterBody.user?.website).toBeUndefined();
 
@@ -3487,6 +3487,34 @@ describe("http integration", () => {
     const sharesBody = (await shares.json()) as { items?: Array<{ sharerId?: string }> };
     expect(sharesBody.items?.[0]?.sharerId).toBe(peer.id);
 
+    const posted = await fetch(`${base}/api/live-share`, {
+      method: "POST",
+      headers: { Authorization: `Bearer ${stranger.token}`, "Content-Type": "application/json" },
+      body: JSON.stringify({
+        targetUserId: owner.id,
+        streamKey: stranger.id,
+        hostUserId: stranger.id,
+        hostName: "StrangerHost",
+        sharerName: "Stranger",
+      }),
+    });
+    expect(posted.status).toBe(200);
+    const postedBody = (await posted.json()) as { ok?: boolean; persisted?: boolean };
+    expect(postedBody.ok).toBe(true);
+    expect(postedBody.persisted).toBe(true);
+    const sharesAfterPost = await fetch(`${base}/api/inbox/live-share-requests`, {
+      headers: { Authorization: `Bearer ${owner.token}` },
+    });
+    const sharesAfterPostBody = (await sharesAfterPost.json()) as { items?: Array<{ sharerId?: string }> };
+    expect(sharesAfterPostBody.items?.some((row) => row.sharerId === stranger.id)).toBe(true);
+
+    const badShare = await fetch(`${base}/api/live-share`, {
+      method: "POST",
+      headers: { Authorization: `Bearer ${owner.token}`, "Content-Type": "application/json" },
+      body: JSON.stringify({ targetUserId: owner.id, streamKey: owner.id }),
+    });
+    expect(badShare.status).toBe(400);
+
     const followed = await fetch(`${base}/api/profiles/${peer.id}/follow`, {
       method: "POST",
       headers: { Authorization: `Bearer ${owner.token}`, "Content-Type": "application/json" },
@@ -3495,8 +3523,8 @@ describe("http integration", () => {
     const sharesAfterFollow = await fetch(`${base}/api/inbox/live-share-requests`, {
       headers: { Authorization: `Bearer ${owner.token}` },
     });
-    const sharesAfterBody = (await sharesAfterFollow.json()) as { items?: unknown[] };
-    expect(sharesAfterBody.items).toEqual([]);
+    const sharesAfterBody = (await sharesAfterFollow.json()) as { items?: Array<{ sharerId?: string }> };
+    expect(sharesAfterBody.items?.some((row) => row.sharerId === peer.id)).toBe(false);
 
     const chatDuplicate = await fetch(`${base}/api/chat/threads`, {
       headers: { Authorization: `Bearer ${owner.token}` },
@@ -3568,6 +3596,26 @@ describe("http integration", () => {
     expect(actors.every((row) => (row.actorDisplayName || row.actorUsername) !== "user")).toBe(true);
     expect(actors.every((row) => row.videoId === videoId)).toBe(true);
     expect(actors.some((row) => row.kind === "comment" && row.snippet === "nice work")).toBe(true);
+
+    const reply = await getPool().query(
+      `INSERT INTO comments (video_id, user_id, body, parent_id)
+       VALUES ($1, $2, 'reply only', (SELECT id FROM comments WHERE video_id = $1 AND parent_id IS NULL LIMIT 1))`,
+      [videoId, peer.id],
+    );
+    void reply;
+    const afterReply = await fetch(`${base}/api/activity`, {
+      headers: { Authorization: `Bearer ${owner.token}` },
+    });
+    const afterReplyBody = (await afterReply.json()) as { items?: Array<{ kind?: string; snippet?: string | null }> };
+    expect(afterReplyBody.items?.some((row) => row.snippet === "reply only")).toBe(false);
+
+    await getPool().query(`INSERT INTO blocks (blocker_id, blocked_id) VALUES ($1, $2)`, [owner.id, peer.id]);
+    const blocked = await fetch(`${base}/api/activity`, {
+      headers: { Authorization: `Bearer ${owner.token}` },
+    });
+    const blockedBody = (await blocked.json()) as { items?: unknown[]; total?: number };
+    expect(blockedBody.items).toEqual([]);
+    expect(blockedBody.total).toBe(0);
 
     const strangerList = await fetch(`${base}/api/activity`, {
       headers: { Authorization: `Bearer ${stranger.token}` },
@@ -4264,6 +4312,24 @@ describe("http integration", () => {
     expect(listedBody.items?.find((row) => row.id === capId)?.title).toBe("Cap");
     expect(listedBody.items?.some((row) => row.id === "not-a-real-item")).toBe(false);
 
+    const hatDetail = await fetch(`${base}/api/shop/items/${hatId}`);
+    expect(hatDetail.status).toBe(200);
+    const hatBody = (await hatDetail.json()) as { id?: string; title?: string; sellerId?: string; pricePence?: number };
+    expect(hatBody.id).toBe(hatId);
+    expect(hatBody.title).toBe("Hat");
+    expect(hatBody.sellerId).toBe(seller.id);
+    expect(hatBody.pricePence).toBe(1250);
+
+    const capDetail = await fetch(`${base}/api/shop/items/${capId}`);
+    expect(capDetail.status).toBe(200);
+    expect(((await capDetail.json()) as { id?: string }).id).toBe(capId);
+
+    const missingDetail = await fetch(`${base}/api/shop/items/44444444-4444-4444-8444-444444444444`);
+    expect(missingDetail.status).toBe(404);
+
+    const malformedDetail = await fetch(`${base}/api/shop/items/not-a-real-item`);
+    expect(malformedDetail.status).toBe(404);
+
     const malformed = await fetch(`${base}/api/shop/checkout`, {
       method: "POST",
       headers: { "Content-Type": "application/json", Authorization: `Bearer ${buyer.token}` },
@@ -4303,6 +4369,8 @@ describe("http integration", () => {
       method: "DELETE",
       headers: { Authorization: `Bearer ${seller.token}` },
     });
+    const afterDeleteDetail = await fetch(`${base}/api/shop/items/${hatId}`);
+    expect(afterDeleteDetail.status).toBe(404);
     const afterDelete = await fetch(`${base}/api/shop/items`);
     const afterDeleteBody = (await afterDelete.json()) as { items?: Array<{ id?: string }> };
     expect(afterDeleteBody.items?.some((row) => row.id === hatId)).toBe(false);
@@ -5204,7 +5272,7 @@ describe("http integration", () => {
     expect(saveMethod.status).toBe(200);
     const methods = await authJson("/api/creator/payout-methods", creator.token);
     const methodRows = (methods.body.methods as Array<{ details?: { iban_or_account?: string } }>) ?? [];
-    expect(methodRows[0]?.details?.iban_or_account).toBe("ΓÇóΓÇóΓÇóΓÇó5432");
+    expect(methodRows[0]?.details?.iban_or_account).toBe("••••5432");
 
     const zero = await authJson("/api/creator/withdraw-gbp", creator.token, {
       method: "POST",
@@ -7070,6 +7138,148 @@ describe("http integration", () => {
 
     if (previous == null) delete process.env.ENGAGEMENT_HUB_ENABLED;
     else process.env.ENGAGEMENT_HUB_ENABLED = previous;
+  }, 60_000);
+
+  it("PAGE-055 Rising Stars hub seasons/categories/regions/challenges stay server-owned", async ({ skip }) => {
+    if (!db || !base) {
+      skip();
+      return;
+    }
+
+    async function registerIsolated(prefix: string) {
+      const username = `${prefix}${Math.random().toString(36).slice(2, 10)}`.slice(0, 12);
+      const res = await fetch(`${base}/api/auth/register`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          email: `${username}@example.com`,
+          username,
+          password: "password12",
+          ageConfirmed13Plus: true,
+          consentVersion: "2026-07-21",
+        }),
+      });
+      const body = (await res.json()) as { token?: string; user?: { id?: string } };
+      expect(res.status).toBe(201);
+      return { id: String(body.user?.id ?? ""), token: accessTokenFromLogin(body) };
+    }
+
+    async function authJson(pathName: string, userToken: string | null, init: RequestInit = {}) {
+      const headers: Record<string, string> = {
+        "Content-Type": "application/json",
+        ...(init.headers as Record<string, string> | undefined),
+      };
+      if (userToken) headers.Authorization = `Bearer ${userToken}`;
+      const res = await fetch(`${base}${pathName}`, { ...init, headers });
+      const body = (await res.json().catch(() => ({}))) as Record<string, unknown>;
+      return { status: res.status, body, cache: res.headers.get("cache-control") };
+    }
+
+    const viewer = await registerIsolated("p55a");
+    const other = await registerIsolated("p55b");
+
+    const current = await authJson("/api/rising-stars/seasons/current", null);
+    expect(current.status).toBe(200);
+    expect(current.cache).toMatch(/no-store/);
+    expect(current.body).toHaveProperty("season");
+    const season = current.body.season as { id?: string; status?: string; title?: string } | null;
+    expect(season?.id).toBeTruthy();
+    expect(season?.status).toBe("active");
+    const seasonId = String(season?.id);
+
+    expect((await authJson("/api/rising-stars", null)).status).toBe(404);
+    expect(
+      (
+        await authJson("/api/rising-stars/seasons/current", viewer.token, {
+          method: "POST",
+          body: JSON.stringify({ status: "active", rank: 1, votes: 100000 }),
+        })
+      ).status,
+    ).toBe(404);
+
+    const categories = await authJson(`/api/rising-stars/categories?seasonId=${seasonId}`, null);
+    expect(categories.status).toBe(200);
+    expect(Array.isArray(categories.body.categories)).toBe(true);
+    expect((categories.body.categories as unknown[]).length).toBeGreaterThan(0);
+    const categoryId = String((categories.body.categories as Array<{ id?: string }>)[0]?.id ?? "");
+
+    const regions = await authJson(`/api/rising-stars/regions?seasonId=${seasonId}`, null);
+    expect(regions.status).toBe(200);
+    expect(Array.isArray(regions.body.regions)).toBe(true);
+
+    const hubChallenge = await getPool().query<{ id: string }>(
+      `INSERT INTO rs_challenges
+         (season_id, category_id, week_index, title, sound_track_id, status, opens_at, closes_at, leaderboard_frozen)
+       VALUES ($1, $2, 55, 'PAGE-055 Hub Challenge', 'track-rs-hub', 'open', NOW() - INTERVAL '1 day', NOW() + INTERVAL '7 days', FALSE)
+       RETURNING id`,
+      [seasonId, categoryId],
+    );
+    const challengeId = hubChallenge.rows[0].id;
+
+    const listed = await authJson(
+      `/api/rising-stars/challenges?seasonId=${seasonId}&categoryId=${categoryId}`,
+      null,
+    );
+    expect(listed.status).toBe(200);
+    const challenges = listed.body.challenges as Array<{ id?: string; title?: string; week_index?: number }>;
+    expect(challenges.some((row) => row.id === challengeId)).toBe(true);
+    const weeks = challenges.map((row) => row.week_index ?? 0);
+    expect([...weeks].sort((a, b) => a - b)).toEqual(weeks);
+
+    const detail = await authJson(`/api/rising-stars/challenges/${challengeId}`, viewer.token);
+    expect(detail.status).toBe(200);
+    expect(detail.body).toMatchObject({
+      challenge: { id: challengeId, title: "PAGE-055 Hub Challenge", status: "open" },
+      my_entry: null,
+      voted_today: false,
+    });
+
+    const standings = await authJson(`/api/rising-stars/seasons/${seasonId}/standings`, null);
+    expect(standings.status).toBe(200);
+    expect(Array.isArray(standings.body.standings)).toBe(true);
+    for (const row of standings.body.standings as Array<{ rank?: number; total_votes?: number }>) {
+      expect(typeof row.rank).toBe("number");
+      expect(typeof row.total_votes).toBe("number");
+    }
+
+    const teams = await authJson(`/api/rising-stars/teams?seasonId=${seasonId}`, null);
+    expect(teams.status).toBe(200);
+    expect(Array.isArray(teams.body.teams)).toBe(true);
+
+    const rewards = await authJson(`/api/rising-stars/rewards?seasonId=${seasonId}`, null);
+    expect(rewards.status).toBe(200);
+    expect(Array.isArray(rewards.body.rewards)).toBe(true);
+
+    expect((await authJson("/api/rising-stars/badges/me", null)).status).toBe(401);
+    const myBadges = await authJson("/api/rising-stars/badges/me", viewer.token);
+    expect(myBadges.status).toBe(200);
+    expect(Array.isArray(myBadges.body.badges)).toBe(true);
+    const otherBadges = await authJson(`/api/rising-stars/badges/user/${other.id}`, viewer.token);
+    expect(otherBadges.status).toBe(200);
+    expect(Array.isArray(otherBadges.body.badges)).toBe(true);
+
+    expect(
+      (
+        await authJson(`/api/rising-stars/challenges/${challengeId}/enter`, null, {
+          method: "POST",
+          body: JSON.stringify({ videoId: "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa" }),
+        })
+      ).status,
+    ).toBe(401);
+    expect(
+      (
+        await authJson(`/api/rising-stars/seasons/${seasonId}/standings`, viewer.token, {
+          method: "POST",
+          body: JSON.stringify({ rank: 1, votes: 999999, creator_user_id: viewer.id }),
+        })
+      ).status,
+    ).toBe(404);
+
+    const neon = await getPool().query<{ n: number }>(
+      `SELECT COUNT(*)::int AS n FROM rs_challenges WHERE id = $1 AND season_id = $2`,
+      [challengeId, seasonId],
+    );
+    expect(neon.rows[0]?.n).toBe(1);
   }, 60_000);
 
   it("PAGE-056 Rising Stars challenge entry, vote, team, and live attach stay server-owned", async ({ skip }) => {

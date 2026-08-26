@@ -65,6 +65,8 @@ describe("PAGE-055 Rising Stars ownership", () => {
     expect(hub).toMatch(/ORDER BY total_votes DESC/);
     expect(hub).toMatch(/e\.user_id AS creator_user_id/);
     expect(hub).not.toMatch(/localStorage|new WebSocket|setInterval|Math\.random/);
+    expect(session).toMatch(/const gen = \+\+generation/);
+    expect(session).toMatch(/const filterGen = \+\+filterGeneration/);
     expect(session).not.toMatch(/localStorage|sessionStorage|setTimeout\(|location\.reload|Math\.random|score:\s*999/);
     expect(wallet).toMatch(/Test coins are not wallet money/);
     expect(payout).not.toMatch(/listRisingStarsStandings|getCurrentRisingStarsSeason|rs_reward_grants/);

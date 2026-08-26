@@ -149,7 +149,9 @@ export function createRisingStarsSession(deps: RisingStarsDeps) {
         return;
       }
       accountId = expectedAccountId;
-      const gen = generation;
+      // Bump so an older in-flight hub GET cannot overwrite a newer filter/account state.
+      const gen = ++generation;
+      filterGeneration += 1;
       view = {
         ...view,
         kind: "loading",
@@ -178,6 +180,8 @@ export function createRisingStarsSession(deps: RisingStarsDeps) {
         return;
       }
       const season = current.season;
+      const categoryId = view.categoryId;
+      const regionId = view.regionId;
       const [categories, regions, standings, teams, challenges] = await Promise.all([
         deps.loadCategories(season.id),
         deps.loadRegions(season.id),
@@ -185,8 +189,8 @@ export function createRisingStarsSession(deps: RisingStarsDeps) {
         deps.loadTeams(season.id),
         deps.loadChallenges({
           seasonId: season.id,
-          categoryId: view.categoryId || undefined,
-          regionId: view.regionId || undefined,
+          categoryId: categoryId || undefined,
+          regionId: regionId || undefined,
         }),
       ]);
       if (gen !== generation || deps.getAccountId() !== expectedAccountId) return;
@@ -231,9 +235,8 @@ export function createRisingStarsSession(deps: RisingStarsDeps) {
       view = { ...view, categoryId };
       emit();
       if (view.kind !== "ready" || !view.hub || !accountId) return;
-      filterGeneration += 1;
+      const filterGen = ++filterGeneration;
       const gen = generation;
-      const filterGen = filterGeneration;
       const expectedAccountId = accountId;
       const seasonId = view.hub.season.id;
       view = { ...view, challengesLoading: true };
@@ -245,9 +248,8 @@ export function createRisingStarsSession(deps: RisingStarsDeps) {
       view = { ...view, regionId };
       emit();
       if (view.kind !== "ready" || !view.hub || !accountId) return;
-      filterGeneration += 1;
+      const filterGen = ++filterGeneration;
       const gen = generation;
-      const filterGen = filterGeneration;
       const expectedAccountId = accountId;
       const seasonId = view.hub.season.id;
       view = { ...view, challengesLoading: true };

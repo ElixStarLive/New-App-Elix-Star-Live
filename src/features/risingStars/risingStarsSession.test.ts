@@ -242,4 +242,24 @@ describe("PAGE-055 Rising Stars session", () => {
       team_votes: 4,
     });
   });
+
+  it("does not let a stale hub GET resurrect after a newer load", async () => {
+    const account = { id: userA };
+    let releaseStale: ((value: { ok: true; season: RisingStarsSeason | null }) => void) | undefined;
+    const held = new Promise<{ ok: true; season: RisingStarsSeason | null }>((resolve) => {
+      releaseStale = resolve;
+    });
+    const { deps, loadCurrentSeason } = createDeps(account);
+    const session = createRisingStarsSession(deps);
+    session.bindAccount(userA);
+    loadCurrentSeason.mockReturnValueOnce(held);
+    const pending = session.load(userA);
+    loadCurrentSeason.mockResolvedValueOnce({ ok: true, season: null });
+    await session.load(userA);
+    expect(session.getSnapshot().kind).toBe("empty");
+    releaseStale?.({ ok: true, season: season() });
+    await pending;
+    expect(session.getSnapshot().kind).toBe("empty");
+    expect(session.getSnapshot().hub).toBeNull();
+  });
 });
