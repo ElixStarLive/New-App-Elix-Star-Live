@@ -52,7 +52,7 @@ export default function Discover() {
   const navigate = useNavigate();
   const location = useLocation();
   const pageRef = useRef<HTMLDivElement>(null);
-  const viewerId = useAuthStore((s) => s.user?.id);
+  const viewerId = useAuthStore((s) => s.user?.id ?? null);
   const [activeTab, setActiveTab] = useState<Tab>("trending");
   const [searchQuery, setSearchQuery] = useState("");
   const [trendingVideos, setTrendingVideos] = useState<FeedVideo[]>([]);
@@ -66,6 +66,7 @@ export default function Discover() {
   const [error, setError] = useState<string | null>(null);
   const loadSeq = useRef(0);
   const searchSeq = useRef(0);
+  const viewerRef = useRef<string | null>(viewerId);
 
   const loadDiscover = useCallback(async () => {
     const seq = ++loadSeq.current;
@@ -88,11 +89,24 @@ export default function Discover() {
   }, []);
 
   useEffect(() => {
+    const switched = viewerRef.current !== viewerId;
+    if (switched) {
+      viewerRef.current = viewerId;
+      loadSeq.current += 1;
+      searchSeq.current += 1;
+      setSearchQuery("");
+      setActiveTab("trending");
+      setSearchResults({ videos: [], users: [] });
+      setTrendingVideos([]);
+      setTrendingHashtags([]);
+      setRankings([]);
+      setError(null);
+    }
     void loadDiscover();
     return () => {
       loadSeq.current += 1;
     };
-  }, [loadDiscover]);
+  }, [viewerId, loadDiscover]);
 
   const performSearch = useCallback(async (q: string) => {
     if (q.length < 2) return;
@@ -134,7 +148,6 @@ export default function Discover() {
 
   const clearSearchQuery = useCallback(() => {
     setSearchQuery("");
-    setActiveTab("trending");
   }, []);
 
   const tabTrending = useCallback(() => {
@@ -258,7 +271,7 @@ export default function Discover() {
                   </div>
                   <div className="space-y-1">
                     {searchResults.users.map((user) => (
-                      <UserSearchResult key={user.userId} user={user} selfId={viewerId} />
+                      <UserSearchResult key={user.userId} user={user} selfId={viewerId ?? undefined} />
                     ))}
                   </div>
                 </div>
