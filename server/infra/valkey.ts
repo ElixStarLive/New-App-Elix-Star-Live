@@ -6,15 +6,17 @@ let main: Redis | null = null;
 let pub: Redis | null = null;
 let sub: Redis | null = null;
 
-function connect(url: string): Redis {
-  return new Redis(url, {
+function connect(url: string, role: string): Redis {
+  const client = new Redis(url, {
     maxRetriesPerRequest: 3,
     enableReadyCheck: true,
     lazyConnect: false,
   });
+  client.on("error", (error) => logger.error({ err: error, role }, "valkey error"));
+  return client;
 }
 
-export function requireValkey(): Redis {
+function requireValkeyUrl(): string {
   const url = env().valkeyUrl;
   if (!url) {
     if (env().isProduction) {
@@ -22,20 +24,22 @@ export function requireValkey(): Redis {
     }
     throw new Error("VALKEY_URL is not configured");
   }
-  if (!main) {
-    main = connect(url);
-    main.on("error", (error) => logger.error({ err: error }, "valkey error"));
-  }
+  return url;
+}
+
+export function requireValkey(): Redis {
+  const url = requireValkeyUrl();
+  if (!main) main = connect(url, "main");
   return main;
 }
 
 export function valkeyPub(): Redis {
-  if (!pub) pub = connect(env().valkeyUrl ?? "");
+  if (!pub) pub = connect(requireValkeyUrl(), "pub");
   return pub;
 }
 
 export function valkeySub(): Redis {
-  if (!sub) sub = connect(env().valkeyUrl ?? "");
+  if (!sub) sub = connect(requireValkeyUrl(), "sub");
   return sub;
 }
 
@@ -49,10 +53,15 @@ export async function valkeyTrySetNx(
 }
 
 export async function closeValkey(): Promise<void> {
-  await Promise.all([main?.quit(), pub?.quit(), sub?.quit()]);
+  const results = await Promise.allSettled([main?.quit(), pub?.quit(), sub?.quit()]);
   main = null;
   pub = null;
   sub = null;
+  for (const result of results) {
+    if (result.status === "rejected") {
+      logger.warn({ err: result.reason }, "valkey close failed");
+    }
+  }
 }
 
 export function valkey() {

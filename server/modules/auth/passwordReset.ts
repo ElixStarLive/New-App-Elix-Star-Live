@@ -4,6 +4,7 @@ import { requireValkey } from "../../infra/valkey.js";
 import { hashPassword } from "../../infra/password.js";
 import { randomToken, sha256 } from "../../infra/tokens.js";
 import { AppError } from "../../middleware/errors.js";
+import { logger } from "../../infra/logger.js";
 
 export const PASSWORD_RESET_TTL_MS = 60 * 60 * 1000;
 export const PASSWORD_RESET_REQUEST_MAX = 3;
@@ -27,6 +28,7 @@ export async function assertPasswordResetRequestAllowed(emailNormalized: string)
     }
   } catch (error) {
     if (error instanceof AppError) throw error;
+    logger.error({ err: error }, "password reset rate limit lookup failed");
     throw new AppError("unavailable", "Reset temporarily unavailable. Please try again.", 503);
   }
 }

@@ -146,6 +146,7 @@ async function assertLoginAllowed(identifier: string): Promise<void> {
     }
   } catch (error) {
     if (error instanceof AppError) throw error;
+    logger.error({ err: error }, "login rate limit lookup failed");
     throw new AppError("unavailable", "Login temporarily unavailable. Please try again.", 503);
   }
 }

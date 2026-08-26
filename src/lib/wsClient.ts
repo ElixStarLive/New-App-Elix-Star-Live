@@ -1,5 +1,6 @@
 import type { WsEventName } from "@shared/contracts";
 import { getWsUrl } from "./api";
+import { reportError } from "./reportError";
 
 export type WsListener = (data: unknown) => void;
 
@@ -145,7 +146,8 @@ class WsClient {
           data: rec.data,
           timestamp: typeof rec.timestamp === "string" ? rec.timestamp : new Date().toISOString(),
         };
-      } catch {
+      } catch (error) {
+        reportError("wsClient.onmessage", error);
         return;
       }
       this.dispatch(message);
@@ -187,8 +189,8 @@ class WsClient {
       this.socket.onclose = null;
       try {
         this.socket.close();
-      } catch {
-        /* already closed */
+      } catch (error) {
+        reportError("wsClient.close", error);
       }
       this.socket = null;
     }

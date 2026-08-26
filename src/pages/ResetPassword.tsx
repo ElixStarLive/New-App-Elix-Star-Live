@@ -3,6 +3,7 @@ import { useNavigate, useSearchParams } from "react-router-dom";
 import { Lock, CheckCircle } from "lucide-react";
 import { authResetPassword } from "@/features/auth/authSession";
 import { useIsMountedRef } from "@/hooks/useIsMountedRef";
+import { reportError } from "@/lib/reportError";
 
 export default function ResetPassword() {
   const navigate = useNavigate();
@@ -60,7 +61,8 @@ export default function ResetPassword() {
       setSuccess(true);
       setIsSubmitting(false);
       redirectTimerRef.current = setTimeout(() => goLogin(), 3000);
-    } catch {
+    } catch (error) {
+      reportError("resetPassword.submit", error);
       if (isMounted.current) {
         submitLock.current = false;
         setError("Failed to reset password. Please try again.");

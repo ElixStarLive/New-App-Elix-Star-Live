@@ -10,6 +10,7 @@ import {
   type RemoteTrackPublication,
   type TrackPublication,
 } from "livekit-client";
+import { reportError } from "./reportError";
 
 export type LiveKitRemoteTrackEvent = {
   track: RemoteTrack;
@@ -39,8 +40,8 @@ function detachTrack(track: RemoteTrack | LocalTrack): void {
       el.srcObject = null;
       el.remove();
     });
-  } catch {
-    /* already detached */
+  } catch (error) {
+    reportError("livekit.detachTrack", error);
   }
 }
 
@@ -77,7 +78,7 @@ export class LiveKitSession {
     this.room = null;
     if (previous) {
       previous.removeAllListeners();
-      void previous.disconnect().catch(() => undefined);
+      void previous.disconnect().catch((error: unknown) => reportError("livekit.disconnectPrevious", error));
     }
 
     const room = new Room({
@@ -86,14 +87,14 @@ export class LiveKitSession {
       stopLocalTrackOnUnpublish: false,
     });
     if (generation !== this.connectGeneration) {
-      void room.disconnect().catch(() => undefined);
+      void room.disconnect().catch((error: unknown) => reportError("livekit.disconnectStale", error));
       return;
     }
     this.room = room;
     this.bind(room, generation);
     await room.connect(url, token);
     if (generation !== this.connectGeneration) {
-      void room.disconnect().catch(() => undefined);
+      void room.disconnect().catch((error: unknown) => reportError("livekit.disconnectStale", error));
     }
   }
 
@@ -130,10 +131,10 @@ export class LiveKitSession {
       room.localParticipant.videoTrackPublications.forEach((pub) => {
         if (pub.track) detachTrack(pub.track);
       });
-    } catch {
-      /* ignore */
+    } catch (error) {
+      reportError("livekit.detachLocalVideo", error);
     }
-    await room.disconnect().catch(() => undefined);
+    await room.disconnect().catch((error: unknown) => reportError("livekit.disconnect", error));
   }
 
   private bind(room: Room, generation: number): void {

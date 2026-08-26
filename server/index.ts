@@ -55,6 +55,7 @@ import {
 } from "./modules/webhooks/handlers.js";
 import { attachWebSocket } from "./websocket/index.js";
 import { startBackgroundJobs } from "./infra/jobs.js";
+import { installProcessErrorHandlers } from "./infra/processErrors.js";
 
 function authedMultipart(
   handler: (req: AuthedRequest, res: express.Response) => Promise<void>,
@@ -105,21 +106,20 @@ export async function createApp() {
     void rateLimit(req, res, next).catch(next);
   });
 
-  app.get("/health", async (_req, res) => {
+  const health = async (_req: express.Request, res: express.Response) => {
     try {
       await getPool().query("SELECT 1");
       res.json({ ok: true, service: "elix-star-live", db: true });
-    } catch {
+    } catch (error) {
+      logger.error({ err: error }, "health check database probe failed");
       res.status(503).json({ ok: false, service: "elix-star-live", db: false });
     }
+  };
+  app.get("/health", (req, res) => {
+    void health(req, res);
   });
-  app.get("/api/health", async (_req, res) => {
-    try {
-      await getPool().query("SELECT 1");
-      res.json({ ok: true, service: "elix-star-live", db: true });
-    } catch {
-      res.status(503).json({ ok: false, service: "elix-star-live", db: false });
-    }
+  app.get("/api/health", (req, res) => {
+    void health(req, res);
   });
 
   app.use("/api/auth", authRouter);
@@ -201,11 +201,20 @@ export async function startServer(): Promise<http.Server> {
   });
   const shutdown = async () => {
     server.close();
-    await closePool();
-    await closeValkey().catch(() => undefined);
+    const results = await Promise.allSettled([closePool(), closeValkey()]);
+    for (const result of results) {
+      if (result.status === "rejected") {
+        logger.error({ err: result.reason }, "shutdown step failed");
+      }
+    }
   };
-  process.on("SIGTERM", () => void shutdown());
-  process.on("SIGINT", () => void shutdown());
+  const onSignal = (signal: string) => {
+    void shutdown().catch((error: unknown) => {
+      logger.error({ err: error, signal }, "shutdown failed");
+    });
+  };
+  process.on("SIGTERM", () => onSignal("SIGTERM"));
+  process.on("SIGINT", () => onSignal("SIGINT"));
   return server;
 }
 
@@ -215,6 +224,7 @@ const isDirectRun =
   process.argv[1]?.endsWith("server\\index.ts");
 
 if (isDirectRun) {
+  installProcessErrorHandlers();
   void startServer().catch((error) => {
     logger.error({ err: error }, "fatal boot error");
     process.exit(1);

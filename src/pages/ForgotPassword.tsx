@@ -4,6 +4,7 @@ import { Mail, ArrowLeft, CheckCircle } from "lucide-react";
 import { authForgotPassword } from "@/features/auth/authSession";
 import { isPasswordResetEnabled } from "@/lib/authFeatures";
 import { useIsMountedRef } from "@/hooks/useIsMountedRef";
+import { reportError } from "@/lib/reportError";
 
 export default function ForgotPassword() {
   const [email, setEmail] = useState("");
@@ -40,7 +41,8 @@ export default function ForgotPassword() {
       }
       setSuccess(true);
       setIsSubmitting(false);
-    } catch {
+    } catch (error) {
+      reportError("forgotPassword.submit", error);
       if (isMounted.current) {
         submitLock.current = false;
         setError("Network error. Please check your connection and try again.");

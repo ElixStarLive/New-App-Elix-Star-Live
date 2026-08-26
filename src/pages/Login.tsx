@@ -5,6 +5,7 @@ import { useAuthStore } from "@/store/useAuthStore";
 import { isAppleSignInEnabled, isPasswordResetEnabled } from "@/lib/authFeatures";
 import { useIsMountedRef } from "@/hooks/useIsMountedRef";
 import { AuthPasswordField } from "@/components/AuthPasswordField";
+import { reportError } from "@/lib/reportError";
 
 function persistRememberedEmail(save: boolean, email: string): void {
   try {
@@ -16,8 +17,8 @@ function persistRememberedEmail(save: boolean, email: string): void {
       window.localStorage.setItem("login_save_details", "false");
     }
     window.localStorage.removeItem("login_saved_password");
-  } catch {
-    /* storage may be unavailable */
+  } catch (error) {
+    reportError("login.persistRememberedEmail", error);
   }
 }
 
@@ -50,8 +51,8 @@ export default function Login() {
     }
     try {
       window.localStorage.removeItem("login_saved_password");
-    } catch {
-      /* ignore */
+    } catch (error) {
+      reportError("login.clearSavedPassword", error);
     }
   }, []);
 
@@ -78,7 +79,8 @@ export default function Login() {
         return;
       }
       finishAuthenticated();
-    } catch {
+    } catch (error) {
+      reportError("login.signInWithPassword", error);
       if (isMounted.current) {
         submitLock.current = false;
         setError("An unexpected error occurred. Please try again.");
@@ -102,7 +104,8 @@ export default function Login() {
         return;
       }
       finishAuthenticated();
-    } catch {
+    } catch (error) {
+      reportError("login.signInWithApple", error);
       if (isMounted.current) {
         submitLock.current = false;
         setError("Apple sign-in failed. Please try again.");

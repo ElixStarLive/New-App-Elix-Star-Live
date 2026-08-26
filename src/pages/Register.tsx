@@ -6,6 +6,7 @@ import { useIsMountedRef } from "@/hooks/useIsMountedRef";
 import { AuthPasswordField } from "@/components/AuthPasswordField";
 import { authSaveConsent } from "@/features/auth/authSession";
 import { showToast } from "@/lib/toast";
+import { reportError } from "@/lib/reportError";
 import { REGISTER_WELCOME_STARTER } from "@shared/contracts";
 
 export default function Register() {
@@ -88,7 +89,8 @@ export default function Register() {
 
       showToast(res.welcomeMessage || REGISTER_WELCOME_STARTER);
       navigate(from, { replace: true });
-    } catch {
+    } catch (error) {
+      reportError("register.signUpWithPassword", error);
       if (!isMounted.current) return;
       submitLock.current = false;
       setError("Failed to create account");

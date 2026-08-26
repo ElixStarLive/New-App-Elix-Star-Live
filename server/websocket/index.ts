@@ -76,7 +76,9 @@ export function attachWebSocket(server: Server): void {
   });
   if (env().valkeyUrl) {
     const sub = valkeySub();
-    void sub.psubscribe("room:*");
+    void sub.psubscribe("room:*").catch((error: unknown) => {
+      logger.error({ err: error }, "ws room subscribe failed");
+    });
     sub.on("pmessage", (_pattern, channel, message) => {
       const roomId = channel.slice("room:".length);
       for (const client of localSockets.values()) {
@@ -96,8 +98,13 @@ export function attachWebSocket(server: Server): void {
   }
 
   wss.on("connection", (ws, req: IncomingMessage) => {
-    void handleConnection(ws, req);
+    void handleConnection(ws, req).catch((error: unknown) => {
+      logger.error({ err: error }, "ws connection setup failed");
+      localSockets.delete(ws);
+      ws.close(1011, "internal_error");
+    });
   });
+  wss.on("error", (error) => logger.error({ err: error }, "ws server error"));
 }
 
 async function handleConnection(ws: WebSocket, req: IncomingMessage): Promise<void> {
@@ -155,10 +162,18 @@ async function handleConnection(ws: WebSocket, req: IncomingMessage): Promise<vo
     })();
   });
 
+  ws.on("error", (error) => logger.warn({ err: error, roomId }, "ws socket error"));
+
   ws.on("close", () => {
     localSockets.delete(ws);
-    void removeViewer(roomId, connectionId).then(() => emitViewerCount(roomId));
-    void fanout(roomId, "user_left", { userId: claims.userId });
+    void removeViewer(roomId, connectionId)
+      .then(() => emitViewerCount(roomId))
+      .catch((error: unknown) => {
+        logger.warn({ err: error, roomId }, "ws viewer cleanup failed");
+      });
+    void fanout(roomId, "user_left", { userId: claims.userId }).catch((error: unknown) => {
+      logger.warn({ err: error, roomId }, "ws user_left fanout failed");
+    });
   });
 }
 
@@ -259,8 +274,8 @@ async function handleCohost(userId: string, roomId: string, event: string, data:
           avatarUrl: rows[0]?.avatar_url ?? null,
           status: "live",
         });
-      } catch {
-        /* already seated or full */
+      } catch (error) {
+        logger.warn({ err: error, roomId, targetId }, "cohost seat assignment rejected");
       }
     }
   }
@@ -279,8 +294,8 @@ async function handleCohost(userId: string, roomId: string, event: string, data:
   if (event === "cohost_layout_sync" && userId === hostId) {
     try {
       state = setBigScreen(state, typeof body.bigScreenUserId === "string" ? body.bigScreenUserId : null);
-    } catch {
-      /* ignore invalid big-screen target */
+    } catch (error) {
+      logger.warn({ err: error, roomId }, "cohost big-screen target rejected");
     }
   }
   await saveCohost(state);

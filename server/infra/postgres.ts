@@ -49,6 +49,14 @@ export function getPool(): pg.Pool {
   return pool;
 }
 
+async function rollback(client: pg.PoolClient, cause: unknown): Promise<void> {
+  try {
+    await client.query("ROLLBACK");
+  } catch (rollbackError) {
+    logger.error({ err: rollbackError, cause }, "rollback failed");
+  }
+}
+
 export async function withTransaction<T>(fn: (client: pg.PoolClient) => Promise<T>): Promise<T> {
   const client = await getPool().connect();
   try {
@@ -57,7 +65,7 @@ export async function withTransaction<T>(fn: (client: pg.PoolClient) => Promise<
     await client.query("COMMIT");
     return result;
   } catch (error) {
-    await client.query("ROLLBACK");
+    await rollback(client, error);
     throw error;
   } finally {
     client.release();
@@ -97,12 +105,14 @@ export async function applyPendingMigrations(databaseUrl = env().DATABASE_URL): 
         await client.query("COMMIT");
         applied.push(name);
       } catch (error) {
-        await client.query("ROLLBACK");
+        await rollback(client, error);
         throw error;
       }
     }
   } finally {
-    await client.query("SELECT pg_advisory_unlock($1)", [ADVISORY_KEY]).catch(() => undefined);
+    await client
+      .query("SELECT pg_advisory_unlock($1)", [ADVISORY_KEY])
+      .catch((error: unknown) => logger.warn({ err: error }, "advisory unlock failed"));
     client.release();
     await migratePool.end();
   }
