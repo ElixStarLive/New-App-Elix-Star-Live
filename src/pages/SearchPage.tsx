@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState, type FormEvent } from "react";
+import { useCallback, useEffect, useRef, useState, type FormEvent, type SyntheticEvent } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import { Play, Search as SearchIcon, X } from "lucide-react";
 import type { FeedVideo } from "@shared/contracts";
@@ -9,14 +9,17 @@ import { apiFetchSearch, type SearchUserHit } from "@/features/feed/feedApi";
 import { formatCompactNumber } from "@/lib/formatCompactNumber";
 import { SEARCH_EXIT_TO, exitToFromLocationState, returnToFromLocationState } from "@/lib/settingsNav";
 import { showToast } from "@/lib/toast";
+import { useAuthStore } from "@/store/useAuthStore";
 
 export default function SearchPage() {
   const navigate = useNavigate();
   const location = useLocation();
+  const viewerId = useAuthStore((s) => s.user?.id ?? null);
   const searchInputRef = useRef<HTMLInputElement>(null);
   const panelRef = useRef<HTMLDivElement>(null);
   const loadSeq = useRef(0);
   const touchStart = useRef({ x: 0, y: 0 });
+  const viewerRef = useRef<string | null>(viewerId);
   const [query, setQuery] = useState(() => new URLSearchParams(location.search).get("q") ?? "");
   const [category, setCategory] = useState<SearchBrowseCategory>("All");
   const [users, setUsers] = useState<SearchUserHit[]>([]);
@@ -79,6 +82,18 @@ export default function SearchPage() {
   }, []);
 
   useEffect(() => {
+    const switched = viewerRef.current !== viewerId;
+    if (switched) {
+      viewerRef.current = viewerId;
+      loadSeq.current += 1;
+      setUsers([]);
+      setVideos([]);
+      setBrowse([]);
+      setCategory("All");
+    }
+  }, [viewerId]);
+
+  useEffect(() => {
     const q = new URLSearchParams(location.search).get("q") ?? "";
     setQuery(q);
   }, [location.search]);
@@ -96,7 +111,7 @@ export default function SearchPage() {
     return () => {
       loadSeq.current += 1;
     };
-  }, [normalizedQuery, category, load]);
+  }, [normalizedQuery, category, load, viewerId]);
 
   const handleSearch = useCallback(
     (e: FormEvent) => {
@@ -125,16 +140,27 @@ export default function SearchPage() {
     [navigate, resultReturnTo],
   );
 
+  const seekResultPoster = useCallback((e: SyntheticEvent<HTMLVideoElement>) => {
+    const vid = e.currentTarget;
+    try {
+      const dur = Number.isFinite(vid.duration) && vid.duration > 0 ? vid.duration : 0;
+      const target = dur > 0 ? Math.min(Math.max(dur * 0.15, 0.7), 3) : 0.7;
+      if (Math.abs(vid.currentTime - target) > 0.05) vid.currentTime = target;
+    } catch {
+      /* seek unsupported */
+    }
+  }, []);
+
   return (
-    <div className="fixed inset-0 z-[99999] flex justify-center overflow-hidden">
+    <div className="app-live-column-host z-[99999]">
       <div
-        className="absolute inset-0 transition-opacity duration-200"
+        className="absolute inset-0 transition-opacity duration-250"
         style={{ backgroundColor: visible ? "rgba(0,0,0,0.6)" : "rgba(0,0,0,0)" }}
         onClick={closePanel}
       />
       <div
         ref={panelRef}
-        className="app-live-column elix-page-glass transition-transform duration-200 ease-out"
+        className="app-live-column transition-transform duration-200 ease-out"
         style={{
           transform: visible ? "translateY(0)" : "translateY(100%)",
           pointerEvents: visible ? "auto" : "none",
@@ -260,13 +286,14 @@ export default function SearchPage() {
                             muted
                             playsInline
                             preload="metadata"
+                            onLoadedMetadata={seekResultPoster}
                           />
                         ) : (
                           <div className="w-16 h-[88px] rounded-lg bg-white/5 border border-[#D8D9DD]/20" />
                         )}
                         <div className="text-left flex-1">
                           <div className="text-xs font-semibold line-clamp-2">{video.description || ""}</div>
-                          <div className="text-[10px] text-[#F5F5F7] mt-1">@{video.user?.username || "user"}</div>
+                          <div className="text-[10px] text-[#F5F5F7] mt-1">@{video.user?.username || ""}</div>
                           <div className="text-[10px] text-white/40 mt-1 line-clamp-1">
                             {(video.hashtags || []).map((tag) => `#${tag.replace(/^#/, "")}`).join(" ")}
                           </div>
@@ -315,7 +342,7 @@ function SearchBrowseGrid({ videos, onOpen }: { videos: FeedVideo[]; onOpen: (id
               <span className="text-[10px] font-bold text-white drop-shadow-md leading-none">
                 {formatCompactNumber(video.stats?.views ?? 0)}
               </span>
-              <span className="text-[9px] text-white/80 truncate max-w-full leading-none">@{video.user?.username || "user"}</span>
+              <span className="text-[9px] text-white/80 truncate max-w-full leading-none">@{video.user?.username || ""}</span>
             </div>
           </button>
         ))}

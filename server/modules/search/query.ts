@@ -59,7 +59,6 @@ export async function querySearchPage(
 
 export async function querySearchUsers(viewerId: string | null, q: string): Promise<SearchUser[]> {
   const like = `%${escapeIlike(q)}%`;
-  
   const { rows } = await getPool().query<{
     id: string;
     username: string;
@@ -86,7 +85,6 @@ export async function querySearchUsers(viewerId: string | null, q: string): Prom
 
 export async function querySearchVideos(viewerId: string | null, q: string): Promise<FeedVideo[]> {
   const like = `%${escapeIlike(q.toLowerCase())}%`;
-  
   const { rows } = await getPool().query(
     `${videoSelect(viewerBlockSql("v.user_id", 2))}
        AND (
@@ -140,6 +138,7 @@ export async function querySearchBrowse(
     params,
   );
   const videos = rows.map(mapFeedRow);
+  // OLD Search empty-category browse fell back to All when a chip had zero matches.
   if (videos.length === 0 && category !== "All") {
     return querySearchBrowse(viewerId, "All");
   }

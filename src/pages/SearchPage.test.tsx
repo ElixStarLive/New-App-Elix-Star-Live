@@ -61,6 +61,7 @@ function renderSearch(entry: string | { pathname: string; search?: string; state
           <Route path="/search" element={<SearchPage />} />
           <Route path="/stem" element={<div>STEM PAGE</div>} />
           <Route path="/feed" element={<div>FEED PAGE</div>} />
+          <Route path="/inbox" element={<div>INBOX PAGE</div>} />
           <Route path="/profile/:userId" element={<div>PROFILE PAGE</div>} />
           <Route path="/video/:videoId" element={<div>VIDEO PAGE</div>} />
           <Route path="/hashtag/:tag" element={<div>HASHTAG PAGE</div>} />
@@ -239,5 +240,48 @@ describe("PAGE-012 Search", () => {
       fireCloseTransition(container!);
     });
     expect(container.textContent).toContain("STEM PAGE");
+  });
+
+  it("returns Inbox → Search → Inbox", async () => {
+    const mounted = renderSearch({ pathname: "/search", state: { returnTo: "/inbox" } });
+    root = mounted.root;
+    container = mounted.container;
+    await flush();
+    const back = container.querySelector('button[aria-label="Back"]') as HTMLButtonElement;
+    await act(async () => {
+      back.dispatchEvent(new MouseEvent("click", { bubbles: true }));
+    });
+    await flush();
+    await act(async () => {
+      fireCloseTransition(container!);
+    });
+    expect(container.textContent).toContain("INBOX PAGE");
+  });
+
+  it("closes on swipe-down from the header chrome", async () => {
+    const mounted = renderSearch({ pathname: "/search", state: { returnTo: "/feed" } });
+    root = mounted.root;
+    container = mounted.container;
+    await flush();
+    const header = container.querySelector(".app-live-column > .flex.flex-col.shrink-0") as HTMLElement | null;
+    expect(header).toBeTruthy();
+    await act(async () => {
+      header?.dispatchEvent(
+        new TouchEvent("touchstart", {
+          bubbles: true,
+          touches: [{ clientX: 40, clientY: 20 } as Touch],
+        }),
+      );
+      header?.dispatchEvent(
+        new TouchEvent("touchend", {
+          bubbles: true,
+          changedTouches: [{ clientX: 40, clientY: 140 } as Touch],
+        }),
+      );
+    });
+    await act(async () => {
+      fireCloseTransition(container!);
+    });
+    expect(container.textContent).toContain("FEED PAGE");
   });
 });
