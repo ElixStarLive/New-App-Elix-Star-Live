@@ -14,7 +14,7 @@ resetEnvCache();
 const { closeValkey, requireValkey, valkeyGet } = await import("../server/infra/valkey.ts");
 const { getPool } = await import("../server/infra/postgres.ts");
 const { hostPresenceKey } = await import("../server/modules/live/hostGrace.ts");
-const { startLive, endLive } = await import("../server/modules/live/start.ts");
+const { startLive } = await import("../server/modules/live/start.ts");
 const { isLivekitConfigured } = await import("../server/infra/livekit.ts");
 
 const base = process.env.PROOF_API_BASE?.trim() || "http://127.0.0.1:8080";
@@ -136,15 +136,27 @@ try {
       ),
     );
   } else {
-    const started = await startLive(hostId, { title: "PAGE018 proof" });
-    if (started.roomId !== hostId) throw new Error(`roomId must equal hostId, got ${started.roomId}`);
-    if (!started.streamId || !started.livekitToken || !started.livekitUrl) {
-      throw new Error("startLive missing canonical fields");
+    if (!hostToken) throw new Error("HTTP host token required for PAGE-018 canonical start");
+
+    const httpStart = await json("/api/live/start", {
+      method: "POST",
+      headers: { Authorization: `Bearer ${hostToken}` },
+      body: JSON.stringify({ title: "PAGE018 proof http" }),
+    });
+    if (httpStart.status !== 200) {
+      throw new Error(`HTTP /api/live/start ${httpStart.status} ${JSON.stringify(httpStart.body)}`);
+    }
+    const started = asRecord(httpStart.body);
+    const streamId = String(started.streamId ?? "");
+    const roomId = String(started.roomId ?? "");
+    if (roomId !== hostId) throw new Error(`roomId must equal hostId, got ${roomId}`);
+    if (!streamId || !started.livekitToken || !started.livekitUrl) {
+      throw new Error("HTTP start missing canonical fields");
     }
 
     const db = await getPool().query<{ status: string; room_id: string }>(
       `SELECT status, room_id FROM live_streams WHERE id = $1`,
-      [started.streamId],
+      [streamId],
     );
     if (db.rows[0]?.status !== "live" || db.rows[0]?.room_id !== hostId) {
       throw new Error("Neon live_streams row not live/canonical");
@@ -155,12 +167,29 @@ try {
     if (!streamKey) throw new Error("Valkey stream: key missing after start");
     if (!presence) throw new Error("Valkey host presence missing after start");
 
-    const ended = await endLive(hostId, started.streamId);
-    if (!ended.ok || ended.roomId !== hostId) throw new Error("endLive failed");
+    // Spectator must not be able to end the host stream (ownership).
+    const spectator = await registerUser("s");
+    const spectatorEnd = await json(`/api/live/${streamId}/end`, {
+      method: "POST",
+      headers: { Authorization: `Bearer ${spectator.token}` },
+      body: JSON.stringify({}),
+    });
+    if (spectatorEnd.status !== 404) {
+      throw new Error(`spectator end must 404, got ${spectatorEnd.status} ${JSON.stringify(spectatorEnd.body)}`);
+    }
+
+    const httpEnd = await json(`/api/live/${streamId}/end`, {
+      method: "POST",
+      headers: { Authorization: `Bearer ${hostToken}` },
+      body: JSON.stringify({}),
+    });
+    if (httpEnd.status !== 200) {
+      throw new Error(`HTTP /api/live/:id/end ${httpEnd.status} ${JSON.stringify(httpEnd.body)}`);
+    }
 
     const afterDb = await getPool().query<{ status: string }>(
       `SELECT status FROM live_streams WHERE id = $1`,
-      [started.streamId],
+      [streamId],
     );
     if (afterDb.rows[0]?.status !== "ended") throw new Error("Neon row not ended");
 
@@ -169,37 +198,17 @@ try {
     if (streamLeft) throw new Error("stream: leftover after end");
     if (presenceLeft) throw new Error("host presence leftover after end");
 
-    let httpParity: string | null = null;
-    if (hostToken) {
-      const httpStart = await json("/api/live/start", {
-        method: "POST",
-        headers: { Authorization: `Bearer ${hostToken}` },
-        body: JSON.stringify({ title: "PAGE018 proof http" }),
-      });
-      if (httpStart.status === 200) {
-        const sid = String(asRecord(httpStart.body).streamId ?? "");
-        await json("/api/live/end", {
-          method: "POST",
-          headers: { Authorization: `Bearer ${hostToken}` },
-          body: JSON.stringify({ streamId: sid }),
-        });
-        httpParity = "pass";
-      } else {
-        httpParity = `deferred:${httpStart.status}`;
-      }
-    }
-
     console.log(
       JSON.stringify(
         {
           ok: true,
           page: "PAGE-018",
           livekitReady: true,
-          streamId: started.streamId,
-          roomId: started.roomId,
-          inProcessNeonValkey: true,
+          streamId,
+          roomId,
+          httpNeonValkey: true,
           endCleanup: true,
-          httpParity,
+          spectatorEndBlocked: true,
         },
         null,
         2,
