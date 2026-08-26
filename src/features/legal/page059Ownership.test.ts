@@ -24,6 +24,7 @@ describe("PAGE-059 Copyright ownership", () => {
   it("has one public /copyright owner and the frozen in-app document", () => {
     expect(app.match(/path="\/copyright"/g)?.length).toBe(1);
     expect(app).toMatch(/<Route path="\/copyright" element=\{<Copyright \/>\} \/>/);
+    expect(app.indexOf('path="/copyright"')).toBeLessThan(app.indexOf("<Route element={<RequireAuth"));
     expect(app).not.toMatch(/path="\/legal\/copyright"|path="\/copyright-policy"|path="\/ip"/);
     expect(shell).toMatch(/pathname === "\/copyright"/);
     expect(LEGAL_COPYRIGHT_TITLE).toBe("Copyright Notice");
