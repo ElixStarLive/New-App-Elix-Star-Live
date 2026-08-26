@@ -7405,7 +7405,7 @@ describe("http integration", () => {
 
     expect(
       (
-        await authJson(`/api/rising-stars/challenges/${scheduledId}/enter`, creator.token, {
+        await authJson(`/api/rising-stars/challenges/${scheduledId}/enter`, other.token, {
           method: "POST",
           body: JSON.stringify({ videoId, userId: voter.id, score: 100000, rank: 1 }),
         })
@@ -7413,7 +7413,7 @@ describe("http integration", () => {
     ).toBe(409);
     expect(
       (
-        await authJson(`/api/rising-stars/challenges/${closedId}/enter`, creator.token, {
+        await authJson(`/api/rising-stars/challenges/${closedId}/enter`, other.token, {
           method: "POST",
           body: JSON.stringify({ videoId }),
         })
@@ -7421,12 +7421,20 @@ describe("http integration", () => {
     ).toMatchObject({ error: "conflict", message: "CHALLENGE_CLOSED" });
     expect(
       (
-        await authJson(`/api/rising-stars/challenges/${frozenId}/enter`, creator.token, {
+        await authJson(`/api/rising-stars/challenges/${frozenId}/enter`, other.token, {
           method: "POST",
           body: JSON.stringify({ videoId }),
         })
       ).body,
     ).toMatchObject({ message: "LEADERBOARD_FROZEN" });
+    expect(
+      (
+        await authJson(`/api/rising-stars/challenges/${openId}/enter`, other.token, {
+          method: "POST",
+          body: JSON.stringify({ videoId: mismatch.rows[0].id }),
+        })
+      ).body,
+    ).toMatchObject({ message: "VIDEO_NOT_OWNED" });
     expect(
       (
         await authJson(`/api/rising-stars/challenges/${openId}/enter`, creator.token, {

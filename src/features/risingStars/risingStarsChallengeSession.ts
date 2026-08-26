@@ -240,7 +240,8 @@ export function createRisingStarsChallengeSession(deps: ChallengeDeps) {
       if (deps.getAccountId() !== expectedAccountId) return;
       boundChallengeId = id;
       accountId = expectedAccountId;
-      const gen = generation;
+      // Bump so an older in-flight challenge GET cannot resurrect withdrawn/entry/team/live state.
+      const gen = ++generation;
       await reconcile(id, expectedAccountId, gen, true);
     },
     enter: async () => {
@@ -250,11 +251,11 @@ export function createRisingStarsChallengeSession(deps: ChallengeDeps) {
       if (!videoId) return;
       const expectedAccountId = accountId;
       const challengeId = view.challenge.id;
-      const gen = generation;
+      const openGen = generation;
       view = { ...view, busy: true };
       emit();
       const result = await deps.enterChallenge(challengeId, videoId);
-      if (!isCurrent(deps, gen, generation, expectedAccountId) || boundChallengeId !== challengeId) {
+      if (!isCurrent(deps, openGen, generation, expectedAccountId) || boundChallengeId !== challengeId) {
         return;
       }
       if (!result.ok) {
@@ -262,18 +263,19 @@ export function createRisingStarsChallengeSession(deps: ChallengeDeps) {
         return;
       }
       deps.toast("Entry accepted");
-      await reconcile(challengeId, expectedAccountId, gen, false);
+      const reloadGen = ++generation;
+      await reconcile(challengeId, expectedAccountId, reloadGen, false);
     },
     withdraw: async () => {
       if (view.busy || view.kind !== "ready" || !view.myEntry) return;
       const expectedAccountId = accountId;
       const challengeId = view.challengeId;
       const entryId = view.myEntry.id;
-      const gen = generation;
+      const openGen = generation;
       view = { ...view, busy: true };
       emit();
       const result = await deps.withdrawEntry(entryId);
-      if (!isCurrent(deps, gen, generation, expectedAccountId) || boundChallengeId !== challengeId) {
+      if (!isCurrent(deps, openGen, generation, expectedAccountId) || boundChallengeId !== challengeId) {
         return;
       }
       if (!result.ok) {
@@ -281,18 +283,19 @@ export function createRisingStarsChallengeSession(deps: ChallengeDeps) {
         return;
       }
       deps.toast("Entry withdrawn");
-      await reconcile(challengeId, expectedAccountId, gen, false);
+      const reloadGen = ++generation;
+      await reconcile(challengeId, expectedAccountId, reloadGen, false);
     },
     vote: async (entryId: string) => {
       if (view.busy || view.kind !== "ready" || view.votedToday || !view.challenge) return;
       if (view.challenge.leaderboard_frozen) return;
       const expectedAccountId = accountId;
       const challengeId = view.challenge.id;
-      const gen = generation;
+      const openGen = generation;
       view = { ...view, busy: true };
       emit();
       const result = await deps.voteEntry(entryId);
-      if (!isCurrent(deps, gen, generation, expectedAccountId) || boundChallengeId !== challengeId) {
+      if (!isCurrent(deps, openGen, generation, expectedAccountId) || boundChallengeId !== challengeId) {
         return;
       }
       if (!result.ok) {
@@ -312,17 +315,18 @@ export function createRisingStarsChallengeSession(deps: ChallengeDeps) {
       };
       emit();
       deps.toast("Vote counted");
-      await reconcile(challengeId, expectedAccountId, gen, false);
+      const reloadGen = ++generation;
+      await reconcile(challengeId, expectedAccountId, reloadGen, false);
     },
     joinTeam: async (teamId: string) => {
       if (view.busy || view.kind !== "ready" || !teamId) return;
       const expectedAccountId = accountId;
       const challengeId = view.challengeId;
-      const gen = generation;
+      const openGen = generation;
       view = { ...view, busy: true };
       emit();
       const result = await deps.joinTeam(teamId);
-      if (!isCurrent(deps, gen, generation, expectedAccountId) || boundChallengeId !== challengeId) {
+      if (!isCurrent(deps, openGen, generation, expectedAccountId) || boundChallengeId !== challengeId) {
         return;
       }
       if (!result.ok) {
@@ -330,17 +334,18 @@ export function createRisingStarsChallengeSession(deps: ChallengeDeps) {
         return;
       }
       deps.toast("Joined team");
-      await reconcile(challengeId, expectedAccountId, gen, false);
+      const reloadGen = ++generation;
+      await reconcile(challengeId, expectedAccountId, reloadGen, false);
     },
     attachLive: async (phase: "qualifier" | "final", roomId: string) => {
       if (view.busy || view.kind !== "ready" || !view.challenge || !roomId.trim()) return;
       const expectedAccountId = accountId;
       const challengeId = view.challenge.id;
-      const gen = generation;
+      const openGen = generation;
       view = { ...view, busy: true };
       emit();
       const result = await deps.attachLive(challengeId, { phase, roomId: roomId.trim() });
-      if (!isCurrent(deps, gen, generation, expectedAccountId) || boundChallengeId !== challengeId) {
+      if (!isCurrent(deps, openGen, generation, expectedAccountId) || boundChallengeId !== challengeId) {
         return;
       }
       if (!result.ok) {
@@ -350,7 +355,8 @@ export function createRisingStarsChallengeSession(deps: ChallengeDeps) {
       view = { ...view, challenge: result.challenge, busy: false };
       emit();
       deps.toast("Live attached");
-      await reconcile(challengeId, expectedAccountId, gen, false);
+      const reloadGen = ++generation;
+      await reconcile(challengeId, expectedAccountId, reloadGen, false);
     },
   };
 }

@@ -348,4 +348,48 @@ describe("PAGE-056 Rising Stars challenge session", () => {
     expect(session.getSnapshot().votedToday).toBe(true);
     expect(session.getSnapshot().entries[0]?.vote_count).toBe(3);
   });
+
+  it("does not let a stale challenge GET resurrect a withdrawn entry", async () => {
+    const account = { id: userA };
+    let releaseStale: ((value: {
+      ok: true;
+      challenge: RisingStarsChallengeDetail;
+      voted_today: boolean;
+      my_entry: RisingStarsEntry | null;
+      my_team_ids: string[];
+    }) => void) | undefined;
+    const held = new Promise<{
+      ok: true;
+      challenge: RisingStarsChallengeDetail;
+      voted_today: boolean;
+      my_entry: RisingStarsEntry | null;
+      my_team_ids: string[];
+    }>((resolve) => {
+      releaseStale = resolve;
+    });
+    const { deps, loadChallenge } = createDeps(account);
+    const session = createRisingStarsChallengeSession(deps);
+    session.bindAccount(userA);
+    session.bindChallenge(challengeA);
+    loadChallenge.mockReturnValueOnce(held);
+    const pending = session.load(challengeA, userA);
+    loadChallenge.mockResolvedValueOnce({
+      ok: true,
+      challenge: detail(challengeA, "Week A"),
+      voted_today: false,
+      my_entry: null,
+      my_team_ids: [],
+    });
+    await session.load(challengeA, userA);
+    expect(session.getSnapshot().myEntry).toBeNull();
+    releaseStale?.({
+      ok: true,
+      challenge: detail(challengeA, "Week A"),
+      voted_today: false,
+      my_entry: entry(entryA, userA, 4),
+      my_team_ids: [],
+    });
+    await pending;
+    expect(session.getSnapshot().myEntry).toBeNull();
+  });
 });

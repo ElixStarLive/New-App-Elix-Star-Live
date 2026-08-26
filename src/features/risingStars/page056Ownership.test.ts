@@ -59,6 +59,8 @@ describe("PAGE-056 Rising Stars Challenge ownership", () => {
     expect(challenge).toMatch(/WHERE room_id = \$1/);
     expect(challenge).not.toMatch(/score:\s*100000|Date\.now\(\)/);
     expect(challenge).not.toMatch(/rank:\s*Number\(|req\.body\?\.rank|body\.rank/);
+    expect(session).toMatch(/const gen = \+\+generation/);
+    expect(session).toMatch(/const reloadGen = \+\+generation/);
     expect(session).not.toMatch(/localStorage|sessionStorage|location\.reload|setTimeout\(|Math\.random|score:\s*999/);
     expect(session).not.toMatch(/new WebSocket|wsClient/);
   });
