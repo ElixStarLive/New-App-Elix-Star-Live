@@ -61,6 +61,7 @@ export function createEngagementMvpSession(deps: MvpDeps) {
         return;
       }
       accountId = expectedAccountId;
+      // Bump so an older in-flight MVP GET cannot overwrite a newer period/account board.
       const gen = ++generation;
       view = { kind: "loading", period, board: null, error: null };
       emit();

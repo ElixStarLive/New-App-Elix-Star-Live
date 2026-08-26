@@ -105,4 +105,28 @@ describe("PAGE-050 MVP session", () => {
       leaderboard: [{ points: 4 }],
     });
   });
+
+  it("does not let a stale MVP GET overwrite a newer same-account board", async () => {
+    const deps = createDeps();
+    deps.loadMvp.mockResolvedValueOnce({
+      ok: true,
+      board: board({ leaderboard: [{ rank: 1, user_id: userA, points: 2 }] }),
+    });
+    await deps.session.load(userA, "today");
+    const stale = deferred<{ ok: true; board: EngagementMvpResponse }>();
+    deps.loadMvp.mockReturnValueOnce(stale.promise);
+    const pending = deps.session.load(userA, "today");
+    deps.loadMvp.mockResolvedValueOnce({
+      ok: true,
+      board: board({ leaderboard: [{ rank: 1, user_id: userA, points: 3 }] }),
+    });
+    await deps.session.load(userA, "today");
+    expect(deps.session.getSnapshot().board?.leaderboard).toMatchObject([{ points: 3 }]);
+    stale.resolve({
+      ok: true,
+      board: board({ leaderboard: [{ rank: 1, user_id: userA, points: 2 }] }),
+    });
+    await pending;
+    expect(deps.session.getSnapshot().board?.leaderboard).toMatchObject([{ points: 3 }]);
+  });
 });

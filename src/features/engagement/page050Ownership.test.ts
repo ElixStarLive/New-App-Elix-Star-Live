@@ -38,6 +38,7 @@ describe("PAGE-050 MVP ownership", () => {
     expect(mvp).toMatch(/ON CONFLICT \(gift_transaction_id\)/);
     expect(gifts).toMatch(/addMvpPoints/);
     expect(gifts).toMatch(/paid_gift|promo_gift/);
+    expect(session).toMatch(/const gen = \+\+generation/);
     expect(session).not.toMatch(/localStorage|sessionStorage|setTimeout\(|location\.reload|points \+=|energy \+=/);
     expect(wallet).toMatch(/Test coins are not wallet money/);
     expect(payout).not.toMatch(/addMvpPoints|getMvpLeaderboard/);
