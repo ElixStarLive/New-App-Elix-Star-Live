@@ -147,4 +147,19 @@ describe("PAGE-041 Safety Center", () => {
     expect(SAFETY_REPORT_HREF).toBe("/report?type=support&id=support_ticket");
     expect(container.textContent).not.toContain("report submitted");
   });
+
+  it("keeps Privacy/Safety distinction and emergency copy static with no loading spinner", () => {
+    const view = renderSafety();
+    root = view.root;
+    container = view.container;
+    expect(container.textContent).toContain("Data & Personalization");
+    expect(container.textContent).toContain("Manage how your data is used.");
+    expect(container.querySelector('[aria-busy="true"]')).toBeNull();
+    expect(container.textContent).not.toMatch(/Loading|Retry|safety score|risk score/i);
+    act(() => {
+      row(container!, "Data & Personalization")?.click();
+    });
+    expect(container.textContent).toContain("LOC /privacy");
+    expect(container.textContent).toContain(`STATE ${JSON.stringify({ returnTo: SAFETY_HOME })}`);
+  });
 });
