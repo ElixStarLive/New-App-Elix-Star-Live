@@ -63,8 +63,16 @@ export async function apiListChatThreads(): Promise<{
   const { data, error } = await apiRequest<unknown>("/api/inbox/threads");
   if (error) return { threads: [], error: error.message };
   if (!isRecord(data) || !Array.isArray(data.threads)) return { threads: [], error: "Invalid inbox response" };
-  const threads = data.threads.map(parseThread).filter((row): row is ChatThread => row !== null);
-  if (data.threads.length > 0 && threads.length === 0) return { threads: [], error: "Invalid inbox response" };
+  const parsed = data.threads.map(parseThread).filter((row): row is ChatThread => row !== null);
+  if (data.threads.length > 0 && parsed.length === 0) return { threads: [], error: "Invalid inbox response" };
+  const threads = parsed.filter((row) => {
+    const name = (row.otherDisplayName || row.otherUsername).trim();
+    if (!name) return false;
+    // Drop fabricated stub identities (OLD Inbox anti-stub filter).
+    if (name.toLowerCase() === "user") return false;
+    if (row.otherUsername.trim().toLowerCase() === "user") return false;
+    return true;
+  });
   return { threads, error: null };
 }
 

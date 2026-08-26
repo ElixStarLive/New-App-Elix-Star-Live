@@ -13,6 +13,7 @@ import {
   listInboxThreads,
   listLiveShareRequests,
 } from "../inbox/query.js";
+import { handlePostLiveShare } from "../inbox/liveShare.js";
 import {
   dmRealtimePayloads,
   getThreadDetail,
@@ -204,6 +205,12 @@ discoverRouter.get("/search", async (req: AuthedRequest, res) => {
 
 discoverRouter.get("/activity", requireAuth, async (req: AuthedRequest, res) => {
   res.json(await listInboxActivity(req.userId as string));
+});
+
+/** PAGE-030 live-share write path — persists Neon row + WS `live_share` (OLD `/api/live-share`). */
+discoverRouter.post("/live-share", requireAuth, async (req: AuthedRequest, res) => {
+  const body = req.body && typeof req.body === "object" ? (req.body as Record<string, unknown>) : {};
+  res.json(await handlePostLiveShare(req.userId as string, body));
 });
 
 callsRouter.post("/:callId/token", requireAuth, async (req: AuthedRequest, res) => {

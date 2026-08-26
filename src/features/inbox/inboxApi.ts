@@ -86,6 +86,26 @@ export async function apiListLiveShareRequests(): Promise<{
   return { items: parsed.data.items, error: null };
 }
 
+/** POST /api/live-share — share an active live with another user (Inbox Requests). */
+export async function apiLiveShareCreate(payload: {
+  targetUserId: string;
+  streamKey: string;
+  hostUserId?: string;
+  hostName?: string;
+  hostAvatar?: string;
+  sharerName?: string;
+  sharerAvatar?: string;
+}): Promise<{ ok: true; persisted: boolean } | { ok: false; error: string }> {
+  const { data, error } = await apiRequest<unknown>("/api/live-share", {
+    method: "POST",
+    body: JSON.stringify(payload),
+  });
+  if (error) return { ok: false, error: error.message };
+  if (!data || typeof data !== "object") return { ok: false, error: "Invalid live share response" };
+  const persisted = (data as { persisted?: unknown }).persisted === true;
+  return { ok: true, persisted };
+}
+
 export async function apiMarkInboxNoticesRead(ids: string[]): Promise<{ ok: true } | { ok: false; error: string }> {
   return apiMarkAlertsRead(ids);
 }

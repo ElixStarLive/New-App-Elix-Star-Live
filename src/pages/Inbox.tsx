@@ -19,6 +19,7 @@ import { realAvatarUrl } from "@/lib/avatarUrl";
 import { showToast } from "@/lib/toast";
 import { wsClient } from "@/lib/wsClient";
 import { useAuthStore } from "@/store/useAuthStore";
+import { apiLiveStatus } from "@/features/feed/feedApi";
 
 function threadName(row: ChatThread): string {
   return (row.otherDisplayName || row.otherUsername).trim();
@@ -64,12 +65,10 @@ export default function Inbox() {
           : liveEndedKeys(data)[0] || "";
       session.applyStreamEnded("", roomId);
     };
-    wsClient.on("dm_message", onDm);
     wsClient.on("dm_thread_updated", onDm);
     wsClient.on("stream_started", onStarted);
     wsClient.on("stream_ended", onEnded);
     return () => {
-      wsClient.off("dm_message", onDm);
       wsClient.off("dm_thread_updated", onDm);
       wsClient.off("stream_started", onStarted);
       wsClient.off("stream_ended", onEnded);
@@ -94,6 +93,22 @@ export default function Inbox() {
       return;
     }
     navigate(`/profile/${userId}`, { state: inboxReturnState() });
+  };
+
+  const openLiveShare = (roomId: string) => {
+    const key = roomId.trim();
+    if (!key) return;
+    void apiLiveStatus(key).then(({ status, error }) => {
+      if (error) {
+        showToast(error);
+        return;
+      }
+      if (!status?.active) {
+        showToast("This live has ended");
+        return;
+      }
+      navigate(`/watch/${encodeURIComponent(status.room || key)}`, { state: inboxReturnState() });
+    });
   };
 
   const deleteConversation = async (threadId: string) => {
@@ -398,9 +413,7 @@ export default function Inbox() {
                         key={`${row.sharerId}_${row.roomId}`}
                         type="button"
                         onClick={() => {
-                          if (row.roomId) {
-                            navigate(`/watch/${encodeURIComponent(row.roomId)}`, { state: inboxReturnState() });
-                          }
+                          if (row.roomId) openLiveShare(row.roomId);
                         }}
                         className="flex items-center gap-3 w-full text-left py-2.5 px-2 bg-transparent"
                       >

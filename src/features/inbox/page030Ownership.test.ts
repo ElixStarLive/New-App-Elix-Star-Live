@@ -20,7 +20,8 @@ describe("PAGE-030 Inbox ownership", () => {
     expect(page).toMatch(/Gift received/);
     expect(page).toMatch(/You’re all caught up/);
     expect(page).toMatch(/inboxReturnState/);
-    expect(page).toMatch(/wsClient\.on\("dm_message"/);
+    expect(page).toMatch(/wsClient\.on\("dm_thread_updated"/);
+    expect(page).not.toMatch(/wsClient\.on\("dm_message"/);
     expect(page).not.toMatch(/new WebSocket|InboxOld|InboxNew|InboxV2|location\.reload|elix_inbox_deleted/);
     expect(session).toMatch(/apiListChatThreads/);
     expect(session).toMatch(/apiListInboxActivity/);
@@ -28,6 +29,8 @@ describe("PAGE-030 Inbox ownership", () => {
     expect(session).not.toMatch(/setTimeout|location\.reload/);
     expect(api).toMatch(/\/api\/activity/);
     expect(api).toMatch(/\/api\/inbox\/live-share-requests/);
+    expect(api).toMatch(/\/api\/live-share/);
+    expect(api).toMatch(/apiLiveShareCreate/);
     expect(api).toMatch(/\/api\/inbox\/notices/);
     expect(chatApi).toMatch(/\/api\/inbox\/threads/);
     expect(chatApi).not.toMatch(/\/api\/activity/);
