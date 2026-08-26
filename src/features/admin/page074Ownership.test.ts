@@ -61,10 +61,12 @@ describe("PAGE-074 Admin Monetisation ownership", () => {
     expect(extra).not.toMatch(/\/settlements\/|\/reconciliation\/run|\/foryou-sweep|financial-reports\/import/);
     expect(auth).toMatch(/SELECT is_admin FROM users/);
     expect(dashboard).toMatch(/path: "\/admin\/monetisation"/);
+    expect(app.indexOf("<Route element={<RequireAdmin")).toBeGreaterThan(app.indexOf("<Route element={<RequireAuth"));
     expect(settle).toMatch(/FROM monetisation_config WHERE id = 1/);
     expect(reverse).toMatch(/reverse/);
     expect(ws).toMatch(/class WsClient/);
     expect(page).not.toMatch(/new WebSocket|reconnectOnForeground/);
+    expect(page).not.toMatch(/withdrawals-gbp\/.*\/status|mark-paid-manual|submit-provider/);
   });
 
   it("does not take PAGE-073/075/076/078 ownership or invent money mutations", () => {
