@@ -190,7 +190,7 @@ describe("PAGE-013 Hashtag", () => {
     auth.useAuthStore.setState({
       user: { id: "viewer-a", username: "a", email: "a@example.com" } as never,
       session: null,
-      loading: false,
+      isLoading: false,
     });
     const mounted = renderHashtag("/hashtag/music");
     root = mounted.root;
@@ -208,7 +208,7 @@ describe("PAGE-013 Hashtag", () => {
       auth.useAuthStore.setState({
         user: { id: "viewer-b", username: "b", email: "b@example.com" } as never,
         session: null,
-        loading: false,
+        isLoading: false,
       });
       await Promise.resolve();
       await Promise.resolve();
