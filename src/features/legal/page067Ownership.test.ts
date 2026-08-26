@@ -29,6 +29,7 @@ describe("PAGE-067 Guidelines ownership", () => {
   it("has one public /guidelines owner and the frozen in-app document", () => {
     expect(app.match(/path="\/guidelines"/g)?.length).toBe(1);
     expect(app).toMatch(/<Route path="\/guidelines" element=\{<Guidelines \/>\} \/>/);
+    expect(app.indexOf('path="/guidelines"')).toBeLessThan(app.indexOf("<Route element={<RequireAuth"));
     expect(app).not.toMatch(/path="\/community-guidelines"|path="\/rules"|path="\/legal\/guidelines"/);
     expect(shell).toMatch(/pathname === "\/guidelines"/);
     expect(GUIDELINES_TITLE).toBe("Community Guidelines");
