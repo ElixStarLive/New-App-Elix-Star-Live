@@ -40,8 +40,12 @@ describe("PAGE-043 Notification Settings ownership", () => {
     expect(api).not.toMatch(/\/api\/notifications\/device-tokens/);
     expect(api.match(/\/api\/device-tokens/g)?.length).toBe(2);
     expect(push).toMatch(/registerCurrentDeviceToken/);
+    expect(push).toMatch(/unregisterCurrentDeviceToken/);
     expect(push).toMatch(/notificationsEnabled/);
+    expect(push).toMatch(/platform === "android"/);
+    expect(push).toMatch(/platform === "ios"/);
     expect(push).not.toMatch(/AIza|AAAA[A-Za-z0-9_-]{20,}|-----BEGIN PRIVATE KEY-----/);
+    expect(page).toMatch(/unregisterPushToken/);
     expect(session).toMatch(/unregisterCurrentDeviceToken/);
     expect(auth).toMatch(/unregisterCurrentDeviceToken/);
     expect(router).toMatch(/deviceTokenRegisterBodySchema/);

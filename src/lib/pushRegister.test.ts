@@ -7,6 +7,8 @@ const requestPermissions = vi.fn();
 const addListener = vi.fn();
 const notificationsEnabled = vi.fn(() => true);
 const userId = vi.fn(() => "user-a");
+const registerCurrentDeviceToken = vi.fn(async (_token: string) => ({ ok: true as const }));
+const unregisterCurrentDeviceToken = vi.fn(async () => undefined);
 
 vi.mock("@capacitor/core", () => ({
   Capacitor: {
@@ -39,7 +41,8 @@ vi.mock("@/store/useAuthStore", () => ({
 }));
 
 vi.mock("@/features/notifications/deviceTokenSession", () => ({
-  registerCurrentDeviceToken: vi.fn(),
+  registerCurrentDeviceToken: (token: string) => registerCurrentDeviceToken(token),
+  unregisterCurrentDeviceToken: () => unregisterCurrentDeviceToken(),
 }));
 
 describe("registerPushToken", () => {
@@ -50,24 +53,42 @@ describe("registerPushToken", () => {
     register.mockReset();
     requestPermissions.mockReset();
     addListener.mockReset();
+    registerCurrentDeviceToken.mockReset();
+    unregisterCurrentDeviceToken.mockReset();
     notificationsEnabled.mockReturnValue(true);
     userId.mockReturnValue("user-a");
+    requestPermissions.mockResolvedValue({ receive: "granted" });
+    addListener.mockResolvedValue({ remove: () => undefined });
+    register.mockResolvedValue(undefined);
   });
 
-  it("does not register Android push without Firebase", async () => {
+  it("registers Android FCM through Capacitor PushNotifications like OLD", async () => {
     isNativePlatform.mockReturnValue(true);
     getPlatform.mockReturnValue("android");
-    const { registerPushToken } = await import("./pushRegister");
+    const { registerPushToken, resetPushRegisterForTests } = await import("./pushRegister");
+    resetPushRegisterForTests();
     await registerPushToken();
-    expect(register).not.toHaveBeenCalled();
-    expect(requestPermissions).not.toHaveBeenCalled();
+    expect(requestPermissions).toHaveBeenCalledTimes(1);
+    expect(register).toHaveBeenCalledTimes(1);
+    expect(addListener).toHaveBeenCalled();
+  });
+
+  it("registers iOS APNs through Capacitor PushNotifications", async () => {
+    isNativePlatform.mockReturnValue(true);
+    getPlatform.mockReturnValue("ios");
+    const { registerPushToken, resetPushRegisterForTests } = await import("./pushRegister");
+    resetPushRegisterForTests();
+    await registerPushToken();
+    expect(requestPermissions).toHaveBeenCalledTimes(1);
+    expect(register).toHaveBeenCalledTimes(1);
   });
 
   it("does not request permission when the local preference is off", async () => {
     isNativePlatform.mockReturnValue(true);
     getPlatform.mockReturnValue("ios");
     notificationsEnabled.mockReturnValue(false);
-    const { registerPushToken } = await import("./pushRegister");
+    const { registerPushToken, resetPushRegisterForTests } = await import("./pushRegister");
+    resetPushRegisterForTests();
     await registerPushToken();
     expect(requestPermissions).not.toHaveBeenCalled();
     expect(register).not.toHaveBeenCalled();
@@ -75,10 +96,27 @@ describe("registerPushToken", () => {
 
   it("does not register a fake token when permission is denied", async () => {
     isNativePlatform.mockReturnValue(true);
-    getPlatform.mockReturnValue("ios");
+    getPlatform.mockReturnValue("android");
     requestPermissions.mockResolvedValue({ receive: "denied" });
-    const { registerPushToken } = await import("./pushRegister");
+    const { registerPushToken, resetPushRegisterForTests } = await import("./pushRegister");
+    resetPushRegisterForTests();
     await registerPushToken();
     expect(register).not.toHaveBeenCalled();
+  });
+
+  it("unregisters the current platform token on disable", async () => {
+    isNativePlatform.mockReturnValue(true);
+    getPlatform.mockReturnValue("android");
+    const { unregisterPushToken } = await import("./pushRegister");
+    await unregisterPushToken();
+    expect(unregisterCurrentDeviceToken).toHaveBeenCalledTimes(1);
+  });
+
+  it("no-ops unregister on web", async () => {
+    isNativePlatform.mockReturnValue(false);
+    getPlatform.mockReturnValue("web");
+    const { unregisterPushToken } = await import("./pushRegister");
+    await unregisterPushToken();
+    expect(unregisterCurrentDeviceToken).not.toHaveBeenCalled();
   });
 });

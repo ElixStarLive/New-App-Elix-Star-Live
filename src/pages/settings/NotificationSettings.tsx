@@ -2,7 +2,7 @@ import { useCallback } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import { Bell } from "lucide-react";
 import SettingsOptionSheet from "@/components/SettingsOptionSheet";
-import { registerPushToken } from "@/lib/pushRegister";
+import { registerPushToken, unregisterPushToken } from "@/lib/pushRegister";
 import { SETTINGS_HOME, exitToFromLocationState } from "@/lib/settingsNav";
 import { useSettingsStore } from "@/store/useSettingsStore";
 
@@ -64,6 +64,7 @@ export default function NotificationSettings() {
               const next = !notificationsEnabled;
               setNotificationsEnabled(next);
               if (next) void registerPushToken();
+              else void unregisterPushToken();
             }}
           />
           <ToggleRow

@@ -7,9 +7,11 @@ import { useSettingsStore } from "@/store/useSettingsStore";
 import NotificationSettings, { NOTIFICATIONS_HOME } from "./NotificationSettings";
 
 const registerPushToken = vi.hoisted(() => vi.fn(async () => undefined));
+const unregisterPushToken = vi.hoisted(() => vi.fn(async () => undefined));
 
 vi.mock("@/lib/pushRegister", () => ({
   registerPushToken: () => registerPushToken(),
+  unregisterPushToken: () => unregisterPushToken(),
 }));
 
 function LocationProbe() {
@@ -44,6 +46,7 @@ let container: HTMLDivElement | null = null;
 describe("PAGE-043 Notification Settings", () => {
   beforeEach(() => {
     registerPushToken.mockReset();
+    unregisterPushToken.mockReset();
     useSettingsStore.setState({
       notificationsEnabled: true,
       liveNotifications: true,
@@ -90,7 +93,7 @@ describe("PAGE-043 Notification Settings", () => {
     expect(namedHardwareBackTarget(NOTIFICATIONS_HOME, { returnTo: "/settings" })).toBe("/settings");
   });
 
-  it("toggles the shared local preferences and only registers on enable", () => {
+  it("toggles the shared local preferences, registers on enable, and unregisters on disable", () => {
     const view = renderNotifications();
     root = view.root;
     container = view.container;
@@ -100,17 +103,20 @@ describe("PAGE-043 Notification Settings", () => {
     });
     expect(useSettingsStore.getState().notificationsEnabled).toBe(false);
     expect(registerPushToken).not.toHaveBeenCalled();
+    expect(unregisterPushToken).toHaveBeenCalledTimes(1);
     expect(row(container, "App notifications")?.textContent).toContain("Off");
     act(() => {
       row(container!, "App notifications")?.click();
     });
     expect(useSettingsStore.getState().notificationsEnabled).toBe(true);
     expect(registerPushToken).toHaveBeenCalledTimes(1);
+    expect(unregisterPushToken).toHaveBeenCalledTimes(1);
     act(() => {
       row(container!, "Live notifications")?.click();
     });
     expect(useSettingsStore.getState().liveNotifications).toBe(false);
     expect(registerPushToken).toHaveBeenCalledTimes(1);
+    expect(unregisterPushToken).toHaveBeenCalledTimes(1);
   });
 
   it("works from a cold deep link without Settings state", () => {
