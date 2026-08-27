@@ -2,12 +2,13 @@ import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { ArrowLeft, Key, Radio, X } from 'lucide-react';
 import { request, type ApiResult } from '../lib/apiClient';
-import { fetchLiveToken } from '../features/live/liveApi';
+import { fetchLiveToken, endLiveStream } from '../features/live/liveApi';
 
 export default function LiveBroadcast() {
   const navigate = useNavigate();
   const [title, setTitle] = useState('');
   const [loading, setLoading] = useState(false);
+  const [ending, setEnding] = useState(false);
   const [stream, setStream] = useState<{ id: string; streamKey: string } | null>(null);
   const [liveToken, setLiveToken] = useState<string | null>(null);
   const [liveUrl, setLiveUrl] = useState<string | null>(null);
@@ -25,6 +26,18 @@ export default function LiveBroadcast() {
 
   const exit = () => {
     navigate('/live', { replace: true });
+  };
+
+  const endAndExit = async () => {
+    if (!stream) return;
+    setEnding(true);
+    const { error } = await endLiveStream(stream.id);
+    setEnding(false);
+    if (error) {
+      console.error('Failed to end live stream:', error);
+      return;
+    }
+    exit();
   };
 
   const onStart = async (event: React.FormEvent) => {
@@ -79,7 +92,8 @@ export default function LiveBroadcast() {
             </button>
             <button
               type="button"
-              onClick={exit}
+              onClick={endAndExit}
+              disabled={ending}
               className="rounded-xl border border-white/40 px-6 py-3 text-fluid-sm font-bold"
             >
               Finish

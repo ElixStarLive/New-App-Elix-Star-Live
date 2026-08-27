@@ -28,3 +28,7 @@ export async function fetchLiveStream(streamId: string): Promise<ApiResult<{ str
 export async function fetchLiveToken(streamId: string): Promise<ApiResult<{ token: string; url: string }>> {
   return request<{ token: string; url: string }>(`/api/live/${encodeURIComponent(streamId)}/token`, { method: 'POST' });
 }
+
+export async function endLiveStream(streamId: string): Promise<ApiResult<{ ok: boolean }>> {
+  return request<{ ok: boolean }>(`/api/live/${encodeURIComponent(streamId)}/end`, { method: 'POST' });
+}
