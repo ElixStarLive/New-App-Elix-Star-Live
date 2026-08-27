@@ -8,6 +8,8 @@
        notch and home indicator without measuring in JavaScript. */
     --safe-top: env(safe-area-inset-top, 0px);
     --safe-bottom: env(safe-area-inset-bottom, 0px);
+    /* Approximate main navigation height. Matches the legacy app layout. */
+    --nav-height: clamp(56px, 14vw, 64px);
   }
 
   html,

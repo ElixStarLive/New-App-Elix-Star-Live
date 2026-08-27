@@ -1,4 +1,4 @@
-import { useEffect, useState, type FormEvent } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { Check, Mail, User } from 'lucide-react';
 import { PasswordField } from '../components/PasswordField';
@@ -8,6 +8,9 @@ import { readRemembered, writeRemembered } from '../features/auth/rememberedIden
 interface LoginLocationState {
   from?: string;
 }
+
+const showAppleSignIn = false;
+const showPasswordReset = true;
 
 export default function Login() {
   const navigate = useNavigate();
@@ -20,7 +23,6 @@ export default function Login() {
   const [error, setError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
 
-  /** Where to land after signing in — set by whatever redirected here. */
   const from = (location.state as LoginLocationState | null)?.from ?? '/';
 
   useEffect(() => {
@@ -29,7 +31,12 @@ export default function Login() {
     setIdentifier(remembered.identifier);
   }, []);
 
-  const onSubmit = async (event: FormEvent) => {
+  const goRegister = useCallback(
+    () => navigate('/register', { state: { from } }),
+    [navigate, from],
+  );
+
+  const onSubmit = async (event: React.FormEvent) => {
     event.preventDefault();
     if (submitting) return;
 
@@ -45,41 +52,30 @@ export default function Login() {
       return;
     }
 
-    // Only recorded once the credentials are known to be good, so a typo is
-    // never the value restored on the next visit.
     writeRemembered(remember, trimmed);
-
-    // `replace` so the back gesture does not return to the form of a session
-    // that is now signed in.
     navigate(from, { replace: true });
   };
 
   return (
-    <div className="flex min-h-[100dvh] items-center justify-center overflow-y-auto bg-transparent p-4 text-white xs:p-3">
-      <div className="w-full max-w-[420px] rounded-2xl border border-white/10 bg-white/5 p-6 xs:max-w-[320px] xs:p-4 sm:max-w-[380px] sm:p-5">
-        <div className="mb-4 flex justify-center">
-          <img src="/elix-logo.png" alt="" className="h-24 w-24 object-contain" />
+    <div className="min-h-[100dvh] h-[100dvh] bg-transparent text-white flex items-center justify-center p-4 xs:p-3 sm:p-4 overflow-y-auto pt-[calc(var(--safe-top)+46px)] pb-[calc(var(--safe-bottom)+var(--nav-height))]">
+      <div className="w-full max-w-[420px] xs:max-w-[320px] sm:max-w-[380px] bg-white/5 border border-white/10 rounded-2xl p-6 xs:p-4 sm:p-5">
+        <div className="flex justify-center mb-4">
+          <img src="/elix-logo.png" alt="Elix Star Live" className="w-24 h-24 object-contain" />
         </div>
+        <h1 className="text-fluid-xl font-bold mb-4 xs:mb-3 sm:mb-4 text-center">Login</h1>
 
-        <h1 className="mb-4 text-center text-fluid-xl font-bold xs:mb-3">Login</h1>
-
-        <form onSubmit={onSubmit} className="space-y-4 xs:space-y-3" noValidate>
+        <form onSubmit={onSubmit} className="space-y-4 xs:space-y-3 sm:space-y-4">
           <div className="space-y-2">
-            <label htmlFor="login-identifier" className="text-fluid-sm text-white/70">
-              Email or Username
-            </label>
+            <label className="text-fluid-sm text-white/70">Email or Username</label>
             <div className="relative">
-              <Mail className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-white/50 xs:h-3.5 xs:w-3.5" />
+              <Mail className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 xs:w-3.5 xs:h-3.5 text-white/50" />
               <input
-                id="login-identifier"
                 type="text"
                 value={identifier}
                 onChange={(event) => setIdentifier(event.target.value)}
-                className="w-full rounded-xl border border-white/10 bg-white/10 py-3 pl-10 pr-3 text-fluid-sm text-white outline-none placeholder:text-white/40 focus:border-white/40 xs:py-2.5 xs:pl-9"
+                className="w-full bg-white/10 border border-white/10 rounded-xl pl-10 xs:pl-9 pr-3 py-3 xs:py-2.5 text-fluid-sm text-white outline-none focus:border-[#D8D9DD]/50 placeholder:text-white/40"
                 placeholder="username or you@email.com"
-                autoComplete="username"
-                autoCapitalize="none"
-                spellCheck={false}
+                autoComplete="email"
                 required
               />
             </div>
@@ -92,62 +88,87 @@ export default function Login() {
             autoComplete="current-password"
           />
 
-          <label className="flex cursor-pointer items-center gap-3 rounded-xl border border-white/10 bg-white/5 px-3 py-3 transition hover:bg-white/10 xs:px-2 xs:py-2.5">
-            <input
-              type="checkbox"
-              checked={remember}
-              onChange={(event) => setRemember(event.target.checked)}
-              className="peer sr-only"
-            />
-            <span
-              aria-hidden="true"
-              className={`flex h-5 w-5 items-center justify-center rounded-md border transition-all peer-focus-visible:ring-2 peer-focus-visible:ring-white/60 xs:h-4 xs:w-4 ${
-                remember ? 'border-white/80 bg-white/90' : 'border-white/30 bg-white/10'
-              }`}
-            >
-              {remember && <Check className="h-3.5 w-3.5 stroke-[3] text-black xs:h-3 xs:w-3" />}
-            </span>
-            <span className="select-none text-fluid-sm text-white/70">Remember email</span>
+          <label className="flex items-center gap-3 px-3 xs:px-2 py-3 xs:py-2.5 bg-white/5 border border-white/10 rounded-xl cursor-pointer hover:bg-white/10 transition">
+            <div className="relative flex items-center">
+              <input
+                type="checkbox"
+                checked={remember}
+                onChange={(event) => setRemember(event.target.checked)}
+                className="peer sr-only"
+              />
+              <div
+                className={`w-5 h-5 xs:w-4 xs:h-4 rounded-md border transition-all flex items-center justify-center ${
+                  remember
+                    ? 'bg-[#E6E9EE] border-[#D8D9DD]'
+                    : 'bg-white/10 border-white/30 group-hover:border-white/50'
+                }`}
+              >
+                {remember && <Check className="w-3.5 h-3.5 xs:w-3 xs:h-3 text-black stroke-[3]" />}
+              </div>
+            </div>
+            <span className="text-fluid-sm text-white/70 select-none">Remember email</span>
           </label>
 
           {error !== null && (
-            // `alert` so the failure is announced rather than only shown.
-            <p
-              role="alert"
-              className="rounded-xl border border-rose-500/30 bg-rose-500/10 p-3 text-fluid-sm text-rose-200 xs:p-2.5"
-            >
+            <div className="text-fluid-sm text-rose-300 bg-rose-500/10 border border-rose-500/20 rounded-xl p-3 xs:p-2.5">
               {error}
-            </p>
+            </div>
           )}
 
           <button
             type="submit"
             disabled={submitting}
-            className="w-full rounded-xl border border-white/40 bg-transparent py-3 text-fluid-sm font-bold text-white disabled:cursor-not-allowed disabled:opacity-60 xs:py-2.5"
+            className="w-full bg-transparent border border-[#D8D9DD]/40 text-[#F5F5F7] font-bold rounded-xl py-3 xs:py-2.5 text-fluid-sm disabled:opacity-60 disabled:cursor-not-allowed"
           >
-            {submitting ? 'Signing in…' : 'Sign in'}
+            {submitting ? 'Signing in...' : 'Sign in'}
           </button>
         </form>
 
+        {/* Sign up CTA in place of guest access */}
         <div className="mt-4 flex flex-col gap-2">
-          <span className="text-xs text-white/40">New here?</span>
-          <Link
-            to="/register"
-            state={{ from }}
-            className="inline-flex w-full items-center justify-center gap-2 rounded-xl border border-white/15 bg-white/10 py-2.5 text-sm font-semibold text-white transition hover:bg-white/20"
+          <div className="flex items-center justify-between gap-2">
+            <span className="text-xs text-white/40">New here?</span>
+          </div>
+          <button
+            type="button"
+            onClick={goRegister}
+            className="w-full inline-flex items-center justify-center gap-2 rounded-xl bg-white/8 hover:bg-white/15 text-white text-sm font-semibold py-2.5 border border-white/15 transition"
           >
-            <User className="h-4 w-4" />
+            <User className="w-4 h-4" />
             Sign up
-          </Link>
+          </button>
         </div>
 
-        <div className="mt-4 space-y-2 px-1 text-center xs:mt-3">
-          <Link
-            to="/forgot-password"
-            className="block text-fluid-sm text-white/60 hover:text-white hover:underline"
-          >
-            Forgot your password?
-          </Link>
+        {showAppleSignIn && (
+          <>
+            <div className="relative my-5 flex items-center">
+              <div className="flex-1 border-t border-white/10" />
+              <span className="px-3 text-white/40 text-xs">or</span>
+              <div className="flex-1 border-t border-white/10" />
+            </div>
+
+            <button
+              type="button"
+              disabled={submitting}
+              onClick={async () => {
+                setError('Apple sign-in is not configured.');
+              }}
+              className="w-full flex items-center justify-center gap-2 bg-transparent border border-[#D8D9DD]/40 text-[#F5F5F7] font-bold rounded-xl py-3 xs:py-2.5 text-fluid-sm hover:bg-white/10 transition disabled:opacity-60"
+            >
+              <svg className="w-5 h-5" viewBox="0 0 24 24" fill="currentColor">
+                <path d="M17.05 20.28c-.98.95-2.05.88-3.08.4-1.09-.5-2.08-.48-3.24 0-1.44.62-2.2.44-3.06-.4C2.79 15.25 3.51 7.59 9.05 7.31c1.35.07 2.29.74 3.08.8 1.18-.24 2.31-.93 3.57-.84 1.51.12 2.65.72 3.4 1.8-3.12 1.87-2.38 5.98.48 7.13-.57 1.5-1.31 2.99-2.54 4.09zM12.03 7.25c-.15-2.23 1.66-4.07 3.74-4.25.29 2.58-2.34 4.5-3.74 4.25z" />
+              </svg>
+              Sign in with Apple
+            </button>
+          </>
+        )}
+
+        <div className="mt-4 xs:mt-3 text-center space-y-2 px-1">
+          {showPasswordReset ? (
+            <Link to="/forgot-password" className="block text-fluid-sm text-white/60 hover:text-white hover:underline">
+              Forgot your password?
+            </Link>
+          ) : null}
           <div className="mx-auto max-w-[280px] space-y-0.5 text-[11px] leading-relaxed tracking-wide text-white/45">
             <p>Created by Andrei Ionut Berica</p>
             <p>© 2026 · Owner &amp; Developer · All rights reserved.</p>
