@@ -10,6 +10,27 @@
     --safe-bottom: env(safe-area-inset-bottom, 0px);
     /* Approximate main navigation height. Matches the legacy app layout. */
     --nav-height: clamp(56px, 14vw, 64px);
+
+    /* Elix theme tokens to match the OLD fundal + silver/red writing */
+    --elix-bg: #080A0E;
+    --elix-text-primary: #FFFFFF;
+    --elix-text-secondary: #C8CDD5;
+    --elix-text-tertiary: #8B9099;
+    --elix-icon-primary: #E6E9EE;
+    --elix-icon-active: #FFFFFF;
+    --elix-icon-inactive: #8B9099;
+    --elix-icon-disc-bg: transparent;
+    --elix-icon-disc-border: rgba(230, 233, 238, 0.22);
+    --elix-icon-disc-shadow: 0 0 18px rgba(230, 233, 238, 0.22);
+    --elix-avatar-ring: #D8D9DD;
+    --elix-glass-blur: blur(12px);
+    --elix-fundal-image: url('/elix-fundal-cosmic.png');
+    --elix-fundal-foryou: url('/elix-fundal-foryou.png');
+    --elix-page-fill:
+      linear-gradient(rgba(8, 10, 14, 0), rgba(8, 10, 14, 0)),
+      var(--elix-fundal-image);
+    --elix-fundal-size: cover;
+    --elix-fundal-position: top center;
   }
 
   html,
@@ -33,4 +54,83 @@
       transition-duration: 0.01ms !important;
     }
   }
+}
+
+/* Elix fundal page backgrounds */
+.app-live-column {
+  position: relative;
+  height: 100%;
+  width: 100%;
+  overflow: hidden;
+  background: var(--elix-page-fill);
+  background-size: var(--elix-fundal-size), var(--elix-fundal-size);
+  background-position: var(--elix-fundal-position), var(--elix-fundal-position);
+  background-repeat: no-repeat, no-repeat;
+}
+
+/* Shared icon discs (Royce design language) */
+.royce-glow-disc,
+.royce-tile {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  box-sizing: border-box;
+  border-radius: 9999px;
+  border: 1px solid var(--elix-icon-disc-border);
+  background: var(--elix-icon-disc-bg);
+  box-shadow: var(--elix-icon-disc-shadow);
+}
+
+.royce-glow-disc {
+  width: 32px;
+  height: 32px;
+  aspect-ratio: 1 / 1;
+}
+
+.royce-tile {
+  width: 36px;
+  height: 36px;
+}
+
+.royce-glow-disc svg.lucide,
+.royce-tile svg.lucide,
+.royce-icon-gold {
+  color: var(--elix-icon-primary);
+  stroke: var(--elix-icon-primary);
+}
+
+/* Silver/red gradient text used for names / counts on dark video overlays */
+.elix-silver-red-text {
+  display: inline-block;
+  color: var(--elix-text-primary);
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.8);
+  background-image: linear-gradient(135deg, #FFFFFF 0%, #E6E9EE 55%, #C8CDD5 100%);
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
+}
+
+.text-shadow-md {
+  text-shadow: 0 2px 4px rgba(0, 0, 0, 0.9);
+}
+
+.fill-gold-bright {
+  fill: #FFFFFF;
+  stroke: var(--elix-icon-primary);
+}
+
+.fill-silver-full {
+  fill: var(--elix-icon-primary);
+  stroke: none;
+}
+
+/* Hide global scrollbars (OLD locks this) */
+*::-webkit-scrollbar {
+  display: none;
+}
+* {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
 }

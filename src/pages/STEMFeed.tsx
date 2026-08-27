@@ -49,7 +49,7 @@ export default function STEMFeed() {
   const refresh = useCallback(() => load(), [load]);
 
   return (
-    <div className="relative h-[100dvh] w-full bg-black">
+    <div className="app-live-column relative h-full w-full">
       <FeedStoryCirclesOverlay title="STEM" onSearch={goSearch} onBack={goBack} />
 
       <div

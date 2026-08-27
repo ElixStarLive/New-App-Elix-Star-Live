@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { Heart, MessageCircle, Share2, Bookmark, MoreHorizontal, Play, Volume2, VolumeX } from 'lucide-react';
+import { Heart, MessageCircle, Share2, Bookmark, MoreHorizontal, Play, Music, type LucideIcon } from 'lucide-react';
 import { likeVideo, unlikeVideo, saveVideo, unsaveVideo, type FeedVideo } from '../features/feed/feedApi';
 import { formatCompactNumber } from '../lib/formatCompactNumber';
 
@@ -9,10 +9,44 @@ interface EnhancedVideoPlayerProps {
   onVideoEnd?: () => void;
 }
 
+const GOLD_COUNT = 'text-[10px] font-semibold leading-none text-[#E6E9EE]';
+
+function ActionButton({
+  icon: Icon,
+  count,
+  label,
+  active,
+  onClick,
+}: {
+  icon: LucideIcon;
+  count?: number | string;
+  label?: string;
+  active?: boolean;
+  onClick?: () => void;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className="flex flex-col items-center gap-0.5 active:scale-95 transition-transform"
+      aria-label={label}
+      title={label}
+    >
+      <span className="royce-glow-disc">
+        <Icon
+          size={18}
+          strokeWidth={2.25}
+          className={active ? 'royce-icon-gold fill-silver-full' : 'royce-icon-gold'}
+        />
+      </span>
+      {count !== undefined && <span className={GOLD_COUNT}>{count}</span>}
+    </button>
+  );
+}
+
 export default function EnhancedVideoPlayer({ video, isActive, onVideoEnd }: EnhancedVideoPlayerProps) {
   const videoRef = useRef<HTMLVideoElement>(null);
   const [playing, setPlaying] = useState(false);
-  const [muted, setMuted] = useState(true);
   const [liked, setLiked] = useState(video.likedByMe);
   const [saved, setSaved] = useState(video.savedByMe);
   const [likes, setLikes] = useState(video.stats.likes);
@@ -24,9 +58,7 @@ export default function EnhancedVideoPlayer({ video, isActive, onVideoEnd }: Enh
     if (!el) return;
     if (isActive) {
       el.currentTime = 0;
-      const p = el.play().catch(() => {});
-      void p;
-      setPlaying(true);
+      void el.play().then(() => setPlaying(true)).catch(() => {});
     } else {
       el.pause();
       setPlaying(false);
@@ -48,13 +80,6 @@ export default function EnhancedVideoPlayer({ video, isActive, onVideoEnd }: Enh
       el.pause();
       setPlaying(false);
     }
-  }, []);
-
-  const toggleMute = useCallback(() => {
-    const el = videoRef.current;
-    if (!el) return;
-    el.muted = !el.muted;
-    setMuted(el.muted);
   }, []);
 
   const handleLike = useCallback(
@@ -105,19 +130,15 @@ export default function EnhancedVideoPlayer({ video, isActive, onVideoEnd }: Enh
   const handleShare = useCallback(async () => {
     const url = `${window.location.origin}/video/${video.id}`;
     if (navigator.share) {
-      try {
-        await navigator.share({ title: 'Elix Star Live', url });
-      } catch {
-        /* ignore */
-      }
+      try { await navigator.share({ title: 'Elix Star Live', url }); } catch { /* ignore */ }
     } else if (navigator.clipboard) {
-      try {
-        await navigator.clipboard.writeText(url);
-      } catch {
-        /* ignore */
-      }
+      try { await navigator.clipboard.writeText(url); } catch { /* ignore */ }
     }
   }, [video.id]);
+
+  const handleMusicClick = useCallback(() => {
+    // Music page route is not yet available; no-op to avoid patch
+  }, []);
 
   return (
     <div className="relative h-full w-full overflow-hidden bg-black">
@@ -127,7 +148,7 @@ export default function EnhancedVideoPlayer({ video, isActive, onVideoEnd }: Enh
         poster={video.thumbnail}
         className="h-full w-full object-cover"
         playsInline
-        muted={muted}
+        muted
         onEnded={onVideoEnd}
         onClick={togglePlay}
         onDoubleClick={handleDoubleTap}
@@ -150,64 +171,91 @@ export default function EnhancedVideoPlayer({ video, isActive, onVideoEnd }: Enh
         </div>
       )}
 
-      <button
-        type="button"
-        onClick={toggleMute}
-        className="absolute right-3 top-3 z-20 rounded-full bg-black/40 p-2 text-white"
-        aria-label={muted ? 'Unmute' : 'Mute'}
+      <div
+        className="absolute z-10 pointer-events-none flex flex-col gap-0.5"
+        style={{ left: '3mm', right: '72px', bottom: 'calc(var(--safe-bottom) + 80px)' }}
       >
-        {muted ? <VolumeX className="h-5 w-5" /> : <Volume2 className="h-5 w-5" />}
-      </button>
-
-      <div className="absolute inset-x-0 bottom-0 z-10 bg-gradient-to-t from-black/70 to-transparent p-4 pb-20">
-        <div className="flex items-center gap-2">
-          <img src={video.user.avatarUrl} alt="" className="h-9 w-9 rounded-full border border-white/30 object-cover" />
-          <div>
-            <p className="text-sm font-semibold text-white">{video.user.displayName}</p>
-            <p className="text-[10px] text-white/70">
-              {formatCompactNumber(video.stats.views)} views · {formatCompactNumber(video.stats.comments)} comments
-            </p>
-          </div>
+        <div className="flex items-center gap-2 w-full min-w-0 justify-start">
+          <img
+            src={video.user.avatarUrl}
+            alt=""
+            className="h-10 w-10 rounded-full border border-[#D8D9DD] object-cover"
+          />
+          <h3 className="elix-silver-red-text font-bold text-shadow-md truncate text-base">
+            {video.user.displayName}
+          </h3>
         </div>
-        <p className="mt-2 text-sm text-white/90" style={{ display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>{video.description}</p>
-        {video.hashtags.length > 0 && (
-          <p className="mt-1 text-xs text-white/70">{video.hashtags.map((tag) => `#${tag}`).join(' ')}</p>
-        )}
+
+        <p
+          className="elix-silver-red-text text-shadow-md text-sm mb-0 text-left"
+          style={{ display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}
+        >
+          {video.description}
+        </p>
+
+        <div className="flex flex-wrap gap-1 mb-0 w-full justify-start">
+          {video.hashtags.map((hashtag) => (
+            <span key={hashtag} className="elix-silver-red-text text-xs font-medium text-left">
+              #{hashtag}
+            </span>
+          ))}
+        </div>
+
+        <div className="flex items-center gap-2 text-xs w-full justify-start opacity-80 mt-1">
+          <span className="elix-silver-red-text">
+            {formatCompactNumber(video.stats.views)} views
+          </span>
+          <span className="elix-silver-red-text">
+            {new Date(video.createdAt).toLocaleDateString()}
+          </span>
+        </div>
       </div>
 
-      <div className="absolute right-3 bottom-24 z-10 flex flex-col gap-4">
+      <div className="absolute right-3 z-10 flex flex-col gap-4" style={{ bottom: 'calc(var(--safe-bottom) + 88px)' }}>
+        <ActionButton
+          icon={Heart}
+          count={formatCompactNumber(likes)}
+          label="Like"
+          active={liked}
+          onClick={() => handleLike()}
+        />
+
+        <ActionButton
+          icon={MessageCircle}
+          count={formatCompactNumber(video.stats.comments)}
+          label="Comments"
+        />
+
+        <ActionButton
+          icon={Bookmark}
+          count={saved ? 'Saved' : 'Save'}
+          label="Save"
+          active={saved}
+          onClick={handleSave}
+        />
+
+        <ActionButton
+          icon={Share2}
+          label="Share"
+          onClick={handleShare}
+        />
+
         <button
           type="button"
-          onClick={() => handleLike()}
-          disabled={toggling}
-          className="flex flex-col items-center gap-0.5 text-white"
+          onClick={handleMusicClick}
+          className="flex flex-col items-center gap-0.5 active:scale-95 transition-transform"
+          aria-label="Original Sound"
+          title="Original Sound"
         >
-          <Heart
-            className="h-7 w-7"
-            fill={liked ? 'currentColor' : 'none'}
-            style={{ color: liked ? '#f43f5e' : 'white' }}
-          />
-          <span className="text-[10px] font-semibold">{formatCompactNumber(likes)}</span>
+          <span className="royce-glow-disc relative overflow-hidden">
+            <Music size={18} strokeWidth={2.25} className="royce-icon-gold" />
+          </span>
         </button>
 
-        <button type="button" className="flex flex-col items-center gap-0.5 text-white">
-          <MessageCircle className="h-7 w-7" />
-          <span className="text-[10px] font-semibold">{formatCompactNumber(video.stats.comments)}</span>
-        </button>
-
-        <button type="button" onClick={handleSave} disabled={toggling} className="flex flex-col items-center gap-0.5 text-white">
-          <Bookmark className="h-7 w-7" fill={saved ? 'currentColor' : 'none'} />
-          <span className="text-[10px] font-semibold">{saved ? 'Saved' : 'Save'}</span>
-        </button>
-
-        <button type="button" onClick={handleShare} className="flex flex-col items-center gap-0.5 text-white">
-          <Share2 className="h-7 w-7" />
-          <span className="text-[10px] font-semibold">Share</span>
-        </button>
-
-        <button type="button" className="flex flex-col items-center gap-0.5 text-white">
-          <MoreHorizontal className="h-7 w-7" />
-        </button>
+        <ActionButton
+          icon={MoreHorizontal}
+          label="More"
+        />
       </div>
 
       <style>{`@keyframes burst{0%{transform:scale(0.5);opacity:0}30%{transform:scale(1.2);opacity:1}100%{transform:scale(1.5);opacity:0}}`}</style>

@@ -1,4 +1,4 @@
-import { Search, ArrowLeft } from 'lucide-react';
+import { Search, ChevronLeft } from 'lucide-react';
 
 interface Props {
   title?: string;
@@ -8,23 +8,29 @@ interface Props {
 
 export default function FeedStoryCirclesOverlay({ title = 'STEM', onSearch, onBack }: Props) {
   return (
-    <div className="absolute top-0 left-0 right-0 z-20 flex items-center justify-between p-4 pt-[calc(var(--safe-top)+8px)]">
+    <div className="absolute top-0 left-0 right-0 z-30 flex items-center justify-between p-4 pt-[calc(var(--safe-top)+8px)]">
       <button
         type="button"
         onClick={onBack}
-        className="flex items-center gap-2 text-white/80 hover:text-white"
+        className="flex items-center justify-center"
         aria-label="Back"
       >
-        <ArrowLeft className="h-5 w-5" />
+        <span className="royce-glow-disc">
+          <ChevronLeft size={18} strokeWidth={2.35} className="royce-icon-gold" />
+        </span>
       </button>
-      <h1 className="text-lg font-bold text-white drop-shadow">{title}</h1>
+      <h1 className="elix-silver-red-text text-lg font-bold text-shadow-md drop-shadow">
+        {title}
+      </h1>
       <button
         type="button"
         onClick={onSearch}
-        className="text-white/80 hover:text-white"
+        className="flex items-center justify-center"
         aria-label="Search"
       >
-        <Search className="h-5 w-5" />
+        <span className="royce-glow-disc">
+          <Search size={18} strokeWidth={2.25} className="royce-icon-gold" />
+        </span>
       </button>
     </div>
   );
