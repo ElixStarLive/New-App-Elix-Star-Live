@@ -72,13 +72,6 @@ try {
   const passwordHash = hashRow.rows[0]?.password_hash;
   if (!passwordHash) throw new Error("missing password_hash");
 
-  const token = await issueEmailVerifyToken({
-    id: userId,
-    email,
-    email_confirmed_at: null,
-    password_hash: passwordHash,
-  });
-
   const missing = await json("/api/auth/verify-email", {
     method: "POST",
     body: JSON.stringify({ token: "" }),

@@ -12,7 +12,6 @@ resetEnvCache();
 
 const { closeValkey, requireValkey, valkeyGet } = await import("../server/infra/valkey.ts");
 const { getPool } = await import("../server/infra/postgres.ts");
-const { markHostStarting } = await import("../server/modules/live/hostGrace.ts");
 const { startLive, endLive } = await import("../server/modules/live/start.ts");
 const { issueLiveToken, spectatorIdentity } = await import("../server/modules/live/token.ts");
 const { isLivekitConfigured } = await import("../server/infra/livekit.ts");
