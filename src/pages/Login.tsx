@@ -52,12 +52,18 @@ export default function Login() {
       return;
     }
 
+    // signIn returns null for an aborted request; only navigate on a real session.
+    if (useAuthStore.getState().status !== 'authenticated') {
+      setSubmitting(false);
+      return;
+    }
+
     writeRemembered(remember, trimmed);
     navigate(from, { replace: true });
   };
 
   return (
-    <div className="min-h-[100dvh] h-[100dvh] bg-transparent text-white flex items-center justify-center p-4 xs:p-3 sm:p-4 overflow-y-auto pt-[calc(var(--safe-top)+46px)] pb-[calc(var(--safe-bottom)+var(--nav-height))]">
+    <div className="min-h-[100dvh] h-[100dvh] bg-[var(--elix-bg)] text-white flex items-center justify-center p-4 xs:p-3 sm:p-4 overflow-y-auto pt-[calc(var(--safe-top)+46px)] pb-[calc(var(--safe-bottom)+var(--nav-height))]">
       <div className="w-full max-w-[420px] xs:max-w-[320px] sm:max-w-[380px] bg-white/5 border border-white/10 rounded-2xl p-6 xs:p-4 sm:p-5">
         <div className="flex justify-center mb-4">
           <img src="/elix-logo.png" alt="Elix Star Live" className="w-24 h-24 object-contain" />
@@ -110,7 +116,7 @@ export default function Login() {
           </label>
 
           {error !== null && (
-            <div className="text-fluid-sm text-rose-300 bg-rose-500/10 border border-rose-500/20 rounded-xl p-3 xs:p-2.5">
+            <div className="text-fluid-sm text-rose-300 border border-rose-500/20 rounded-xl p-3 xs:p-2.5">
               {error}
             </div>
           )}
