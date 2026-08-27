@@ -118,6 +118,26 @@ liveRouter.post('/live/:streamId/cohost', authMiddleware, async (req: Request, r
   return res.json({ success: true });
 });
 
+liveRouter.post('/live/:streamId/end', authMiddleware, async (req: Request, res: Response) => {
+  const { rows } = await query<{ user_id: string }>(
+    `SELECT user_id FROM live_streams WHERE id = $1 AND is_live = TRUE AND ended_at IS NULL LIMIT 1`,
+    [req.params.streamId],
+  );
+  const stream = rows[0];
+  if (!stream) {
+    return res.status(404).json({ code: 'not_found', message: 'Stream not found.' });
+  }
+  if (stream.user_id !== req.userId) {
+    return res.status(403).json({ code: 'forbidden', message: 'Only the stream owner can end the stream.' });
+  }
+
+  await query(
+    `UPDATE live_streams SET is_live = FALSE, ended_at = NOW() WHERE id = $1`,
+    [req.params.streamId],
+  );
+  return res.json({ ok: true });
+});
+
 liveRouter.post('/live/:streamId/token', authMiddleware, async (req: Request, res: Response) => {
   if (!config.LIVEKIT_API_KEY || !config.LIVEKIT_SECRET || !config.LIVEKIT_URL) {
     return res.status(503).json({ code: 'not_configured', message: 'LiveKit is not configured.' });
