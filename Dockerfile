@@ -4,6 +4,8 @@ FROM node:20-bookworm-slim AS builder
 WORKDIR /app
 
 COPY package.json package-lock.json ./
+# Install dev dependencies so `vite build` is available during the build stage.
+ENV NODE_ENV=development
 RUN npm ci --no-audit --no-fund
 
 COPY . .
