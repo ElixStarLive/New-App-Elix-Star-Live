@@ -32,7 +32,7 @@ COPY --from=builder /app/tsconfig.server.json ./
 EXPOSE 8080
 
 HEALTHCHECK --interval=30s --timeout=10s --start-period=30s --retries=3 \
-  CMD node -e "fetch('http://localhost:8080/health').then(r=>{process.exit(r.ok?0:1)}).catch(()=>process.exit(1))"
+  CMD node -e "fetch('http://localhost:' + (process.env.PORT || '8080') + '/api/health').then(r => { process.exit(r.ok ? 0 : 1) }).catch(() => process.exit(1))"
 
 # Coolify runs `npm run migrate` as the release command, then this as start.
 CMD ["npm", "run", "start:prod"]
