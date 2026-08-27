@@ -13,12 +13,25 @@ import { closeValkey, isValkeyHealthy } from './lib/valkey.js';
 import { runMigrations } from './migrate.js';
 import { createApp } from './http/app.js';
 
-async function main(): Promise<void> {
-  const database = await isDatabaseHealthy();
-  if (!database) throw new Error('DATABASE CONNECTION FAILED');
+async function waitFor<T>(
+  name: string,
+  check: () => Promise<T | false | null | undefined>,
+  { attempts = 40, delayMs = 500 } = {},
+): Promise<T> {
+  for (let i = 0; i < attempts; i++) {
+    const result = await check();
+    if (result) return result as T;
+    if (i < attempts - 1) {
+      logger.debug({ attempt: i + 1, name }, 'waiting for dependency');
+      await new Promise((resolve) => setTimeout(resolve, delayMs));
+    }
+  }
+  throw new Error(`${name} not ready after ${attempts} attempts — check env`);
+}
 
-  const valkey = await isValkeyHealthy();
-  if (!valkey) throw new Error('VALKEY CONNECTION FAILED');
+async function main(): Promise<void> {
+  await waitFor('database', isDatabaseHealthy);
+  await waitFor('valkey', isValkeyHealthy);
 
   const { applied } = await runMigrations();
   logger.info({ applied: applied.length }, 'schema ready');
