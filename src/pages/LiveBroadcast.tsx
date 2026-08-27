@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { ArrowLeft, Key, Radio, X } from 'lucide-react';
 import { request, type ApiResult } from '../lib/apiClient';
 import { fetchLiveToken, endLiveStream } from '../features/live/liveApi';
+import LiveKitVideo from '../features/live/LiveKitVideo';
 
 export default function LiveBroadcast() {
   const navigate = useNavigate();
@@ -73,13 +74,16 @@ export default function LiveBroadcast() {
             <h2 className="text-fluid-lg font-bold">You are live</h2>
             <p className="text-fluid-sm text-white/60">Stream ID: {stream.id}</p>
             <p className="text-fluid-sm text-white/60">Stream key: {stream.streamKey}</p>
-            <div className="aspect-video w-full rounded-2xl bg-white/5 p-4">
-              <div className="flex h-full flex-col items-center justify-center gap-2 text-white/50">
-                <Radio className="h-10 w-10" />
-                <p className="text-fluid-sm">LiveKit broadcaster integration will connect here.</p>
-                <p className="text-fluid-xs">URL: {liveUrl ?? '—'}</p>
-                {liveToken && <p className="max-w-full truncate text-fluid-xs">Token: {liveToken.slice(0, 24)}…</p>}
-              </div>
+            <div className="aspect-video w-full rounded-2xl bg-white/5 relative overflow-hidden">
+              {liveUrl && liveToken ? (
+                <LiveKitVideo url={liveUrl} token={liveToken} mode="publish" />
+              ) : (
+                <div className="flex h-full flex-col items-center justify-center gap-2 text-white/50 p-4">
+                  <Radio className="h-10 w-10" />
+                  <p className="text-fluid-sm">LiveKit broadcaster integration will connect here.</p>
+                  <p className="text-fluid-xs">Stream key: {stream.streamKey}</p>
+                </div>
+              )}
             </div>
             <button
               type="button"
