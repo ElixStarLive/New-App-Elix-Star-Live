@@ -2,11 +2,9 @@ import type { Request, Response, NextFunction } from 'express';
 import { resolveSession } from '../auth/sessions.js';
 import { readBearerToken } from './sessionCookie.js';
 
-declare global {
-  namespace Express {
-    interface Request {
-      userId?: string;
-    }
+declare module 'express-serve-static-core' {
+  interface Request {
+    userId?: string;
   }
 }
 
