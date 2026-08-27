@@ -23,8 +23,6 @@ WORKDIR /app
 # defaults to development, which does not require SMTP.
 ENV PORT=8080
 
-RUN apt-get update && apt-get install -y --no-install-recommends curl && rm -rf /var/lib/apt/lists/*
-
 COPY --from=builder /app/package.json ./
 COPY --from=builder /app/package-lock.json ./
 COPY --from=builder /app/node_modules ./node_modules
@@ -37,7 +35,7 @@ COPY --from=builder /app/tsconfig.server.json ./
 EXPOSE 8080
 
 HEALTHCHECK --interval=30s --timeout=10s --start-period=30s --retries=3 \
-  CMD curl -fsS http://localhost:${PORT:-8080}/api/health > /dev/null || exit 1
+  CMD node -e "fetch('http://localhost:' + (process.env.PORT || '8080') + '/api/health').then(r => { process.exit(r.ok ? 0 : 1) }).catch(() => process.exit(1))"
 
 # Coolify runs `npm run migrate` as the release command, then this as start.
 CMD ["npm", "run", "start:prod"]
