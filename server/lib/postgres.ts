@@ -11,8 +11,15 @@ import { Pool, type PoolClient, type QueryResult, type QueryResultRow } from 'pg
 import { config } from '../config.js';
 import { logger } from './logger.js';
 
+function cleanDatabaseUrl(url: string): string {
+  // Strip surrounding quotes and the channel_binding parameter, which older pg
+  // versions do not support. The connection string may use `require` by default.
+  const trimmed = url.trim().replace(/^['"]|['"]$/g, '');
+  return trimmed.replace(/[?&]channel_binding=[^&]+/, '');
+}
+
 const pool = new Pool({
-  connectionString: config.DATABASE_URL,
+  connectionString: cleanDatabaseUrl(config.DATABASE_URL),
   max: 10,
   idleTimeoutMillis: 30_000,
   connectionTimeoutMillis: 10_000,

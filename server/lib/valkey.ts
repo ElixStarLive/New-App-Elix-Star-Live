@@ -17,7 +17,12 @@ import { logger } from './logger.js';
 export type ValkeyRead<T> = { status: 'ok'; value: T } | { status: 'unavailable' };
 export type ValkeyWrite = { status: 'ok' } | { status: 'unavailable' };
 
-const client = new Redis(config.VALKEY_URL, {
+function cleanValkeyUrl(url: string): string {
+  // Some .env generators wrap the value in single quotes, which dotenv can leave in the string.
+  return url.trim().replace(/^['"]|['"]$/g, '');
+}
+
+const client = new Redis(cleanValkeyUrl(config.VALKEY_URL), {
   lazyConnect: true,
   maxRetriesPerRequest: 2,
   enableOfflineQueue: false,
