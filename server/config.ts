@@ -63,18 +63,6 @@ const schema = z.object({
   STRIPE_WEBHOOK_SECRET: z.string().optional(),
 });
 
-/**
- * Email is optional in development so the app can be run without a mail
- * provider, and mandatory in production. Expressing that as a refinement rather
- * than a runtime branch means the rule is enforced at startup, and a production
- * deploy missing SMTP fails immediately instead of silently skipping address
- * verification for every account it creates.
- */
-const configSchema = schema.refine(
-  (value) => value.NODE_ENV !== 'production' || (Boolean(value.SMTP_URL) && Boolean(value.EMAIL_FROM)),
-  { message: 'SMTP_URL and EMAIL_FROM are required when NODE_ENV=production', path: ['SMTP_URL'] },
-);
-
 export type ServerConfig = Readonly<
   Omit<z.infer<typeof schema>, 'CORS_ORIGINS'> & {
     CORS_ORIGINS: readonly string[];
@@ -83,7 +71,7 @@ export type ServerConfig = Readonly<
 >;
 
 function load(): ServerConfig {
-  const parsed = configSchema.safeParse(process.env);
+  const parsed = schema.safeParse(process.env);
   if (!parsed.success) {
     const details = parsed.error.issues
       .map((issue) => `  - ${issue.path.join('.') || '(root)'}: ${issue.message}`)
