@@ -25,7 +25,11 @@ const DEFAULT_TIMEOUT_MS = 15_000;
  * serves the built client in production. The native build overrides this with a
  * fully-qualified origin at build time.
  */
-const API_BASE = (import.meta.env.VITE_API_BASE_URL ?? '').replace(/\/$/, '');
+const API_BASE = (
+  import.meta.env.VITE_API_URL ??
+  import.meta.env.VITE_API_BASE_URL ??
+  ''
+).replace(/\/$/, '');
 
 /**
  * The bearer token for native clients. Held in memory only — writing it to
