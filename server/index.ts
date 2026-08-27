@@ -42,5 +42,8 @@ async function main(): Promise<void> {
 
 main().catch((err: unknown) => {
   logger.fatal({ err }, 'server failed to start');
+  // console.error is synchronous and flushed before exit, so the actual error
+  // reaches the container logs even if pino has not finished writing.
+  console.error('FATAL:', err);
   process.exit(1);
 });

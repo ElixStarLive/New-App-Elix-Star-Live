@@ -46,6 +46,7 @@ async function ready(): Promise<boolean> {
     .connect()
     .catch((err: unknown) => {
       logger.error({ err }, 'VALKEY CONNECTION FAILED');
+      console.error('VALKEY CONNECTION FAILED:', err);
     })
     .finally(() => {
       connecting = null;

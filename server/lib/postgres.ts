@@ -65,6 +65,7 @@ export async function isDatabaseHealthy(): Promise<boolean> {
     return true;
   } catch (err) {
     logger.error({ err }, 'DATABASE CONNECTION FAILED');
+    console.error('DATABASE CONNECTION FAILED:', err);
     return false;
   }
 }
