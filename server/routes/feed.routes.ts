@@ -166,6 +166,37 @@ feedRouter.delete('/videos/:videoId/save', authMiddleware, async (req: Request, 
   return res.json({ success: true });
 });
 
+feedRouter.post('/videos/:videoId/like', authMiddleware, async (req: Request, res: Response) => {
+  const videoId = req.params.videoId;
+  try {
+    await query(
+      `INSERT INTO likes (user_id, video_id) VALUES ($1, $2)
+       ON CONFLICT (user_id, video_id) DO NOTHING`,
+      [req.userId, videoId],
+    );
+    await query(`UPDATE videos SET likes = likes + 1 WHERE id = $1`, [videoId]);
+    return res.json({ success: true, likedByMe: true });
+  } catch {
+    return res.status(500).json({ code: 'server_error', message: 'Could not like video.' });
+  }
+});
+
+feedRouter.delete('/videos/:videoId/like', authMiddleware, async (req: Request, res: Response) => {
+  const videoId = req.params.videoId;
+  try {
+    const { rowCount } = await query(`DELETE FROM likes WHERE user_id = $1 AND video_id = $2`, [
+      req.userId,
+      videoId,
+    ]);
+    if (rowCount && rowCount > 0) {
+      await query(`UPDATE videos SET likes = GREATEST(likes - 1, 0) WHERE id = $1`, [videoId]);
+    }
+    return res.json({ success: true, likedByMe: false });
+  } catch {
+    return res.status(500).json({ code: 'server_error', message: 'Could not unlike video.' });
+  }
+});
+
 feedRouter.get('/engagement', authMiddleware, async (req: Request, res: Response) => {
   const { rows: userRows } = await query<{
     current_level: number;

@@ -102,3 +102,17 @@ export async function saveVideo(videoId: string): Promise<ApiResult<{ success: b
 export async function unsaveVideo(videoId: string): Promise<ApiResult<{ success: boolean }>> {
   return request<{ success: boolean }>(`/api/videos/${encodeURIComponent(videoId)}/save`, { method: 'DELETE' });
 }
+
+export async function likeVideo(videoId: string): Promise<ApiResult<{ success: boolean; likedByMe: boolean }>> {
+  return request<{ success: boolean; likedByMe: boolean }>(
+    `/api/videos/${encodeURIComponent(videoId)}/like`,
+    { method: 'POST' },
+  );
+}
+
+export async function unlikeVideo(videoId: string): Promise<ApiResult<{ success: boolean; likedByMe: boolean }>> {
+  return request<{ success: boolean; likedByMe: boolean }>(
+    `/api/videos/${encodeURIComponent(videoId)}/like`,
+    { method: 'DELETE' },
+  );
+}
