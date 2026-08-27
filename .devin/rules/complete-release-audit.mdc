@@ -1,0 +1,22 @@
+# Complete release audit — 100% 1:1 UI parity
+
+Owner instruction (2026-08-27):
+
+- Do not stop until every page and system in the NEW app is matched to the OLD reference `C:\Users\Absm Construction\Desktop\Elix Star Live`.
+- Target 100% 1:1 UI, layout, background, spacing, sizing, colours, typography, icons, navigation, overlays, panels, modals, animations, transitions and behaviour.
+- Audit and fix every failure found; do not produce findings-only reports.
+- Continue immediately from one page/system to the next incomplete one.
+
+## Reference rules
+
+- The OLD folder is the only authority — not Git history, branches, tags, stashes, reflogs, deleted files, snapshots or archives.
+- Do NOT modify the OLD app in any way.
+- The NEW app is the only writable target: `C:\Users\Absm Construction\Desktop\New App Elix Star Live`.
+- Do NOT copy OLD source code, components, hooks, stores, services or API layers into NEW.
+- Independently implement the required UI and behaviour in clean NEW code.
+- The final NEW app must not depend on the OLD folder at runtime or build time.
+- Preserve correct NEW work already built; do not restart the app blindly.
+- For every page: inspect OLD, inspect NEW, map differences, fix NEW, verify UI/behaviour/contracts, then mark PASS.
+- No patches, workarounds, fake fallbacks, duplicate owners, dead code or obsolete migrations.
+- Run typecheck, lint, unit tests, production build and Android release AAB after each completed change.
+- Commit and push to `origin main` after every completed change, then bump Android version and build the signed AAB.
