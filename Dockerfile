@@ -18,7 +18,7 @@ FROM node:20-bookworm-slim AS runner
 WORKDIR /app
 
 ENV NODE_ENV=production
-ENV PORT=8787
+ENV PORT=8080
 
 COPY --from=builder /app/package.json ./
 COPY --from=builder /app/package-lock.json ./
@@ -29,7 +29,7 @@ COPY --from=builder /app/src ./src
 COPY --from=builder /app/tsconfig.json ./
 COPY --from=builder /app/tsconfig.server.json ./
 
-EXPOSE 8787
+EXPOSE 8080
 
 HEALTHCHECK --interval=30s --timeout=10s --start-period=30s --retries=3 \
   CMD node -e "fetch('http://localhost:' + (process.env.PORT || '8080') + '/api/health').then(r => { process.exit(r.ok ? 0 : 1) }).catch(() => process.exit(1))"
